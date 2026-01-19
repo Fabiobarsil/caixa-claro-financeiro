@@ -1,6 +1,6 @@
-import React, { createContext, useContext, useState, useCallback, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, ReactNode, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { User as SupabaseUser, Session } from '@supabase/supabase-js';
+import { User as SupabaseUser } from '@supabase/supabase-js';
 
 type AppRole = 'admin' | 'operador';
 
@@ -16,6 +16,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isAdmin: boolean;
   isLoading: boolean;
+  isAuthReady: boolean;
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   signup: (email: string, password: string, name: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
@@ -28,6 +29,8 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isAuthReady, setIsAuthReady] = useState(false);
+  const initializingRef = useRef(false);
 
   const fetchUserData = useCallback(async (supabaseUser: SupabaseUser): Promise<User | null> => {
     try {
@@ -58,29 +61,64 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    // Set up auth state listener FIRST
+    // Prevent double initialization in React StrictMode
+    if (initializingRef.current) return;
+    initializingRef.current = true;
+
+    let mounted = true;
+
+    const initialize = async () => {
+      try {
+        // First check for existing session
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (session?.user && mounted) {
+          const userData = await fetchUserData(session.user);
+          if (mounted) {
+            setUser(userData);
+          }
+        }
+      } catch (error) {
+        console.error('Error initializing auth:', error);
+      } finally {
+        if (mounted) {
+          setIsLoading(false);
+          setIsAuthReady(true);
+        }
+      }
+    };
+
+    // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        if (session?.user) {
-          const userData = await fetchUserData(session.user);
-          setUser(userData);
-        } else {
-          setUser(null);
+        console.log('Auth state change:', event);
+        
+        if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+          if (session?.user && mounted) {
+            setIsLoading(true);
+            const userData = await fetchUserData(session.user);
+            if (mounted) {
+              setUser(userData);
+              setIsLoading(false);
+              setIsAuthReady(true);
+            }
+          }
+        } else if (event === 'SIGNED_OUT') {
+          if (mounted) {
+            setUser(null);
+            setIsLoading(false);
+            setIsAuthReady(true);
+          }
         }
-        setIsLoading(false);
       }
     );
 
-    // Then check for existing session
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (session?.user) {
-        const userData = await fetchUserData(session.user);
-        setUser(userData);
-      }
-      setIsLoading(false);
-    });
+    initialize();
 
-    return () => subscription.unsubscribe();
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, [fetchUserData]);
 
   const login = useCallback(async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
@@ -163,6 +201,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isAuthenticated: !!user,
     isAdmin: user?.role === 'admin',
     isLoading,
+    isAuthReady,
     login,
     signup,
     logout,
