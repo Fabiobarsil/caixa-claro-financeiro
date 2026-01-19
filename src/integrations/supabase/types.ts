@@ -109,30 +109,33 @@ export type Database = {
       }
       expenses: {
         Row: {
+          category: string
           created_at: string
           date: string
-          description: string
           id: string
+          notes: string | null
           type: Database["public"]["Enums"]["expense_type"]
           updated_at: string
           user_id: string
           value: number
         }
         Insert: {
+          category: string
           created_at?: string
           date?: string
-          description: string
           id?: string
+          notes?: string | null
           type: Database["public"]["Enums"]["expense_type"]
           updated_at?: string
           user_id: string
           value: number
         }
         Update: {
+          category?: string
           created_at?: string
           date?: string
-          description?: string
           id?: string
+          notes?: string | null
           type?: Database["public"]["Enums"]["expense_type"]
           updated_at?: string
           user_id?: string
