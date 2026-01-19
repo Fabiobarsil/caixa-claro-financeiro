@@ -1,15 +1,46 @@
+import { useState } from 'react';
 import AppLayout from '@/components/AppLayout';
-import { useMockData } from '@/hooks/useMockData';
-import { formatCurrency, formatShortDate, getCategoryLabel } from '@/lib/formatters';
+import { useExpenses, Expense, CreateExpenseData } from '@/hooks/useExpenses';
+import { useAuth } from '@/contexts/AuthContext';
+import { formatCurrency, formatShortDate } from '@/lib/formatters';
 import { 
   Home, 
   Megaphone, 
   Package, 
   Car, 
   MoreHorizontal,
-  Plus
+  Plus,
+  Loader2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { toast } from 'sonner';
 
 const categoryIcons: Record<string, typeof Home> = {
   aluguel: Home,
@@ -19,10 +50,148 @@ const categoryIcons: Record<string, typeof Home> = {
   outros: MoreHorizontal,
 };
 
+function getCategoryIcon(category: string): typeof Home {
+  const lowerCategory = category.toLowerCase();
+  for (const [key, icon] of Object.entries(categoryIcons)) {
+    if (lowerCategory.includes(key)) {
+      return icon;
+    }
+  }
+  return MoreHorizontal;
+}
+
+interface ExpenseFormData {
+  type: 'fixa' | 'variavel';
+  category: string;
+  value: string;
+  date: string;
+  notes: string;
+}
+
+const initialFormData: ExpenseFormData = {
+  type: 'variavel',
+  category: '',
+  value: '',
+  date: new Date().toISOString().split('T')[0],
+  notes: '',
+};
+
 export default function Expenses() {
-  const { expenses } = useMockData();
+  const { user } = useAuth();
+  const { expenses, totalExpenses, isLoading, createExpense, updateExpense, deleteExpense } = useExpenses();
   
-  const totalExpenses = expenses.reduce((sum, e) => sum + e.value, 0);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null);
+  const [formData, setFormData] = useState<ExpenseFormData>(initialFormData);
+
+  const isAdmin = user?.role === 'admin';
+
+  const handleOpenCreateModal = () => {
+    if (!user) {
+      toast.error('Faça login novamente');
+      return;
+    }
+    setFormData(initialFormData);
+    setIsCreateModalOpen(true);
+  };
+
+  const handleOpenEditModal = (expense: Expense) => {
+    if (!user) {
+      toast.error('Faça login novamente');
+      return;
+    }
+    setSelectedExpense(expense);
+    setFormData({
+      type: expense.type,
+      category: expense.category,
+      value: expense.value.toString(),
+      date: expense.date,
+      notes: expense.notes || '',
+    });
+    setIsEditModalOpen(true);
+  };
+
+  const handleCloseModals = () => {
+    setIsCreateModalOpen(false);
+    setIsEditModalOpen(false);
+    setSelectedExpense(null);
+    setFormData(initialFormData);
+  };
+
+  const handleCreate = async () => {
+    if (!formData.type || !formData.category || !formData.value) {
+      toast.error('Preencha todos os campos obrigatórios');
+      return;
+    }
+
+    const value = parseFloat(formData.value.replace(',', '.'));
+    if (isNaN(value) || value <= 0) {
+      toast.error('Valor inválido');
+      return;
+    }
+
+    const expenseData: CreateExpenseData = {
+      type: formData.type,
+      category: formData.category,
+      value,
+      date: formData.date,
+      notes: formData.notes || undefined,
+    };
+
+    try {
+      await createExpense.mutateAsync(expenseData);
+      handleCloseModals();
+    } catch (error) {
+      // Error is handled by the mutation
+    }
+  };
+
+  const handleUpdate = async () => {
+    if (!selectedExpense) return;
+
+    if (!formData.type || !formData.category || !formData.value) {
+      toast.error('Preencha todos os campos obrigatórios');
+      return;
+    }
+
+    const value = parseFloat(formData.value.replace(',', '.'));
+    if (isNaN(value) || value <= 0) {
+      toast.error('Valor inválido');
+      return;
+    }
+
+    try {
+      await updateExpense.mutateAsync({
+        id: selectedExpense.id,
+        type: formData.type,
+        category: formData.category,
+        value,
+        date: formData.date,
+        notes: formData.notes || undefined,
+      });
+      handleCloseModals();
+    } catch (error) {
+      // Error is handled by the mutation
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!selectedExpense) return;
+
+    try {
+      await deleteExpense.mutateAsync(selectedExpense.id);
+      setIsDeleteDialogOpen(false);
+      handleCloseModals();
+    } catch (error) {
+      // Error is handled by the mutation
+    }
+  };
+
+  const handleInputChange = (field: keyof ExpenseFormData, value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+  };
 
   return (
     <AppLayout showFab={false}>
@@ -33,7 +202,10 @@ export default function Expenses() {
             <h1 className="text-xl font-bold text-foreground">Despesas</h1>
             <p className="text-sm text-muted-foreground">Controle de gastos</p>
           </div>
-          <button className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-primary-foreground">
+          <button 
+            onClick={handleOpenCreateModal}
+            className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-primary-foreground"
+          >
             <Plus size={20} />
           </button>
         </div>
@@ -47,36 +219,254 @@ export default function Expenses() {
         </div>
 
         {/* Expenses List */}
-        <div className="space-y-2">
-          {expenses.map((expense) => {
-            const Icon = categoryIcons[expense.category] || MoreHorizontal;
-            
-            return (
-              <div
-                key={expense.id}
-                className="flex items-center justify-between p-4 bg-card rounded-xl border border-border"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-expense/10 flex items-center justify-center text-expense">
-                    <Icon size={20} />
+        {isLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          </div>
+        ) : expenses.length === 0 ? (
+          <div className="text-center py-12">
+            <p className="text-muted-foreground">Nenhuma despesa encontrada</p>
+            <p className="text-sm text-muted-foreground mt-1">
+              Clique no botão + para adicionar
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {expenses.map((expense) => {
+              const Icon = getCategoryIcon(expense.category);
+              
+              return (
+                <div
+                  key={expense.id}
+                  onClick={() => handleOpenEditModal(expense)}
+                  className="flex items-center justify-between p-4 bg-card rounded-xl border border-border cursor-pointer hover:bg-accent/50 transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-expense/10 flex items-center justify-center text-expense">
+                      <Icon size={20} />
+                    </div>
+                    <div>
+                      <p className="font-medium text-foreground">
+                        {expense.category}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        {expense.type === 'fixa' ? 'Fixa' : 'Variável'} • {formatShortDate(new Date(expense.date))}
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="font-medium text-foreground">
-                      {getCategoryLabel(expense.category)}
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      {expense.type === 'fixa' ? 'Fixa' : 'Variável'} • {formatShortDate(expense.date)}
-                    </p>
-                  </div>
+                  <p className="font-semibold text-expense money-display">
+                    -{formatCurrency(expense.value)}
+                  </p>
                 </div>
-                <p className="font-semibold text-expense money-display">
-                  -{formatCurrency(expense.value)}
-                </p>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        )}
       </div>
+
+      {/* Create Modal */}
+      <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Nova Despesa</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="type">Tipo *</Label>
+              <Select
+                value={formData.type}
+                onValueChange={(value) => handleInputChange('type', value)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione o tipo" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="fixa">Fixa</SelectItem>
+                  <SelectItem value="variavel">Variável</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="category">Categoria *</Label>
+              <Input
+                id="category"
+                value={formData.category}
+                onChange={(e) => handleInputChange('category', e.target.value)}
+                placeholder="Ex: Aluguel, Material, etc."
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="value">Valor (R$) *</Label>
+              <Input
+                id="value"
+                type="text"
+                inputMode="decimal"
+                value={formData.value}
+                onChange={(e) => handleInputChange('value', e.target.value)}
+                placeholder="0,00"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="date">Data</Label>
+              <Input
+                id="date"
+                type="date"
+                value={formData.date}
+                onChange={(e) => handleInputChange('date', e.target.value)}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="notes">Observações</Label>
+              <Textarea
+                id="notes"
+                value={formData.notes}
+                onChange={(e) => handleInputChange('notes', e.target.value)}
+                placeholder="Observações opcionais..."
+                rows={3}
+              />
+            </div>
+          </div>
+
+          <div className="flex gap-3 justify-end">
+            <Button variant="outline" onClick={handleCloseModals}>
+              Cancelar
+            </Button>
+            <Button 
+              onClick={handleCreate}
+              disabled={createExpense.isPending}
+            >
+              {createExpense.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : null}
+              Salvar
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Modal */}
+      <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Editar Despesa</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-type">Tipo *</Label>
+              <Select
+                value={formData.type}
+                onValueChange={(value) => handleInputChange('type', value)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione o tipo" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="fixa">Fixa</SelectItem>
+                  <SelectItem value="variavel">Variável</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-category">Categoria *</Label>
+              <Input
+                id="edit-category"
+                value={formData.category}
+                onChange={(e) => handleInputChange('category', e.target.value)}
+                placeholder="Ex: Aluguel, Material, etc."
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-value">Valor (R$) *</Label>
+              <Input
+                id="edit-value"
+                type="text"
+                inputMode="decimal"
+                value={formData.value}
+                onChange={(e) => handleInputChange('value', e.target.value)}
+                placeholder="0,00"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-date">Data</Label>
+              <Input
+                id="edit-date"
+                type="date"
+                value={formData.date}
+                onChange={(e) => handleInputChange('date', e.target.value)}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-notes">Observações</Label>
+              <Textarea
+                id="edit-notes"
+                value={formData.notes}
+                onChange={(e) => handleInputChange('notes', e.target.value)}
+                placeholder="Observações opcionais..."
+                rows={3}
+              />
+            </div>
+          </div>
+
+          <div className="flex gap-3 justify-between">
+            <div>
+              {isAdmin && (
+                <Button 
+                  variant="destructive" 
+                  onClick={() => setIsDeleteDialogOpen(true)}
+                >
+                  Excluir
+                </Button>
+              )}
+            </div>
+            <div className="flex gap-3">
+              <Button variant="outline" onClick={handleCloseModals}>
+                Cancelar
+              </Button>
+              <Button 
+                onClick={handleUpdate}
+                disabled={updateExpense.isPending}
+              >
+                {updateExpense.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                ) : null}
+                Salvar
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir Despesa</AlertDialogTitle>
+            <AlertDialogDescription>
+              Deseja realmente excluir esta despesa? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleteExpense.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : null}
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </AppLayout>
   );
 }
