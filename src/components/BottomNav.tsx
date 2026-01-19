@@ -1,22 +1,34 @@
 import { NavLink, useLocation } from 'react-router-dom';
 import { Home, Receipt, Users, TrendingDown, Settings } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/contexts/AuthContext';
 
-const navItems = [
+interface NavItem {
+  to: string;
+  icon: typeof Home;
+  label: string;
+  adminOnly?: boolean;
+}
+
+const navItems: NavItem[] = [
   { to: '/dashboard', icon: Home, label: 'Início' },
   { to: '/lancamentos', icon: Receipt, label: 'Lançamentos' },
   { to: '/clientes', icon: Users, label: 'Clientes' },
   { to: '/despesas', icon: TrendingDown, label: 'Despesas' },
-  { to: '/configuracoes', icon: Settings, label: 'Config' },
+  { to: '/configuracoes', icon: Settings, label: 'Config', adminOnly: true },
 ];
 
 export default function BottomNav() {
   const location = useLocation();
+  const { isAdmin } = useAuth();
+
+  // Filter items based on user role
+  const visibleItems = navItems.filter(item => !item.adminOnly || isAdmin);
 
   return (
     <nav className="bottom-nav z-50">
       <div className="flex items-center justify-around max-w-lg mx-auto">
-        {navItems.map((item) => {
+        {visibleItems.map((item) => {
           const isActive = location.pathname === item.to || 
             (item.to !== '/dashboard' && location.pathname.startsWith(item.to));
           

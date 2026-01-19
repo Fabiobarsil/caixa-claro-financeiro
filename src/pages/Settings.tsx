@@ -1,3 +1,5 @@
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import AppLayout from '@/components/AppLayout';
 import { useAuth } from '@/contexts/AuthContext';
 import { 
@@ -7,21 +9,44 @@ import {
   FileText, 
   LogOut,
   ChevronRight,
-  Shield
+  Shield,
+  Users,
+  Loader2
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 
 export default function Settings() {
-  const { user, logout, isAdmin } = useAuth();
+  const { user, logout, isAdmin, isLoading } = useAuth();
   const navigate = useNavigate();
   const [stockEnabled, setStockEnabled] = useState(false);
+
+  // Redirect non-admins to dashboard
+  useEffect(() => {
+    if (!isLoading && !isAdmin) {
+      navigate('/dashboard');
+    }
+  }, [isAdmin, isLoading, navigate]);
 
   const handleLogout = () => {
     logout();
     navigate('/');
   };
+
+  // Show loading while checking auth
+  if (isLoading) {
+    return (
+      <AppLayout showFab={false}>
+        <div className="flex items-center justify-center min-h-[50vh]">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </AppLayout>
+    );
+  }
+
+  // Don't render if not admin (will redirect)
+  if (!isAdmin) {
+    return null;
+  }
 
   return (
     <AppLayout showFab={false}>
@@ -67,26 +92,41 @@ export default function Settings() {
             <ChevronRight size={20} className="text-muted-foreground" />
           </div>
 
-          {/* Estoque */}
-          {isAdmin && (
-            <div className="flex items-center justify-between p-4 bg-card rounded-xl border border-border">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-secondary flex items-center justify-center text-muted-foreground">
-                  <Package size={20} />
-                </div>
-                <div>
-                  <p className="font-medium text-foreground">Controle de estoque</p>
-                  <p className="text-sm text-muted-foreground">
-                    {stockEnabled ? 'Ativado' : 'Desativado'}
-                  </p>
-                </div>
+          {/* Equipe */}
+          <div 
+            onClick={() => navigate('/configuracoes/equipe')}
+            className="flex items-center justify-between p-4 bg-card rounded-xl border border-border cursor-pointer hover:border-primary/30 transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-secondary flex items-center justify-center text-muted-foreground">
+                <Users size={20} />
               </div>
-              <Switch
-                checked={stockEnabled}
-                onCheckedChange={setStockEnabled}
-              />
+              <div>
+                <p className="font-medium text-foreground">Equipe</p>
+                <p className="text-sm text-muted-foreground">Gerenciar operadores</p>
+              </div>
             </div>
-          )}
+            <ChevronRight size={20} className="text-muted-foreground" />
+          </div>
+
+          {/* Estoque */}
+          <div className="flex items-center justify-between p-4 bg-card rounded-xl border border-border">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-secondary flex items-center justify-center text-muted-foreground">
+                <Package size={20} />
+              </div>
+              <div>
+                <p className="font-medium text-foreground">Controle de estoque</p>
+                <p className="text-sm text-muted-foreground">
+                  {stockEnabled ? 'Ativado' : 'Desativado'}
+                </p>
+              </div>
+            </div>
+            <Switch
+              checked={stockEnabled}
+              onCheckedChange={setStockEnabled}
+            />
+          </div>
 
           {/* Exportar */}
           <div className="flex items-center justify-between p-4 bg-card rounded-xl border border-border cursor-pointer hover:border-primary/30 transition-colors">

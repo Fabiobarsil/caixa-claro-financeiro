@@ -12,6 +12,7 @@ import NewEntry from "./pages/NewEntry";
 import Clients from "./pages/Clients";
 import Expenses from "./pages/Expenses";
 import Settings from "./pages/Settings";
+import Team from "./pages/Team";
 import NotFound from "./pages/NotFound";
 import ResetPassword from "./pages/ResetPassword";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -71,8 +72,16 @@ function AppRoutes() {
       <Route
         path="/configuracoes"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute requireAdmin>
             <Settings />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/configuracoes/equipe"
+        element={
+          <ProtectedRoute requireAdmin>
+            <Team />
           </ProtectedRoute>
         }
       />
