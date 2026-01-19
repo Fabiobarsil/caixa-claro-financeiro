@@ -24,13 +24,14 @@ export default function ResetPassword() {
     const checkSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       
-      // Check if URL has recovery token (hash fragment)
+      // Check if URL has recovery/invite token (hash fragment)
       const hashParams = new URLSearchParams(window.location.hash.substring(1));
       const accessToken = hashParams.get('access_token');
       const type = hashParams.get('type');
       
-      if (type === 'recovery' && accessToken) {
-        // Set the session with the recovery token
+      // Accept both recovery (password reset) and invite (operator invite) types
+      if ((type === 'recovery' || type === 'invite' || type === 'signup') && accessToken) {
+        // Set the session with the token
         const { error } = await supabase.auth.setSession({
           access_token: accessToken,
           refresh_token: hashParams.get('refresh_token') || '',
@@ -40,7 +41,7 @@ export default function ResetPassword() {
           setIsValidSession(true);
         }
       } else if (session) {
-        // Already have a session (might be from recovery flow)
+        // Already have a session (might be from recovery/invite flow)
         setIsValidSession(true);
       }
       
