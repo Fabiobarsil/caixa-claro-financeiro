@@ -4,6 +4,8 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { isSupabaseConfigured, supabaseConnectionError } from "@/lib/supabase";
+import { AlertTriangle } from "lucide-react";
 
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
@@ -16,6 +18,29 @@ import Team from "./pages/Team";
 import NotFound from "./pages/NotFound";
 import ResetPassword from "./pages/ResetPassword";
 import ProtectedRoute from "./components/ProtectedRoute";
+
+// Component to show configuration error
+function SupabaseConfigError() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-background p-4">
+      <div className="max-w-md w-full bg-destructive/10 border border-destructive rounded-lg p-6 text-center">
+        <AlertTriangle className="h-12 w-12 text-destructive mx-auto mb-4" />
+        <h1 className="text-xl font-bold text-destructive mb-2">
+          Erro de Configuração
+        </h1>
+        <p className="text-muted-foreground mb-4">
+          O Supabase não está configurado corretamente.
+        </p>
+        <div className="bg-background rounded p-3 text-left text-sm font-mono">
+          <p className="text-destructive">{supabaseConnectionError}</p>
+        </div>
+        <p className="text-xs text-muted-foreground mt-4">
+          Configure as variáveis de ambiente VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY
+        </p>
+      </div>
+    </div>
+  );
+}
 
 const queryClient = new QueryClient();
 
@@ -102,18 +127,25 @@ function AppRoutes() {
   );
 }
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <AuthProvider>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <AppRoutes />
-        </BrowserRouter>
-      </TooltipProvider>
-    </AuthProvider>
-  </QueryClientProvider>
-);
+const App = () => {
+  // Show error if Supabase is not configured
+  if (!isSupabaseConfigured) {
+    return <SupabaseConfigError />;
+  }
+
+  return (
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <AppRoutes />
+          </BrowserRouter>
+        </TooltipProvider>
+      </AuthProvider>
+    </QueryClientProvider>
+  );
+};
 
 export default App;
