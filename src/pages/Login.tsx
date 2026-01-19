@@ -8,7 +8,9 @@ import { Eye, EyeOff, Loader2 } from 'lucide-react';
 
 export default function Login() {
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { login, signup } = useAuth();
+  const [isSignup, setIsSignup] = useState(false);
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -21,14 +23,23 @@ export default function Login() {
     setIsLoading(true);
 
     try {
-      const success = await login(email, password);
-      if (success) {
-        navigate('/dashboard');
+      if (isSignup) {
+        const result = await signup(email, password, name);
+        if (result.success) {
+          navigate('/dashboard');
+        } else {
+          setError(result.error || 'Erro ao criar conta');
+        }
       } else {
-        setError('E-mail ou senha incorretos');
+        const result = await login(email, password);
+        if (result.success) {
+          navigate('/dashboard');
+        } else {
+          setError(result.error || 'E-mail ou senha incorretos');
+        }
       }
     } catch (err) {
-      setError('Erro ao fazer login. Tente novamente.');
+      setError('Erro ao processar. Tente novamente.');
     } finally {
       setIsLoading(false);
     }
@@ -48,8 +59,23 @@ export default function Login() {
           </p>
         </div>
 
-        {/* Login Form */}
+        {/* Login/Signup Form */}
         <form onSubmit={handleSubmit} className="space-y-4">
+          {isSignup && (
+            <div className="space-y-2">
+              <Label htmlFor="name">Nome</Label>
+              <Input
+                id="name"
+                type="text"
+                placeholder="Seu nome"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                required={isSignup}
+                className="h-12"
+              />
+            </div>
+          )}
+
           <div className="space-y-2">
             <Label htmlFor="email">E-mail</Label>
             <Input
@@ -74,8 +100,9 @@ export default function Login() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                autoComplete="current-password"
+                autoComplete={isSignup ? 'new-password' : 'current-password'}
                 className="h-12 pr-10"
+                minLength={6}
               />
               <button
                 type="button"
@@ -101,29 +128,24 @@ export default function Login() {
             {isLoading ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Entrando...
+                {isSignup ? 'Criando conta...' : 'Entrando...'}
               </>
             ) : (
-              'Entrar'
+              isSignup ? 'Criar conta' : 'Entrar'
             )}
           </Button>
 
           <button
             type="button"
+            onClick={() => {
+              setIsSignup(!isSignup);
+              setError('');
+            }}
             className="w-full text-sm text-primary hover:underline"
           >
-            Esqueci minha senha
+            {isSignup ? 'Já tenho uma conta' : 'Criar nova conta'}
           </button>
         </form>
-
-        {/* Test users hint */}
-        <div className="mt-8 p-4 rounded-lg bg-muted/50 text-sm">
-          <p className="font-medium text-foreground mb-2">Usuários de teste:</p>
-          <div className="space-y-1 text-muted-foreground">
-            <p><span className="font-mono text-xs">admin@caixaclaro.com</span> / admin</p>
-            <p><span className="font-mono text-xs">operador@caixaclaro.com</span> / operador</p>
-          </div>
-        </div>
       </div>
     </div>
   );
