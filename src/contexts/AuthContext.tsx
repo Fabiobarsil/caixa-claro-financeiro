@@ -2,6 +2,15 @@ import React, { createContext, useContext, useState, useCallback, useEffect, Rea
 import { supabase } from '@/integrations/supabase/client';
 import { User as SupabaseUser } from '@supabase/supabase-js';
 
+// Log Supabase URL for verification (dev only)
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+if (import.meta.env.DEV) {
+  console.log('[AuthContext] Supabase URL:', supabaseUrl);
+  if (!supabaseUrl) {
+    console.error('[AuthContext] ERRO: VITE_SUPABASE_URL não está configurada!');
+  }
+}
+
 type AppRole = 'admin' | 'operador';
 
 interface User {
