@@ -2,95 +2,130 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
-*/
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    /* Brand Colors */
+    --background: 210 20% 98%;
+    --foreground: 220 20% 10%;
 
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 220 20% 10%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover-foreground: 220 20% 10%;
 
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
+    /* Primary - Clean Blue (Trust & Clarity) */
+    --primary: 210 100% 50%;
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    /* Secondary */
+    --secondary: 210 20% 96%;
+    --secondary-foreground: 220 20% 20%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    /* Muted */
+    --muted: 210 15% 95%;
+    --muted-foreground: 220 10% 45%;
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    /* Accent */
+    --accent: 210 100% 96%;
+    --accent-foreground: 210 100% 40%;
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    /* Destructive - Soft Red for Expenses */
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    /* Financial Colors */
+    --success: 152 69% 40%;
+    --success-foreground: 0 0% 100%;
+    --success-light: 152 69% 95%;
+    
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
+    --warning-light: 38 92% 95%;
+    
+    --expense: 0 72% 55%;
+    --expense-foreground: 0 0% 100%;
+    --expense-light: 0 72% 97%;
+    
+    --profit: 200 80% 40%;
+    --profit-foreground: 0 0% 100%;
+    --profit-light: 200 80% 95%;
 
-    --radius: 0.5rem;
+    /* UI Elements */
+    --border: 210 20% 90%;
+    --input: 210 20% 90%;
+    --ring: 210 100% 50%;
 
+    --radius: 0.75rem;
+
+    /* Sidebar - keeping defaults */
     --sidebar-background: 0 0% 98%;
-
     --sidebar-foreground: 240 5.3% 26.1%;
-
     --sidebar-primary: 240 5.9% 10%;
-
     --sidebar-primary-foreground: 0 0% 98%;
-
     --sidebar-accent: 240 4.8% 95.9%;
-
     --sidebar-accent-foreground: 240 5.9% 10%;
-
     --sidebar-border: 220 13% 91%;
-
     --sidebar-ring: 217.2 91.2% 59.8%;
+
+    /* Shadows */
+    --shadow-sm: 0 1px 2px 0 hsl(220 20% 10% / 0.03);
+    --shadow-md: 0 4px 6px -1px hsl(220 20% 10% / 0.05), 0 2px 4px -2px hsl(220 20% 10% / 0.05);
+    --shadow-lg: 0 10px 15px -3px hsl(220 20% 10% / 0.08), 0 4px 6px -4px hsl(220 20% 10% / 0.05);
+    --shadow-card: 0 2px 8px -2px hsl(220 20% 10% / 0.08);
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
+    --background: 220 20% 8%;
+    --foreground: 210 20% 98%;
 
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
+    --card: 220 20% 12%;
+    --card-foreground: 210 20% 98%;
 
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
+    --popover: 220 20% 12%;
+    --popover-foreground: 210 20% 98%;
 
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
+    --primary: 210 100% 55%;
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
+    --secondary: 220 20% 18%;
+    --secondary-foreground: 210 20% 90%;
 
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
+    --muted: 220 15% 20%;
+    --muted-foreground: 220 10% 60%;
 
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
+    --accent: 210 100% 20%;
+    --accent-foreground: 210 100% 70%;
 
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 62% 45%;
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
+    --success: 152 69% 45%;
+    --success-light: 152 69% 15%;
+    
+    --warning: 38 92% 55%;
+    --warning-light: 38 92% 15%;
+    
+    --expense: 0 72% 50%;
+    --expense-light: 0 72% 15%;
+    
+    --profit: 200 80% 50%;
+    --profit-light: 200 80% 15%;
+
+    --border: 220 20% 20%;
+    --input: 220 20% 20%;
+    --ring: 210 100% 55%;
+
+    --sidebar-background: 220 20% 8%;
+    --sidebar-foreground: 210 20% 90%;
+    --sidebar-primary: 210 100% 55%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --sidebar-accent: 220 15% 15%;
+    --sidebar-accent-foreground: 210 20% 90%;
+    --sidebar-border: 220 20% 18%;
+    --sidebar-ring: 210 100% 55%;
   }
 }
 
@@ -100,6 +135,170 @@ All colors MUST be HSL.
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-sans antialiased;
+    font-family: 'Inter', sans-serif;
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: hsl(var(--muted));
+    border-radius: 3px;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--muted-foreground) / 0.3);
+    border-radius: 3px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground) / 0.5);
+  }
+}
+
+@layer components {
+  /* Financial Card Variants */
+  .card-success {
+    @apply bg-success-light border-success/20;
+  }
+  
+  .card-warning {
+    @apply bg-warning-light border-warning/20;
+  }
+  
+  .card-expense {
+    @apply bg-expense-light border-expense/20;
+  }
+  
+  .card-profit {
+    @apply bg-profit-light border-profit/20;
+  }
+
+  /* Status badges */
+  .status-paid {
+    @apply bg-success/15 text-success;
+  }
+  
+  .status-pending {
+    @apply bg-warning/15 text-warning;
+  }
+  
+  .status-cancelled {
+    @apply bg-muted text-muted-foreground;
+  }
+
+  /* Bottom navigation styles */
+  .bottom-nav {
+    @apply fixed bottom-0 left-0 right-0 bg-card border-t border-border;
+    box-shadow: 0 -4px 12px hsl(220 20% 10% / 0.06);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .bottom-nav-item {
+    @apply flex flex-col items-center justify-center py-2 px-3 text-muted-foreground transition-colors;
+  }
+
+  .bottom-nav-item.active {
+    @apply text-primary;
+  }
+
+  .bottom-nav-item:hover {
+    @apply text-primary/80;
+  }
+
+  /* Floating Action Button */
+  .fab {
+    @apply fixed right-4 bg-primary text-primary-foreground rounded-full shadow-lg;
+    bottom: calc(4.5rem + env(safe-area-inset-bottom));
+    width: 56px;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+
+  .fab:hover {
+    transform: scale(1.05);
+    box-shadow: 0 8px 25px hsl(var(--primary) / 0.35);
+  }
+
+  .fab:active {
+    transform: scale(0.95);
+  }
+
+  /* Money display */
+  .money-display {
+    @apply font-bold tabular-nums tracking-tight;
+  }
+
+  .money-display-lg {
+    @apply text-2xl font-extrabold tabular-nums tracking-tight;
+  }
+
+  /* Page container with bottom nav padding */
+  .page-container {
+    @apply min-h-screen pb-20;
+    padding-bottom: calc(5rem + env(safe-area-inset-bottom));
+  }
+
+  /* Card hover effect */
+  .card-interactive {
+    @apply transition-all duration-200;
+  }
+
+  .card-interactive:hover {
+    @apply shadow-lg;
+    transform: translateY(-2px);
+  }
+
+  .card-interactive:active {
+    transform: translateY(0);
+  }
+}
+
+@layer utilities {
+  /* Animation utilities */
+  .animate-fade-in {
+    animation: fadeIn 0.3s ease-out;
+  }
+
+  .animate-slide-up {
+    animation: slideUp 0.3s ease-out;
+  }
+
+  .animate-scale-in {
+    animation: scaleIn 0.2s ease-out;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  @keyframes slideUp {
+    from { 
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to { 
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes scaleIn {
+    from { 
+      opacity: 0;
+      transform: scale(0.95);
+    }
+    to { 
+      opacity: 1;
+      transform: scale(1);
+    }
   }
 }
