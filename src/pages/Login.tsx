@@ -9,7 +9,7 @@ import { ForgotPasswordDialog } from '@/components/ForgotPasswordDialog';
 
 export default function Login() {
   const navigate = useNavigate();
-  const { login, signup, isAuthenticated } = useAuth();
+  const { login, signup, isAuthenticated, isAuthReady } = useAuth();
   const [isSignup, setIsSignup] = useState(false);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -19,12 +19,12 @@ export default function Login() {
   const [error, setError] = useState('');
   const [showForgotPassword, setShowForgotPassword] = useState(false);
 
-  // Navigate when authentication state changes to authenticated
+  // Navigate when authentication state is fully ready and user is authenticated
   useEffect(() => {
-    if (isAuthenticated) {
+    if (isAuthReady && isAuthenticated) {
       navigate('/dashboard');
     }
-  }, [isAuthenticated, navigate]);
+  }, [isAuthenticated, isAuthReady, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
