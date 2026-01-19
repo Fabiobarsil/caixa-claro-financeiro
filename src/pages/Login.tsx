@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -9,7 +9,7 @@ import { ForgotPasswordDialog } from '@/components/ForgotPasswordDialog';
 
 export default function Login() {
   const navigate = useNavigate();
-  const { login, signup } = useAuth();
+  const { login, signup, isAuthenticated } = useAuth();
   const [isSignup, setIsSignup] = useState(false);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -19,6 +19,13 @@ export default function Login() {
   const [error, setError] = useState('');
   const [showForgotPassword, setShowForgotPassword] = useState(false);
 
+  // Navigate when authentication state changes to authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/dashboard');
+    }
+  }, [isAuthenticated, navigate]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -27,22 +34,21 @@ export default function Login() {
     try {
       if (isSignup) {
         const result = await signup(email, password, name);
-        if (result.success) {
-          navigate('/dashboard');
-        } else {
+        if (!result.success) {
           setError(result.error || 'Erro ao criar conta');
+          setIsLoading(false);
         }
+        // Navigation will happen via useEffect when isAuthenticated changes
       } else {
         const result = await login(email, password);
-        if (result.success) {
-          navigate('/dashboard');
-        } else {
+        if (!result.success) {
           setError(result.error || 'E-mail ou senha incorretos');
+          setIsLoading(false);
         }
+        // Navigation will happen via useEffect when isAuthenticated changes
       }
     } catch (err) {
       setError('Erro ao processar. Tente novamente.');
-    } finally {
       setIsLoading(false);
     }
   };
