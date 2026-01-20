@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, useEffect, ReactNode, useRef } from 'react';
+import { createContext, useContext, useState, useCallback, useEffect, ReactNode, useRef } from 'react';
 import { supabase, isSupabaseConfigured, supabaseConnectionError } from '@/lib/supabase';
 import { User as SupabaseUser } from '@supabase/supabase-js';
 
@@ -64,54 +64,118 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    // Prevent double initialization in React StrictMode
+    // Prevent double initialization in React StrictMode (effect runs mount->cleanup->mount)
+    // NOTE: we reset this ref in cleanup to allow the second mount to initialize.
     if (initializingRef.current) return;
     initializingRef.current = true;
 
     let mounted = true;
 
-    const initialize = async () => {
+    const finalizeAuthState = (source: string) => {
+      if (!mounted) return;
+      setIsLoading(false);
+      setIsAuthReady(true);
+      console.debug('[Auth]', 'Auth ready true', { source });
+    };
+
+    const redirectToLoginIfNeeded = () => {
+      // Avoid changing routes/components; only force user back to login when auth cannot be resolved.
       try {
+        if (window.location.pathname !== '/') {
+          window.location.replace('/');
+        }
+      } catch {
+        // no-op
+      }
+    };
+
+    const safeFetchAndSetUser = async (supabaseUser: SupabaseUser, source: string) => {
+      console.debug('[Auth]', 'fetchUserData start', { source, userId: supabaseUser.id });
+      try {
+        const userData = await fetchUserData(supabaseUser);
+        console.debug('[Auth]', 'fetchUserData ok', { source, hasUserData: Boolean(userData) });
+        if (!mounted) return;
+
+        if (!userData) {
+          // If profile/role fetch fails (RLS/403/network), never block the app in loading.
+          setUser(null);
+          redirectToLoginIfNeeded();
+          return;
+        }
+
+        setUser(userData);
+      } catch (error) {
+        console.debug('[Auth]', 'fetchUserData error', { source, error });
+        if (!mounted) return;
+        setUser(null);
+        redirectToLoginIfNeeded();
+      }
+    };
+
+    const initialize = async () => {
+      console.debug('[Auth]', 'Auth init start');
+      try {
+        // If backend env is missing, do not keep the app blocked.
+        if (!isSupabaseConfigured) {
+          console.error('[Auth] Supabase não configurado:', supabaseConnectionError);
+          setUser(null);
+          return;
+        }
+
         // First check for existing session
-        const { data: { session } } = await supabase.auth.getSession();
+        const { data: { session }, error } = await supabase.auth.getSession();
+
+        if (error) {
+          console.debug('[Auth]', 'Auth getSession error', error);
+        } else {
+          console.debug('[Auth]', 'Auth getSession ok', { hasSession: Boolean(session) });
+        }
         
         if (session?.user && mounted) {
-          const userData = await fetchUserData(session.user);
-          if (mounted) {
-            setUser(userData);
-          }
+          await safeFetchAndSetUser(session.user, 'init');
+        } else if (mounted) {
+          setUser(null);
         }
       } catch (error) {
-        console.error('Error initializing auth:', error);
+        console.debug('[Auth]', 'Auth getSession error', error);
+        if (mounted) setUser(null);
       } finally {
-        if (mounted) {
-          setIsLoading(false);
-          setIsAuthReady(true);
-        }
+        finalizeAuthState('init:finally');
       }
     };
 
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log('Auth state change:', event);
+        console.debug('[Auth]', `Auth state change: ${event}`);
         
-        if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-          if (session?.user && mounted) {
-            setIsLoading(true);
-            const userData = await fetchUserData(session.user);
-            if (mounted) {
-              setUser(userData);
-              setIsLoading(false);
-              setIsAuthReady(true);
-            }
-          }
-        } else if (event === 'SIGNED_OUT') {
-          if (mounted) {
+        if (!mounted) return;
+
+        // Never leave the app stuck in loading because of auth events.
+        setIsLoading(true);
+        try {
+          if (!isSupabaseConfigured) {
+            console.error('[Auth] Supabase não configurado:', supabaseConnectionError);
             setUser(null);
-            setIsLoading(false);
-            setIsAuthReady(true);
+            return;
           }
+
+          if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+            if (session?.user) {
+              await safeFetchAndSetUser(session.user, `event:${event}`);
+            } else {
+              setUser(null);
+              redirectToLoginIfNeeded();
+            }
+          } else if (event === 'SIGNED_OUT') {
+            setUser(null);
+          }
+        } catch (error) {
+          console.debug('[Auth]', 'Auth state change handler error', { event, error });
+          setUser(null);
+          redirectToLoginIfNeeded();
+        } finally {
+          finalizeAuthState(`onAuthStateChange:${event}`);
         }
       }
     );
@@ -121,6 +185,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => {
       mounted = false;
       subscription.unsubscribe();
+      initializingRef.current = false;
     };
   }, [fetchUserData]);
 
