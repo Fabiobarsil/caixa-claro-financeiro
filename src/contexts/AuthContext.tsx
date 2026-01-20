@@ -1,9 +1,10 @@
 import { createContext, useContext, useState, useCallback, useEffect, ReactNode, useRef } from 'react';
-import { supabase, isSupabaseConfigured, supabaseConnectionError } from '@/lib/supabase';
+import { supabase } from '@/integrations/supabase/client';
 import { User as SupabaseUser } from '@supabase/supabase-js';
 
-// Re-export for UI validation
-export { isSupabaseConfigured, supabaseConnectionError };
+// Supabase is always configured when using the official client from integrations
+export const isSupabaseConfigured = true;
+export const supabaseConnectionError: string | null = null;
 
 type AppRole = 'admin' | 'operador';
 
@@ -117,12 +118,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const initialize = async () => {
       console.debug('[Auth]', 'Auth init start');
       try {
-        // If backend env is missing, do not keep the app blocked.
-        if (!isSupabaseConfigured) {
-          console.error('[Auth] Supabase não configurado:', supabaseConnectionError);
-          setUser(null);
-          return;
-        }
+        // Supabase is always configured via integrations client
 
         // First check for existing session
         const { data: { session }, error } = await withTimeout(supabase.auth.getSession(), 10000, 'getSession');
@@ -156,11 +152,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Never leave the app stuck in loading because of auth events.
         setIsLoading(true);
         try {
-          if (!isSupabaseConfigured) {
-            console.error('[Auth] Supabase não configurado:', supabaseConnectionError);
-            setUser(null);
-            return;
-          }
+          // Supabase is always configured via integrations client
 
           if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
             if (session?.user) {
