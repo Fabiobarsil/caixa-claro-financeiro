@@ -71,6 +71,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     let mounted = true;
 
+    const withTimeout = async <T,>(promise: Promise<T>, ms: number, label: string): Promise<T> => {
+      let timeoutId: number | undefined;
+      const timeoutPromise = new Promise<T>((_, reject) => {
+        timeoutId = window.setTimeout(() => {
+          reject(new Error(`${label} timeout after ${ms}ms`));
+        }, ms);
+      });
+
+      try {
+        return await Promise.race([promise, timeoutPromise]);
+      } finally {
+        if (timeoutId !== undefined) window.clearTimeout(timeoutId);
+      }
+    };
+
     const finalizeAuthState = (source: string) => {
       if (!mounted) return;
       setIsLoading(false);
@@ -78,28 +93,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.debug('[Auth]', 'Auth ready true', { source });
     };
 
-    const redirectToLoginIfNeeded = () => {
-      // Avoid changing routes/components; only force user back to login when auth cannot be resolved.
-      try {
-        if (window.location.pathname !== '/') {
-          window.location.replace('/');
-        }
-      } catch {
-        // no-op
-      }
-    };
-
     const safeFetchAndSetUser = async (supabaseUser: SupabaseUser, source: string) => {
       console.debug('[Auth]', 'fetchUserData start', { source, userId: supabaseUser.id });
       try {
-        const userData = await fetchUserData(supabaseUser);
+        const userData = await withTimeout(fetchUserData(supabaseUser), 10000, 'fetchUserData');
         console.debug('[Auth]', 'fetchUserData ok', { source, hasUserData: Boolean(userData) });
         if (!mounted) return;
 
         if (!userData) {
           // If profile/role fetch fails (RLS/403/network), never block the app in loading.
           setUser(null);
-          redirectToLoginIfNeeded();
           return;
         }
 
@@ -108,7 +111,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         console.debug('[Auth]', 'fetchUserData error', { source, error });
         if (!mounted) return;
         setUser(null);
-        redirectToLoginIfNeeded();
       }
     };
 
@@ -123,7 +125,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
 
         // First check for existing session
-        const { data: { session }, error } = await supabase.auth.getSession();
+        const { data: { session }, error } = await withTimeout(supabase.auth.getSession(), 10000, 'getSession');
 
         if (error) {
           console.debug('[Auth]', 'Auth getSession error', error);
@@ -165,7 +167,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               await safeFetchAndSetUser(session.user, `event:${event}`);
             } else {
               setUser(null);
-              redirectToLoginIfNeeded();
             }
           } else if (event === 'SIGNED_OUT') {
             setUser(null);
@@ -173,7 +174,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         } catch (error) {
           console.debug('[Auth]', 'Auth state change handler error', { event, error });
           setUser(null);
-          redirectToLoginIfNeeded();
         } finally {
           finalizeAuthState(`onAuthStateChange:${event}`);
         }
