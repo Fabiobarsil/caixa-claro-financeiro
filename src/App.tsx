@@ -3,8 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { AuthProvider, useAuth } from "@/contexts/AuthContext";
-import { isSupabaseConfigured, supabaseConnectionError } from "@/lib/supabase";
+import { AuthProvider, useAuth, isSupabaseConfigured, supabaseConnectionError } from "@/contexts/AuthContext";
 import { AlertTriangle } from "lucide-react";
 
 import Login from "./pages/Login";
