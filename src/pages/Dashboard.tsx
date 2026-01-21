@@ -156,18 +156,7 @@ export default function Dashboard() {
               <UpcomingDeadlines entries={[...pendingEntries, ...recentEntries]} />
             </section>
 
-            {/* Section 4: Calendar & Financial Evolution (2 columns on desktop) */}
-            <section className="mb-6">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <MiniCalendar highlightDates={dueDates} />
-                <FinancialEvolutionChart 
-                  entries={[...recentEntries, ...pendingEntries]} 
-                  selectedMonth={selectedMonth} 
-                />
-              </div>
-            </section>
-
-            {/* Section 5: Charts */}
+            {/* Section 4: Charts - Distribution & Evolution */}
             <section className="mb-6">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <DistributionChart 
@@ -175,6 +164,16 @@ export default function Dashboard() {
                   expenses={metrics.expenses}
                   pending={metrics.pending}
                 />
+                <FinancialEvolutionChart 
+                  entries={[...recentEntries, ...pendingEntries]} 
+                  selectedMonth={selectedMonth} 
+                />
+              </div>
+            </section>
+
+            {/* Section 5: Summary & Calendar */}
+            <section className="mb-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <SectionCard title="Resumo Mensal">
                   <div className="space-y-4">
                     <div className="flex items-center justify-between py-3 border-b border-border">
@@ -195,6 +194,7 @@ export default function Dashboard() {
                     </div>
                   </div>
                 </SectionCard>
+                <MiniCalendar highlightDates={dueDates} />
               </div>
             </section>
           </div>
