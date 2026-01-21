@@ -103,7 +103,7 @@ export default function Entries() {
         </div>
 
         {/* Entries List */}
-        <div className="flex-1 overflow-auto -mx-4 px-4 pb-20">
+        <div className="flex-1 overflow-auto -mx-4 px-4 pb-36">
           {isLoading || schedulesLoading ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
