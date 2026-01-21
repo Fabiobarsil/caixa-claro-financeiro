@@ -114,11 +114,20 @@ export default function Entries() {
     <AppLayout>
       <div className="flex flex-col h-full">
         {/* Header */}
-        <div className="mb-4">
-          <h1 className="text-xl font-bold text-foreground">Lançamentos</h1>
-          <p className="text-sm text-muted-foreground">
-            {isGlobalPendingMode ? 'Todas as parcelas pendentes' : 'Vendas e atendimentos'}
-          </p>
+        <div className="flex items-start justify-between mb-4">
+          <div>
+            <h1 className="text-xl font-bold text-foreground">Lançamentos</h1>
+            <p className="text-sm text-muted-foreground">
+              {isGlobalPendingMode ? 'Todas as parcelas pendentes' : 'Vendas e atendimentos'}
+            </p>
+          </div>
+          <Button 
+            onClick={() => window.location.href = '/lancamentos/novo'}
+            className="hidden lg:flex"
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Novo
+          </Button>
         </div>
 
         {/* Search */}
@@ -197,7 +206,7 @@ export default function Entries() {
                   </p>
                   <Button 
                     className="mt-4"
-                    onClick={() => window.location.href = '/novo-lancamento'}
+                    onClick={() => window.location.href = '/lancamentos/novo'}
                   >
                     <Plus className="mr-2 h-4 w-4" />
                     Criar primeiro lançamento
