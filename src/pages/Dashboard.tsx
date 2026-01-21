@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AppLayout from '@/components/AppLayout';
 import MetricCard from '@/components/MetricCard';
@@ -6,26 +6,9 @@ import SmallMetricCard from '@/components/SmallMetricCard';
 import { useDashboard, DashboardEntry } from '@/hooks/useDashboard';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatCurrency } from '@/lib/formatters';
-import { format, parseISO, subMonths } from 'date-fns';
+import { format, subMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
-function getGreeting(): string {
-  const hour = new Date().getHours();
-  if (hour >= 5 && hour < 12) return 'Bom dia';
-  if (hour >= 12 && hour < 18) return 'Boa tarde';
-  return 'Boa noite';
-}
-
-function useCurrentTime() {
-  const [now, setNow] = useState(new Date());
-  
-  useEffect(() => {
-    const interval = setInterval(() => setNow(new Date()), 60000);
-    return () => clearInterval(interval);
-  }, []);
-  
-  return now;
-}
 import { 
   ArrowDownCircle, 
   Clock, 
@@ -33,7 +16,6 @@ import {
   TrendingUp,
   Receipt,
   Target,
-  LogOut,
   Loader2,
   Package,
   Scissors,
@@ -67,47 +49,16 @@ function getMonthOptions() {
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
   const [selectedMonth, setSelectedMonth] = useState(format(new Date(), 'yyyy-MM'));
   const months = useMemo(() => getMonthOptions(), []);
-  const now = useCurrentTime();
   
   const { metrics, recentEntries, pendingEntries, isLoading } = useDashboard(selectedMonth);
-
-  const greeting = getGreeting();
-  const dayOfWeek = format(now, "EEEE", { locale: ptBR });
-  const fullDate = format(now, "d 'de' MMMM 'de' yyyy", { locale: ptBR });
-  const currentTime = format(now, "HH:mm");
-
-  const handleLogout = () => {
-    logout();
-    navigate('/');
-  };
 
   return (
     <AppLayout>
       <div className="flex flex-col h-full">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-5">
-          <div>
-            <h1 className="text-xl font-semibold text-foreground">
-              {greeting}, {user?.name?.split(' ')[0]}
-            </h1>
-            <p className="text-sm text-muted-foreground capitalize">
-              {dayOfWeek}, {fullDate} — {currentTime}
-            </p>
-          </div>
-          <button
-            onClick={handleLogout}
-            className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary/80 transition-colors"
-            aria-label="Sair"
-          >
-            <LogOut size={20} />
-          </button>
-        </div>
-
         {/* Month Filter */}
-        <div className="mb-4">
+        <div className="mb-6">
           <Select value={selectedMonth} onValueChange={setSelectedMonth}>
             <SelectTrigger className="w-48 bg-card capitalize">
               <SelectValue placeholder="Selecione o mês" />
