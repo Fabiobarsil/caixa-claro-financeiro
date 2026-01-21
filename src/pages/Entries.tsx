@@ -1,4 +1,5 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import AppLayout from '@/components/AppLayout';
 import { useEntries, Entry } from '@/hooks/useEntries';
 import { useEntrySchedules, getScheduleSummary, EntrySchedule } from '@/hooks/useEntrySchedules';
@@ -31,10 +32,27 @@ function formatPaymentMethod(method: string): string {
 }
 
 export default function Entries() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const { entries, isLoading, markAsPaid } = useEntries();
   const { schedulesByEntry, markScheduleAsPaid, isLoading: schedulesLoading } = useEntrySchedules();
-  const [activeFilter, setActiveFilter] = useState<FilterType>('todos');
+  
+  // Read initial filter from URL params
+  const initialFilter = (searchParams.get('status') as FilterType) || 'todos';
+  const [activeFilter, setActiveFilter] = useState<FilterType>(
+    ['todos', 'pago', 'a_vencer', 'vencido'].includes(initialFilter) ? initialFilter : 'todos'
+  );
   const [search, setSearch] = useState('');
+
+  // Update URL when filter changes
+  const handleFilterChange = (filter: FilterType) => {
+    setActiveFilter(filter);
+    if (filter === 'todos') {
+      searchParams.delete('status');
+    } else {
+      searchParams.set('status', filter);
+    }
+    setSearchParams(searchParams);
+  };
 
   const filteredEntries = useMemo(() => {
     return entries.filter((entry) => {
@@ -89,7 +107,7 @@ export default function Entries() {
           {filters.map((filter) => (
             <button
               key={filter.value}
-              onClick={() => setActiveFilter(filter.value)}
+              onClick={() => handleFilterChange(filter.value)}
               className={cn(
                 'px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors',
                 activeFilter === filter.value
