@@ -1,11 +1,13 @@
 import { differenceInDays, format, parseISO, isValid } from 'date-fns';
 
-export type VisualStatus = 'pago' | 'a_vencer' | 'vencido';
+export type VisualStatus = 'pago' | 'a_vencer' | 'vence_hoje' | 'vencido';
 
 export interface EntryVisualInfo {
   visualStatus: VisualStatus;
   label: string;
   variant: 'success' | 'warning' | 'destructive';
+  daysTodue?: number;
+  daysOverdue?: number;
 }
 
 /**
@@ -59,11 +61,12 @@ export function getEntryVisualInfo(
       visualStatus: 'a_vencer',
       label: `Vence em ${diffDays} ${diffDays === 1 ? 'dia' : 'dias'}`,
       variant: 'warning',
+      daysTodue: diffDays,
     };
   } else if (diffDays === 0) {
     // Due today
     return {
-      visualStatus: 'a_vencer',
+      visualStatus: 'vence_hoje',
       label: 'Vence hoje',
       variant: 'warning',
     };
@@ -74,12 +77,14 @@ export function getEntryVisualInfo(
       visualStatus: 'vencido',
       label: `Vencido há ${overdueDays} ${overdueDays === 1 ? 'dia' : 'dias'}`,
       variant: 'destructive',
+      daysOverdue: overdueDays,
     };
   }
 }
 
 /**
  * Filter entries by visual status
+ * Note: 'vence_hoje' is grouped with 'a_vencer' for filtering purposes
  */
 export function filterEntriesByVisualStatus<T extends { status: 'pago' | 'pendente'; due_date?: string | null }>(
   entries: T[],
@@ -89,6 +94,8 @@ export function filterEntriesByVisualStatus<T extends { status: 'pago' | 'penden
   
   return entries.filter(entry => {
     const info = getEntryVisualInfo(entry.status, entry.due_date || null, null);
-    return info.visualStatus === filter;
+    // Group 'vence_hoje' with 'a_vencer' for filtering
+    const effectiveStatus = info.visualStatus === 'vence_hoje' ? 'a_vencer' : info.visualStatus;
+    return effectiveStatus === filter;
   });
 }

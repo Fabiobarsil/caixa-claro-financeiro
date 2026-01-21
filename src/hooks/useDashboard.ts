@@ -11,7 +11,7 @@ export interface DashboardMetrics {
   profit: number;
   averageTicket: number;
   totalEntries: number;
-  // New metrics for accounts receivable
+  // Metrics for accounts receivable
   upcomingValue: number;
   upcomingCount: number;
   overdueValue: number;
@@ -29,6 +29,18 @@ export interface DashboardEntry {
   due_date: string | null;
   payment_date: string | null;
   payment_method: string;
+}
+
+interface ScheduleRow {
+  id: string;
+  entry_id: string;
+  schedule_type: string;
+  installment_number: number;
+  installments_total: number;
+  due_date: string;
+  paid_at: string | null;
+  status: string;
+  amount: number;
 }
 
 export function useDashboard(selectedMonth?: string) {
@@ -65,6 +77,15 @@ export function useDashboard(selectedMonth?: string) {
 
       if (expensesError) throw expensesError;
 
+      // Fetch entry schedules for the month
+      const { data: schedulesData, error: schedulesError } = await supabase
+        .from('entry_schedules')
+        .select('*')
+        .gte('due_date', startDate)
+        .lte('due_date', endDate);
+
+      if (schedulesError) throw schedulesError;
+
       // Fetch clients and items for names
       const { data: clients } = await supabase
         .from('clients')
@@ -94,49 +115,107 @@ export function useDashboard(selectedMonth?: string) {
         };
       });
 
-      // Calculate metrics
-      const paidEntries = entries.filter(e => e.status === 'pago');
-      const pendingEntries = entries.filter(e => e.status === 'pendente');
-
-      const received = paidEntries.reduce((sum, e) => sum + e.value, 0);
-      const pending = pendingEntries.reduce((sum, e) => sum + e.value, 0);
-      const totalExpenses = (expensesData || []).reduce((sum, e) => sum + Number(e.value), 0);
-
-      // Calculate upcoming and overdue
+      const schedules = (schedulesData || []) as ScheduleRow[];
+      
+      // Calculate metrics including schedules
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
-      const upcomingEntries = pendingEntries.filter(e => {
-        if (!e.due_date) return false;
+      // For entries without schedules
+      const entriesWithoutSchedules = entries.filter(e => {
+        const hasSchedules = schedules.some(s => s.entry_id === e.id);
+        return !hasSchedules;
+      });
+
+      // Paid entries (without schedules)
+      const paidEntriesValue = entriesWithoutSchedules
+        .filter(e => e.status === 'pago')
+        .reduce((sum, e) => sum + e.value, 0);
+
+      // Paid schedules
+      const paidSchedulesValue = schedules
+        .filter(s => s.status === 'pago')
+        .reduce((sum, s) => sum + Number(s.amount), 0);
+
+      const received = paidEntriesValue + paidSchedulesValue;
+
+      // Pending entries (without schedules)
+      const pendingEntriesValue = entriesWithoutSchedules
+        .filter(e => e.status === 'pendente')
+        .reduce((sum, e) => sum + e.value, 0);
+
+      // Pending schedules
+      const pendingSchedulesValue = schedules
+        .filter(s => s.status === 'pendente')
+        .reduce((sum, s) => sum + Number(s.amount), 0);
+
+      const pending = pendingEntriesValue + pendingSchedulesValue;
+
+      const totalExpenses = (expensesData || []).reduce((sum, e) => sum + Number(e.value), 0);
+
+      // Calculate upcoming and overdue for entries without schedules
+      const upcomingEntriesData = entriesWithoutSchedules.filter(e => {
+        if (e.status !== 'pendente' || !e.due_date) return false;
         const dueDate = new Date(e.due_date);
         dueDate.setHours(0, 0, 0, 0);
         return dueDate >= today;
       });
 
-      const overdueEntries = pendingEntries.filter(e => {
-        if (!e.due_date) return false;
+      const overdueEntriesData = entriesWithoutSchedules.filter(e => {
+        if (e.status !== 'pendente' || !e.due_date) return false;
         const dueDate = new Date(e.due_date);
         dueDate.setHours(0, 0, 0, 0);
         return dueDate < today;
       });
+
+      // Calculate upcoming and overdue for schedules
+      const upcomingSchedules = schedules.filter(s => {
+        if (s.status !== 'pendente') return false;
+        const dueDate = new Date(s.due_date);
+        dueDate.setHours(0, 0, 0, 0);
+        return dueDate >= today;
+      });
+
+      const overdueSchedules = schedules.filter(s => {
+        if (s.status !== 'pendente') return false;
+        const dueDate = new Date(s.due_date);
+        dueDate.setHours(0, 0, 0, 0);
+        return dueDate < today;
+      });
+
+      const upcomingValue = 
+        upcomingEntriesData.reduce((sum, e) => sum + e.value, 0) +
+        upcomingSchedules.reduce((sum, s) => sum + Number(s.amount), 0);
+
+      const upcomingCount = upcomingEntriesData.length + upcomingSchedules.length;
+
+      const overdueValue = 
+        overdueEntriesData.reduce((sum, e) => sum + e.value, 0) +
+        overdueSchedules.reduce((sum, s) => sum + Number(s.amount), 0);
+
+      const overdueCount = overdueEntriesData.length + overdueSchedules.length;
+
+      // Calculate average ticket
+      const paidCount = entriesWithoutSchedules.filter(e => e.status === 'pago').length + 
+                        schedules.filter(s => s.status === 'pago').length;
 
       const metrics: DashboardMetrics = {
         received,
         pending,
         expenses: totalExpenses,
         profit: received - totalExpenses,
-        averageTicket: paidEntries.length > 0 ? received / paidEntries.length : 0,
+        averageTicket: paidCount > 0 ? received / paidCount : 0,
         totalEntries: entries.length,
-        upcomingValue: upcomingEntries.reduce((sum, e) => sum + e.value, 0),
-        upcomingCount: upcomingEntries.length,
-        overdueValue: overdueEntries.reduce((sum, e) => sum + e.value, 0),
-        overdueCount: overdueEntries.length,
+        upcomingValue,
+        upcomingCount,
+        overdueValue,
+        overdueCount,
       };
 
       return {
         metrics,
         recentEntries: entries.slice(0, 5),
-        pendingEntries: pendingEntries.slice(0, 5),
+        pendingEntries: entriesWithoutSchedules.filter(e => e.status === 'pendente').slice(0, 5),
       };
     },
     enabled: !!user,

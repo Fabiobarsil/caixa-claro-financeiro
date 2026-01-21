@@ -12,6 +12,7 @@ interface EntryStatusBadgeProps {
 const icons: Record<VisualStatus, typeof Check> = {
   pago: Check,
   a_vencer: Clock,
+  vence_hoje: Clock,
   vencido: AlertTriangle,
 };
 
