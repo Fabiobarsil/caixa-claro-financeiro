@@ -39,7 +39,7 @@ export default function MetricCard({ title, value, icon: Icon, variant, subtitle
   const styles = variantStyles[variant];
 
   return (
-    <div className={cn('rounded-xl p-4 transition-all card-interactive', styles.card)}>
+    <div className={cn('rounded-xl p-4 transition-all duration-150 card-interactive', styles.card)}>
       <CertusCardHeader
         title={title}
         helpText={tooltip}

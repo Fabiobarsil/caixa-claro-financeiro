@@ -20,7 +20,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { ArrowLeft, Loader2, Trash2 } from 'lucide-react';
+import { ArrowLeft, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function ClientForm() {
@@ -137,8 +137,12 @@ export default function ClientForm() {
   if (isLoading) {
     return (
       <AppLayout>
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <div className="flex justify-center pb-8">
+          <div className="w-full max-w-[720px] bg-card rounded-xl border border-border shadow-sm p-8">
+            <div className="flex items-center justify-center py-8">
+              <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+            </div>
+          </div>
         </div>
       </AppLayout>
     );
@@ -271,15 +275,10 @@ export default function ClientForm() {
               <Button
                 onClick={handleSubmit}
                 disabled={!isValid || isSubmitting || isCreating}
+                loading={isSubmitting || isCreating}
+                loadingText="Salvando..."
               >
-                {(isSubmitting || isCreating) ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Salvando...
-                  </>
-                ) : (
-                  'Salvar'
-                )}
+                Salvar
               </Button>
             </div>
           </div>

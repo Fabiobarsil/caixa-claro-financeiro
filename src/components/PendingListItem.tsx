@@ -13,7 +13,7 @@ export default function PendingListItem({ entry, onClick }: PendingListItemProps
   return (
     <div
       onClick={onClick}
-      className="flex items-center justify-between p-3 bg-warning-light rounded-lg border border-warning/20 hover:border-warning/40 transition-colors cursor-pointer"
+      className="flex items-center justify-between p-3 bg-warning-light rounded-lg border border-warning/20 hover:border-warning/40 hover:shadow-sm transition-all duration-150 cursor-pointer active:scale-[0.99] active:opacity-90"
     >
       <div className="flex items-center gap-3">
         <div className="w-8 h-8 rounded-full bg-warning/20 flex items-center justify-center text-warning">

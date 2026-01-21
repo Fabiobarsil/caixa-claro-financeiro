@@ -5,6 +5,7 @@ import BottomNav from './BottomNav';
 import AppSidebar from './AppSidebar';
 import GlobalHeader from './GlobalHeader';
 import TrustFooter from './TrustFooter';
+import PageTransition from './ui/PageTransition';
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -31,10 +32,12 @@ export default function AppLayout({
         {/* Global Header */}
         {showHeader && <GlobalHeader />}
         
-        {/* Page Content */}
+        {/* Page Content with transition */}
         <main className="flex-1 page-container lg:pb-6">
           <div className="max-w-4xl mx-auto px-4 py-4 lg:py-6">
-            {children}
+            <PageTransition>
+              {children}
+            </PageTransition>
           </div>
         </main>
 

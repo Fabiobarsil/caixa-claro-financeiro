@@ -27,8 +27,8 @@ export default function SmallMetricCard({
     <Component 
       onClick={onClick}
       className={cn(
-        "bg-card rounded-xl p-4 border border-border shadow-card transition-all card-interactive w-full text-left",
-        onClick && "cursor-pointer hover:border-primary/50"
+        "bg-card rounded-xl p-4 border border-border shadow-sm transition-all duration-150 w-full text-left",
+        onClick && "cursor-pointer hover:border-primary/30 hover:shadow-md active:scale-[0.99] active:opacity-95"
       )}
     >
       <CertusCardHeader

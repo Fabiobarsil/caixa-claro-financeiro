@@ -3,9 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import AppLayout from '@/components/AppLayout';
 import { useClients } from '@/hooks/useClients';
 import { formatCurrency } from '@/lib/formatters';
-import { Search, ChevronRight, User, Plus, Loader2 } from 'lucide-react';
+import { Search, ChevronRight, User, Plus } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { ListSkeleton } from '@/components/skeletons/ListSkeleton';
 
 export default function Clients() {
   const navigate = useNavigate();
@@ -51,16 +52,12 @@ export default function Clients() {
           />
         </div>
 
-        {/* Loading State */}
-        {isLoading && (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          </div>
-        )}
+        {/* Loading State with Skeleton */}
+        {isLoading && <ListSkeleton count={5} />}
 
         {/* Empty State */}
         {!isLoading && clients.length === 0 && (
-          <div className="text-center py-12">
+          <div className="text-center py-12 animate-fade-in">
             <User className="mx-auto h-12 w-12 text-muted-foreground/50 mb-4" />
             <h3 className="text-lg font-medium text-foreground mb-2">
               Você ainda não cadastrou nenhum cliente.
@@ -82,7 +79,7 @@ export default function Clients() {
               <div
                 key={client.id}
                 onClick={() => handleEditClient(client.id)}
-                className="flex items-center justify-between p-4 bg-card rounded-xl border border-border hover:border-primary/30 transition-colors cursor-pointer card-interactive"
+                className="flex items-center justify-between p-4 bg-card rounded-xl border border-border hover:border-primary/30 hover:shadow-md transition-all duration-150 cursor-pointer active:scale-[0.99] active:opacity-90"
               >
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">

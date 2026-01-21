@@ -48,8 +48,8 @@ export default function KPICard({ title, value, icon: Icon, variant, onClick, to
     <Component
       onClick={onClick}
       className={cn(
-        'rounded-2xl p-5 border transition-all duration-200 w-full text-left',
-        'shadow-sm hover:shadow-md',
+        'rounded-2xl p-5 border transition-all duration-150 w-full text-left',
+        'shadow-sm hover:shadow-md active:scale-[0.99] active:opacity-95',
         styles.bg,
         styles.border,
         onClick && 'cursor-pointer'
