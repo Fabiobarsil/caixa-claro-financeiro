@@ -60,14 +60,14 @@ export default function KPICard({ title, value, icon: Icon, variant, onClick, to
         onClick && 'cursor-pointer'
       )}
     >
-      <div className="flex items-center justify-between gap-3 mb-3">
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-medium text-muted-foreground">{title}</span>
+      <div className="flex items-start justify-between gap-4 mb-3">
+        <div className="flex items-start gap-1.5 min-w-0">
+          <span className="text-sm font-medium text-muted-foreground leading-tight">{title}</span>
           {tooltip && (
             <TooltipProvider delayDuration={300}>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <HelpCircle size={14} className="text-muted-foreground/60 cursor-help flex-shrink-0" />
+                  <HelpCircle size={12} className="text-muted-foreground/50 cursor-help flex-shrink-0 mt-0.5" />
                 </TooltipTrigger>
                 <TooltipContent side="top" className="max-w-xs">
                   <p>{tooltip}</p>
