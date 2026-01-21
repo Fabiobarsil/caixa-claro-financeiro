@@ -134,6 +134,7 @@ export default function Dashboard() {
                 value={formatCurrency(metrics.upcomingValue)}
                 icon={CalendarClock}
                 iconColor="text-warning"
+                onClick={() => navigate('/lancamentos?status=a_vencer')}
               />
               <SmallMetricCard
                 title="Em atraso"
@@ -141,6 +142,7 @@ export default function Dashboard() {
                 subtitle={metrics.overdueCount > 0 ? `${metrics.overdueCount} lançamento${metrics.overdueCount > 1 ? 's' : ''}` : undefined}
                 icon={AlertTriangle}
                 iconColor="text-destructive"
+                onClick={() => navigate('/lancamentos?status=vencido')}
               />
             </div>
 

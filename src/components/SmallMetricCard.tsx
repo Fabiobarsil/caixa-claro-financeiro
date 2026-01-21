@@ -7,6 +7,7 @@ interface SmallMetricCardProps {
   subtitle?: string;
   icon: LucideIcon;
   iconColor?: string;
+  onClick?: () => void;
 }
 
 export default function SmallMetricCard({ 
@@ -14,10 +15,19 @@ export default function SmallMetricCard({
   value, 
   subtitle,
   icon: Icon,
-  iconColor 
+  iconColor,
+  onClick
 }: SmallMetricCardProps) {
+  const Component = onClick ? 'button' : 'div';
+  
   return (
-    <div className="bg-card rounded-xl p-4 border border-border shadow-card transition-all card-interactive">
+    <Component 
+      onClick={onClick}
+      className={cn(
+        "bg-card rounded-xl p-4 border border-border shadow-card transition-all card-interactive w-full text-left",
+        onClick && "cursor-pointer hover:border-primary/50"
+      )}
+    >
       <div className="flex items-center gap-3">
         <div className={cn(
           "w-10 h-10 rounded-lg bg-secondary flex items-center justify-center",
@@ -33,6 +43,6 @@ export default function SmallMetricCard({
           )}
         </div>
       </div>
-    </div>
+    </Component>
   );
 }
