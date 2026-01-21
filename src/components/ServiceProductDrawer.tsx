@@ -29,12 +29,14 @@ interface ServiceProductDrawerProps {
   open: boolean;
   onClose: () => void;
   editingItem: ServiceProduct | null;
+  onItemCreated?: (itemName: string) => void;
 }
 
 export default function ServiceProductDrawer({
   open,
   onClose,
   editingItem,
+  onItemCreated,
 }: ServiceProductDrawerProps) {
   const { createItem, updateItem, deleteItem, isAdmin } = useServicesProducts();
   
@@ -79,6 +81,8 @@ export default function ServiceProductDrawer({
         await updateItem.mutateAsync({ id: editingItem.id, ...data });
       } else {
         await createItem.mutateAsync(data);
+        // Notify parent about the new item so it can be auto-selected
+        onItemCreated?.(data.name);
       }
       onClose();
     } finally {

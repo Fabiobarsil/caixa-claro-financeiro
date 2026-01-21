@@ -16,9 +16,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { ArrowLeft, Check, Loader2, Calendar, CreditCard, Package } from 'lucide-react';
+import { ArrowLeft, Check, Loader2, Calendar, CreditCard, Package, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import ServiceProductDrawer from '@/components/ServiceProductDrawer';
 
 type PaymentMethod = 'pix' | 'cartao_credito' | 'cartao_debito' | 'dinheiro';
 type PaymentStatus = 'pago' | 'pendente';
@@ -50,6 +51,10 @@ export default function NewEntry() {
   const [intervalDays, setIntervalDays] = useState('30');
   const [firstDueDate, setFirstDueDate] = useState(() => getDefaultDueDate(new Date().toISOString().split('T')[0]));
   const [monthsTotal, setMonthsTotal] = useState('3');
+
+  // Service/Product drawer state
+  const [isServiceProductDrawerOpen, setIsServiceProductDrawerOpen] = useState(false);
+  const [pendingItemSelection, setPendingItemSelection] = useState<string | null>(null);
 
   // Update default due date when entry date changes
   useEffect(() => {
@@ -97,6 +102,30 @@ export default function NewEntry() {
       setUnitValue(item.base_price.toString());
     }
   };
+
+  // Handle new service/product created from drawer
+  const handleServiceProductDrawerClose = () => {
+    setIsServiceProductDrawerOpen(false);
+    
+    // If there's a pending item to select, wait for the query to refetch and select it
+    if (pendingItemSelection) {
+      // The item will be selected after the next render when servicesProducts updates
+    }
+  };
+
+  // Watch for new items to auto-select after creation
+  useEffect(() => {
+    if (pendingItemSelection && servicesProducts.length > 0) {
+      const newItem = servicesProducts.find(item => item.name === pendingItemSelection);
+      if (newItem) {
+        setItemType(newItem.type);
+        setTimeout(() => {
+          handleItemChange(newItem.id);
+        }, 100);
+        setPendingItemSelection(null);
+      }
+    }
+  }, [servicesProducts, pendingItemSelection]);
 
   // Handle installment toggle
   const handleInstallmentToggle = (checked: boolean) => {
@@ -272,11 +301,19 @@ export default function NewEntry() {
               )}
             </SelectContent>
           </Select>
-          {filteredItems.length === 0 && !itemsLoading && (
-            <p className="text-xs text-muted-foreground">
-              Cadastre itens em Configurações → Serviços e Produtos
-            </p>
-          )}
+          <p className="text-xs text-muted-foreground">
+            Selecione um serviço ou produto previamente cadastrado
+          </p>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-8 px-2 text-primary hover:text-primary/80 hover:bg-primary/10 -mt-1"
+            onClick={() => setIsServiceProductDrawerOpen(true)}
+          >
+            <Plus size={14} className="mr-1" />
+            Criar novo serviço/produto
+          </Button>
         </div>
 
         {/* Quantidade e Valor */}
@@ -537,6 +574,14 @@ export default function NewEntry() {
           )}
         </div>
       </div>
+
+      {/* Service/Product Creation Drawer */}
+      <ServiceProductDrawer
+        open={isServiceProductDrawerOpen}
+        onClose={handleServiceProductDrawerClose}
+        editingItem={null}
+        onItemCreated={(itemName) => setPendingItemSelection(itemName)}
+      />
     </div>
   );
 }
