@@ -71,7 +71,7 @@ export default function Dashboard() {
     <AppLayout>
       <div className="flex flex-col h-full">
         {/* Month Filter */}
-        <div className="mb-6">
+        <div className="mb-4">
           <Select value={selectedMonth} onValueChange={setSelectedMonth}>
             <SelectTrigger className="w-48 bg-card border-border capitalize shadow-sm">
               <SelectValue placeholder="Selecione o mês" />
@@ -85,6 +85,11 @@ export default function Dashboard() {
             </SelectContent>
           </Select>
         </div>
+
+        {/* Support Text */}
+        <p className="text-sm text-muted-foreground mb-6">
+          Tenha clareza sobre seu dinheiro hoje e previsibilidade para os próximos dias.
+        </p>
 
         {isFullyLoading ? (
           <div className="flex-1 flex items-center justify-center">
@@ -100,6 +105,8 @@ export default function Dashboard() {
                   value={metrics.received}
                   icon={ArrowDownCircle}
                   variant="success"
+                  tooltip="Total de valores já pagos e confirmados no período selecionado."
+                  subtitle="Pagamentos que já entraram no seu caixa."
                 />
                 <KPICard
                   title="A Receber (Geral)"
@@ -107,25 +114,34 @@ export default function Dashboard() {
                   icon={Wallet}
                   variant="info"
                   onClick={() => navigate('/lancamentos?status=pendente_geral')}
+                  tooltip="Valores futuros esperados, incluindo parcelas, recorrências e serviços já vendidos."
+                  subtitle="Projeção total do que você ainda vai receber."
                 />
                 <KPICard
                   title="Despesas"
                   value={metrics.expenses}
                   icon={TrendingDown}
                   variant="expense"
+                  tooltip="Total de despesas registradas no período selecionado."
+                  subtitle="Gastos que impactam diretamente seu lucro."
                 />
                 <KPICard
                   title="Lucro Estimado"
                   value={metrics.profit}
                   icon={TrendingUp}
                   variant="neutral"
+                  tooltip="Resultado estimado considerando valores recebidos menos despesas."
+                  subtitle="Visão clara do quanto sobra no seu caixa."
                 />
               </div>
             </section>
 
             {/* Section 2: Status Rápido */}
             <section className="mb-6">
-              <SectionCard title="Status Rápido" subtitle="Situação dos seus recebíveis">
+              <SectionCard 
+                title="Status Rápido" 
+                subtitle="Situação atual dos seus recebíveis"
+              >
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                   <StatusIndicator
                     label="A vencer"
@@ -133,6 +149,7 @@ export default function Dashboard() {
                     icon={Clock}
                     variant="warning"
                     onClick={() => navigate('/lancamentos?status=a_vencer')}
+                    tooltip="Valores com pagamento previsto dentro do prazo."
                   />
                   <StatusIndicator
                     label="Em atraso"
@@ -140,12 +157,14 @@ export default function Dashboard() {
                     icon={AlertTriangle}
                     variant="danger"
                     onClick={() => navigate('/lancamentos?status=vencido')}
+                    tooltip="Valores que já passaram do vencimento e ainda não foram pagos."
                   />
                   <StatusIndicator
                     label="Pagos no mês"
                     value={formatCurrency(metrics.received)}
                     icon={CheckCircle}
                     variant="success"
+                    tooltip="Total recebido dentro do mês selecionado."
                   />
                 </div>
               </SectionCard>

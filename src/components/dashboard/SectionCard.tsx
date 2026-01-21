@@ -1,5 +1,12 @@
 import { cn } from '@/lib/utils';
 import { ReactNode } from 'react';
+import { HelpCircle } from 'lucide-react';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 export interface SectionCardProps {
   title?: string;
@@ -9,6 +16,8 @@ export interface SectionCardProps {
   children: ReactNode;
   className?: string;
   noPadding?: boolean;
+  tooltip?: string;
+  footer?: string;
 }
 
 export default function SectionCard({ 
@@ -18,7 +27,9 @@ export default function SectionCard({
   action, 
   children, 
   className,
-  noPadding
+  noPadding,
+  tooltip,
+  footer
 }: SectionCardProps) {
   return (
     <div className={cn(
@@ -30,7 +41,21 @@ export default function SectionCard({
           <div className="flex items-center gap-2">
             {icon}
             <div>
-              {title && <h3 className="text-base font-semibold text-foreground">{title}</h3>}
+              <div className="flex items-center gap-1.5">
+                {title && <h3 className="text-base font-semibold text-foreground">{title}</h3>}
+                {tooltip && (
+                  <TooltipProvider delayDuration={300}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <HelpCircle size={14} className="text-muted-foreground/60 cursor-help" />
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="max-w-xs">
+                        <p>{tooltip}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                )}
+              </div>
               {subtitle && <p className="text-xs text-muted-foreground mt-0.5">{subtitle}</p>}
             </div>
           </div>
@@ -40,6 +65,11 @@ export default function SectionCard({
       <div className={cn(!noPadding && 'p-5')}>
         {children}
       </div>
+      {footer && (
+        <div className="px-5 py-3 border-t border-border">
+          <p className="text-xs text-muted-foreground">{footer}</p>
+        </div>
+      )}
     </div>
   );
 }

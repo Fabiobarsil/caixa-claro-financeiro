@@ -48,6 +48,8 @@ export default function CriticalDueDates({ items }: CriticalDueDatesProps) {
       <SectionCard 
         title="Vencimentos Críticos" 
         icon={<Clock size={18} className="text-warning" />}
+        tooltip="Próximos valores importantes que exigem atenção."
+        subtitle="Antecipar ações aqui ajuda a evitar inadimplência"
       >
         <div className="flex flex-col items-center justify-center py-8 text-center">
           <Calendar size={32} className="text-muted-foreground/50 mb-2" />
@@ -66,7 +68,8 @@ export default function CriticalDueDates({ items }: CriticalDueDatesProps) {
     <SectionCard 
       title="Vencimentos Críticos" 
       icon={<Clock size={18} className="text-warning" />}
-      subtitle="Próximos 5 vencimentos"
+      tooltip="Próximos valores importantes que exigem atenção."
+      subtitle="Antecipar ações aqui ajuda a evitar inadimplência"
     >
       <div className="space-y-2">
         {items.map((item, index) => {

@@ -1,6 +1,12 @@
-import { LucideIcon } from 'lucide-react';
+import { LucideIcon, HelpCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatCurrency } from '@/lib/formatters';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 interface KPICardProps {
   title: string;
@@ -8,6 +14,8 @@ interface KPICardProps {
   icon: LucideIcon;
   variant: 'success' | 'info' | 'expense' | 'neutral';
   onClick?: () => void;
+  tooltip?: string;
+  subtitle?: string;
 }
 
 const variantStyles = {
@@ -37,7 +45,7 @@ const variantStyles = {
   },
 };
 
-export default function KPICard({ title, value, icon: Icon, variant, onClick }: KPICardProps) {
+export default function KPICard({ title, value, icon: Icon, variant, onClick, tooltip, subtitle }: KPICardProps) {
   const styles = variantStyles[variant];
   const Component = onClick ? 'button' : 'div';
 
@@ -52,8 +60,22 @@ export default function KPICard({ title, value, icon: Icon, variant, onClick }: 
         onClick && 'cursor-pointer'
       )}
     >
-      <div className="flex items-center justify-between mb-4">
-        <span className="text-sm font-medium text-muted-foreground">{title}</span>
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-1.5">
+          <span className="text-sm font-medium text-muted-foreground">{title}</span>
+          {tooltip && (
+            <TooltipProvider delayDuration={300}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <HelpCircle size={14} className="text-muted-foreground/60 cursor-help" />
+                </TooltipTrigger>
+                <TooltipContent side="top" className="max-w-xs">
+                  <p>{tooltip}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+        </div>
         <div className={cn('w-10 h-10 rounded-xl flex items-center justify-center shadow-sm', styles.icon)}>
           <Icon size={20} />
         </div>
@@ -61,6 +83,9 @@ export default function KPICard({ title, value, icon: Icon, variant, onClick }: 
       <p className={cn('text-2xl font-bold tracking-tight', styles.value)}>
         {formatCurrency(value)}
       </p>
+      {subtitle && (
+        <p className="text-xs text-muted-foreground mt-1.5">{subtitle}</p>
+      )}
     </Component>
   );
 }

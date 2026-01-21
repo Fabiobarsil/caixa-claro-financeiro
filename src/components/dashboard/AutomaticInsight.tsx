@@ -81,6 +81,7 @@ export default function AutomaticInsight({
     <SectionCard 
       title="Insight Automático" 
       icon={<Lightbulb size={18} className="text-warning" />}
+      tooltip="Análise gerada automaticamente pelo sistema."
     >
       <div className={cn(
         'rounded-xl p-4 border',
