@@ -19,19 +19,19 @@ const steps = [
     icon: Package,
     title: 'Cadastre seus serviços ou produtos',
     description: 'Defina o que você oferece para agilizar os lançamentos.',
-    route: '/servicos-produtos',
+    route: '/configuracoes/servicos',
   },
   {
     icon: Users,
     title: 'Adicione seus clientes',
     description: 'Organize seus atendimentos e histórico por cliente.',
-    route: '/clientes',
+    route: '/clientes/novo',
   },
   {
     icon: FileText,
     title: 'Registre lançamentos',
     description: 'Acompanhe seu fluxo de caixa e visualize relatórios.',
-    route: '/novo-lancamento',
+    route: '/lancamentos/novo',
   },
 ];
 
