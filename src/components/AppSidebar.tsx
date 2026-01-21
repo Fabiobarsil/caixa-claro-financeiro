@@ -100,9 +100,12 @@ export default function AppSidebar() {
 
       {/* Footer */}
       {!isCollapsed && (
-        <div className="p-4 border-t border-sidebar-border">
+        <div className="p-4 border-t border-sidebar-border space-y-2">
           <p className="text-xs text-sidebar-foreground/60 text-center">
-            © 2026 CaixaCertus
+            CaixaCertus • Controle com previsibilidade
+          </p>
+          <p className="text-[10px] text-sidebar-foreground/40 text-center leading-relaxed">
+            Para quem precisa de clareza, não planilhas.
           </p>
         </div>
       )}

@@ -4,17 +4,20 @@ import { Plus } from 'lucide-react';
 import BottomNav from './BottomNav';
 import AppSidebar from './AppSidebar';
 import GlobalHeader from './GlobalHeader';
+import TrustFooter from './TrustFooter';
 
 interface AppLayoutProps {
   children: ReactNode;
   showFab?: boolean;
   showHeader?: boolean;
+  showFooter?: boolean;
 }
 
 export default function AppLayout({ 
   children, 
   showFab = true,
-  showHeader = true 
+  showHeader = true,
+  showFooter = true 
 }: AppLayoutProps) {
   const navigate = useNavigate();
 
@@ -34,6 +37,9 @@ export default function AppLayout({
             {children}
           </div>
         </main>
+
+        {/* Trust Footer - Desktop */}
+        {showFooter && <TrustFooter className="hidden lg:block" />}
         
         {/* Mobile FAB */}
         {showFab && (

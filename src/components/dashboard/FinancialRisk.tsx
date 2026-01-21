@@ -16,26 +16,26 @@ export default function FinancialRisk({
   const riskConfig = {
     low: {
       label: 'Baixo',
+      emoji: '🟢',
       color: 'text-success',
       bgColor: 'bg-success/10',
       borderColor: 'border-success/30',
-      icon: '✓',
       statusMessage: 'Situação financeira saudável no momento.',
     },
     medium: {
-      label: 'Médio',
+      label: 'Moderado',
+      emoji: '🟡',
       color: 'text-warning',
       bgColor: 'bg-warning/10',
       borderColor: 'border-warning/30',
-      icon: '⚠',
       statusMessage: 'Atenção a possíveis atrasos futuros.',
     },
     high: {
       label: 'Alto',
+      emoji: '🔴',
       color: 'text-expense',
       bgColor: 'bg-expense/10',
       borderColor: 'border-expense/30',
-      icon: '⚠',
       statusMessage: 'Existem sinais de risco que merecem ação imediata.',
     },
   };
@@ -49,14 +49,14 @@ export default function FinancialRisk({
       tooltip="Análise automática baseada em atrasos, inadimplência e histórico recente."
     >
       <div className="space-y-4">
-        {/* Risk Level Badge */}
+        {/* Risk Level Badge with emoji scale */}
         <div className={cn(
           'flex flex-col items-center justify-center gap-2 py-4 rounded-xl border-2',
           config.bgColor,
           config.borderColor
         )}>
           <div className="flex items-center gap-2">
-            <span className="text-xl">{config.icon}</span>
+            <span className="text-xl">{config.emoji}</span>
             <span className={cn('text-lg font-bold', config.color)}>
               Risco {config.label}
             </span>
@@ -64,6 +64,22 @@ export default function FinancialRisk({
           <p className="text-xs text-muted-foreground text-center px-3">
             {config.statusMessage}
           </p>
+        </div>
+
+        {/* Visual Risk Scale */}
+        <div className="flex items-center justify-center gap-2 py-2">
+          <div className={cn(
+            'w-8 h-2 rounded-full transition-all',
+            riskLevel === 'low' ? 'bg-success' : 'bg-success/30'
+          )} />
+          <div className={cn(
+            'w-8 h-2 rounded-full transition-all',
+            riskLevel === 'medium' ? 'bg-warning' : 'bg-warning/30'
+          )} />
+          <div className={cn(
+            'w-8 h-2 rounded-full transition-all',
+            riskLevel === 'high' ? 'bg-expense' : 'bg-expense/30'
+          )} />
         </div>
 
         {/* Risk Indicators */}
@@ -100,6 +116,11 @@ export default function FinancialRisk({
             </p>
           </div>
         </div>
+
+        {/* Assessment footnote */}
+        <p className="text-[10px] text-muted-foreground/60 text-center pt-2">
+          Avaliação baseada no comportamento financeiro atual.
+        </p>
       </div>
     </SectionCard>
   );

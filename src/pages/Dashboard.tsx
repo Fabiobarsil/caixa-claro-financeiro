@@ -13,9 +13,12 @@ import FinancialRisk from '@/components/dashboard/FinancialRisk';
 import CriticalDueDates from '@/components/dashboard/CriticalDueDates';
 import AutomaticInsight from '@/components/dashboard/AutomaticInsight';
 import OnboardingBanner from '@/components/dashboard/OnboardingBanner';
+import DataTimestamp from '@/components/dashboard/DataTimestamp';
+import MilestoneToast from '@/components/dashboard/MilestoneToast';
 import { useDashboard } from '@/hooks/useDashboard';
 import { useProjections } from '@/hooks/useProjections';
 import { useEntries } from '@/hooks/useEntries';
+import { useUserStats } from '@/hooks/useUserStats';
 import { formatCurrency } from '@/lib/formatters';
 import { format, subMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -60,6 +63,7 @@ export default function Dashboard() {
   const { metrics, recentEntries, pendingEntries, chartData, isLoading } = useDashboard(selectedMonth);
   const { projections, isLoading: projectionsLoading } = useProjections();
   const { entries } = useEntries();
+  const { stats } = useUserStats();
 
   // Check if user has any entries (for onboarding)
   const hasEntries = entries.length > 0;
@@ -77,11 +81,43 @@ export default function Dashboard() {
   // Check if Status Rápido has all zero values
   const statusAllZero = metrics.upcomingValue === 0 && metrics.overdueValue === 0 && metrics.received === 0;
 
+  // Check for concentration warnings (for analytical insights)
+  const concentrationWarning = useMemo(() => {
+    // If more than 60% of pending value is in top 2 entries, warn about concentration
+    if (pendingEntries.length < 3) return false;
+    const sortedByValue = [...pendingEntries].sort((a, b) => b.value - a.value);
+    const top2Value = sortedByValue.slice(0, 2).reduce((sum, e) => sum + e.value, 0);
+    const totalValue = pendingEntries.reduce((sum, e) => sum + e.value, 0);
+    return totalValue > 0 && (top2Value / totalValue) > 0.6;
+  }, [pendingEntries]);
+
+  // Check for upcoming concentration (many due dates in next 3 days)
+  const upcomingConcentration = useMemo(() => {
+    const today = new Date();
+    const threeDaysFromNow = new Date(today);
+    threeDaysFromNow.setDate(threeDaysFromNow.getDate() + 3);
+    
+    const upcomingCount = pendingEntries.filter(e => {
+      if (!e.due_date) return false;
+      const dueDate = new Date(e.due_date);
+      return dueDate >= today && dueDate <= threeDaysFromNow;
+    }).length;
+    
+    return upcomingCount >= 3;
+  }, [pendingEntries]);
+
   return (
     <AppLayout>
       <div className="flex flex-col h-full">
-        {/* Month Filter */}
-        <div className="mb-4">
+        {/* Milestone Toast - invisible, shows toasts when milestones are reached */}
+        <MilestoneToast 
+          totalEntries={stats.totalEntries}
+          accountCreatedAt={stats.accountCreatedAt || undefined}
+          hasFirstPayment={stats.hasFirstPayment}
+        />
+
+        {/* Month Filter + Data Timestamp */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
           <Select value={selectedMonth} onValueChange={setSelectedMonth}>
             <SelectTrigger className="w-48 bg-card border-border capitalize shadow-sm">
               <SelectValue placeholder="Selecione o mês" />
@@ -94,6 +130,9 @@ export default function Dashboard() {
               ))}
             </SelectContent>
           </Select>
+          
+          {/* Data Timestamp - Authority Element */}
+          <DataTimestamp />
         </div>
 
         {/* Support Text */}
@@ -214,6 +253,8 @@ export default function Dashboard() {
                   overduePercentage={projections.overduePercentage}
                   delinquentClientsCount={projections.delinquentClientsCount}
                   totalEntries={entries.length}
+                  concentrationWarning={concentrationWarning}
+                  upcomingConcentration={upcomingConcentration}
                 />
               </div>
             </section>
