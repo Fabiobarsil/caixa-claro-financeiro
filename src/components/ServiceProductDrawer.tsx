@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useServicesProducts, ServiceProduct, ItemType } from '@/hooks/useServicesProducts';
+import { capitalizeWords } from '@/lib/inputFormatters';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -149,7 +150,7 @@ export default function ServiceProductDrawer({
             <Input
               id="name"
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={(e) => setName(capitalizeWords(e.target.value))}
               placeholder={type === 'servico' ? 'Ex: Consulta' : 'Ex: Whey Protein'}
               className="h-12 bg-card"
             />

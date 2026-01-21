@@ -2,6 +2,7 @@ import { useState } from 'react';
 import AppLayout from '@/components/AppLayout';
 import { useClients } from '@/hooks/useClients';
 import { formatCurrency } from '@/lib/formatters';
+import { capitalizeWords, formatPhone } from '@/lib/inputFormatters';
 import { Search, ChevronRight, User, Plus, Loader2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -73,7 +74,7 @@ export default function Clients() {
                     id="name"
                     placeholder="Nome do cliente"
                     value={newClientName}
-                    onChange={(e) => setNewClientName(e.target.value)}
+                    onChange={(e) => setNewClientName(capitalizeWords(e.target.value))}
                     className="h-11"
                   />
                 </div>
@@ -84,7 +85,7 @@ export default function Clients() {
                     type="tel"
                     placeholder="(11) 99999-9999"
                     value={newClientPhone}
-                    onChange={(e) => setNewClientPhone(e.target.value)}
+                    onChange={(e) => setNewClientPhone(formatPhone(e.target.value))}
                     className="h-11"
                   />
                 </div>
