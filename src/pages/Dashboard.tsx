@@ -20,7 +20,8 @@ import {
   Package,
   Scissors,
   AlertTriangle,
-  CalendarClock
+  CalendarClock,
+  Wallet
 } from 'lucide-react';
 import {
   Select,
@@ -108,7 +109,7 @@ export default function Dashboard() {
                 variant="success"
               />
               <MetricCard
-                title="A Receber"
+                title="A Receber (Mês)"
                 value={metrics.pending}
                 icon={Clock}
                 variant="warning"
@@ -127,17 +128,33 @@ export default function Dashboard() {
               />
             </div>
 
-            {/* Secondary Metrics - Accounts Receivable */}
+            {/* Global Receivables Card */}
+            <div className="mb-4">
+              <SmallMetricCard
+                title="A Receber (Geral)"
+                value={formatCurrency(metrics.globalPending)}
+                subtitle={
+                  metrics.globalPending > 0 
+                    ? `Próx. 30 dias: ${formatCurrency(metrics.globalNext30Days)} • Em atraso: ${formatCurrency(metrics.globalOverdue)}`
+                    : undefined
+                }
+                icon={Wallet}
+                iconColor="text-primary"
+                onClick={() => navigate('/lancamentos?status=pendente_geral')}
+              />
+            </div>
+
+            {/* Secondary Metrics - Accounts Receivable (Monthly) */}
             <div className="grid grid-cols-2 gap-3 mb-4">
               <SmallMetricCard
-                title="A vencer"
+                title="A vencer (Mês)"
                 value={formatCurrency(metrics.upcomingValue)}
                 icon={CalendarClock}
                 iconColor="text-warning"
                 onClick={() => navigate('/lancamentos?status=a_vencer')}
               />
               <SmallMetricCard
-                title="Em atraso"
+                title="Em atraso (Mês)"
                 value={formatCurrency(metrics.overdueValue)}
                 subtitle={metrics.overdueCount > 0 ? `${metrics.overdueCount} lançamento${metrics.overdueCount > 1 ? 's' : ''}` : undefined}
                 icon={AlertTriangle}
