@@ -272,11 +272,11 @@ export default function NewEntry() {
       {/* Form */}
       <div className="p-4 space-y-5">
         {/* Cliente */}
-        <div className="space-y-2">
-          <Label>Cliente *</Label>
+        <div className="space-y-1.5">
+          <Label className="text-sm">Cliente *</Label>
           <Select value={clientId} onValueChange={setClientId} disabled={isLoading}>
             <SelectTrigger className={cn(
-              "h-12 bg-card",
+              "h-11 bg-card",
               showValidation && !clientId && "border-destructive"
             )}>
               <SelectValue placeholder={clientsLoading ? "Carregando..." : "Selecione o cliente"} />
@@ -308,12 +308,12 @@ export default function NewEntry() {
         />
 
         {/* Quantidade e Valor */}
-        <div className="bg-card rounded-xl border border-border p-4 space-y-4">
+        <div className="bg-card rounded-xl border border-border p-4 space-y-3">
           <h3 className="text-sm font-semibold text-foreground">Valores</h3>
           
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-3">
             {/* Quantidade - mostra mais destaque para produtos */}
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <Label className="text-xs text-muted-foreground">
                 Quantidade {itemType === 'produto' && '*'}
               </Label>
@@ -322,10 +322,10 @@ export default function NewEntry() {
                 min="1"
                 value={quantity}
                 onChange={(e) => setQuantity(e.target.value)}
-                className="h-12 bg-background"
+                className="h-11 bg-background"
               />
             </div>
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <Label className="text-xs text-muted-foreground">Valor unit. (R$) *</Label>
               <Input
                 type="number"
@@ -333,7 +333,7 @@ export default function NewEntry() {
                 value={unitValue}
                 onChange={(e) => setUnitValue(e.target.value)}
                 className={cn(
-                  "h-12 bg-background",
+                  "h-11 bg-background",
                   showValidation && !unitValue && "border-destructive"
                 )}
                 placeholder="0,00"
@@ -342,10 +342,10 @@ export default function NewEntry() {
           </div>
 
           {/* Total */}
-          <div className="bg-muted/50 rounded-lg p-4 border border-border">
+          <div className="bg-muted/50 rounded-lg p-3 border border-border">
             <div className="flex justify-between items-center">
               <span className="text-sm text-muted-foreground">Total</span>
-              <span className="text-2xl font-bold text-foreground tabular-nums">
+              <span className="text-xl font-bold text-foreground tabular-nums">
                 R$ {totalValue.toFixed(2)}
               </span>
             </div>
@@ -353,10 +353,10 @@ export default function NewEntry() {
         </div>
 
         {/* Forma de pagamento */}
-        <div className="space-y-2">
-          <Label>Forma de pagamento</Label>
+        <div className="space-y-1.5">
+          <Label className="text-sm">Forma de pagamento</Label>
           <Select value={paymentMethod} onValueChange={(v) => setPaymentMethod(v as PaymentMethod)}>
-            <SelectTrigger className="h-12 bg-card">
+            <SelectTrigger className="h-11 bg-card">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -369,14 +369,14 @@ export default function NewEntry() {
         </div>
 
         {/* Status */}
-        <div className="space-y-2">
-          <Label>Status</Label>
+        <div className="space-y-1.5">
+          <Label className="text-sm">Status</Label>
           <div className="flex gap-2">
             <button
               type="button"
               onClick={() => setStatus('pendente')}
               className={cn(
-                'flex-1 py-3 rounded-lg font-medium transition-colors',
+                'flex-1 py-2.5 rounded-lg font-medium text-sm transition-colors',
                 status === 'pendente'
                   ? 'bg-warning text-warning-foreground'
                   : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
@@ -388,7 +388,7 @@ export default function NewEntry() {
               type="button"
               onClick={() => setStatus('pago')}
               className={cn(
-                'flex-1 py-3 rounded-lg font-medium transition-colors',
+                'flex-1 py-2.5 rounded-lg font-medium text-sm transition-colors',
                 status === 'pago'
                   ? 'bg-success text-success-foreground'
                   : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
@@ -400,19 +400,19 @@ export default function NewEntry() {
         </div>
 
         {/* Data do Lançamento */}
-        <div className="space-y-2">
-          <Label>Data do lançamento</Label>
+        <div className="space-y-1.5">
+          <Label className="text-sm">Data do lançamento</Label>
           <Input
             type="date"
             value={date}
             onChange={(e) => setDate(e.target.value)}
-            className="h-12 bg-card"
+            className="h-11 bg-card"
           />
         </div>
 
         {/* Billing Type Section - Only for pending status */}
         {status === 'pendente' && (
-          <div className="bg-card rounded-xl border border-border p-4 space-y-4">
+          <div className="bg-card rounded-xl border border-border p-4 space-y-3">
             <h3 className="text-sm font-semibold text-foreground">Tipo de cobrança</h3>
             
             <BillingTypeSelector
@@ -422,9 +422,9 @@ export default function NewEntry() {
             
             {/* Single payment due date */}
             {billingType === 'single' && (
-              <div className="space-y-2 animate-fade-in">
+              <div className="space-y-1.5 animate-fade-in">
                 <div className="flex items-center gap-2">
-                  <Calendar size={16} className="text-muted-foreground" />
+                  <Calendar size={14} className="text-muted-foreground" />
                   <Label className="text-xs text-muted-foreground">Vencimento</Label>
                 </div>
                 <Input
@@ -493,10 +493,10 @@ export default function NewEntry() {
         )}
 
         {/* Actions */}
-        <div className="pt-4 space-y-3 pb-8">
+        <div className="pt-4 space-y-2.5 pb-8">
           <Button
             onClick={() => handleSubmit(false)}
-            className="w-full h-12 text-base font-semibold"
+            className="w-full h-11"
             disabled={isSubmitting}
           >
             {isSubmitting ? (
@@ -513,7 +513,7 @@ export default function NewEntry() {
             <Button
               variant="outline"
               onClick={() => handleSubmit(true)}
-              className="w-full h-12 text-base font-semibold border-success text-success hover:bg-success hover:text-success-foreground"
+              className="w-full h-11 border-success text-success hover:bg-success hover:text-success-foreground"
               disabled={isSubmitting}
             >
               <Check className="mr-2 h-4 w-4" />

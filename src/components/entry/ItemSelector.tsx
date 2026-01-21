@@ -35,11 +35,11 @@ export default function ItemSelector({
   const filteredItems = items.filter(item => item.type === itemType);
   
   return (
-    <div className="bg-card rounded-xl border border-border p-4 space-y-4">
+    <div className="bg-card rounded-xl border border-border p-4 space-y-3">
       <h3 className="text-sm font-semibold text-foreground">Item do lançamento</h3>
       
       {/* Tipo toggle */}
-      <div className="space-y-2">
+      <div className="space-y-1.5">
         <Label className="text-xs text-muted-foreground">Tipo</Label>
         <div className="flex gap-2">
           <button
@@ -70,12 +70,12 @@ export default function ItemSelector({
       </div>
       
       {/* Item select */}
-      <div className="space-y-2">
+      <div className="space-y-1.5">
         <Label className="text-xs text-muted-foreground">
           {itemType === 'servico' ? 'Serviço' : 'Produto'} *
         </Label>
         <Select value={itemId} onValueChange={onItemChange} disabled={isLoading}>
-          <SelectTrigger className="h-12 bg-background">
+          <SelectTrigger className="h-11 bg-background">
             <SelectValue placeholder={isLoading ? "Carregando..." : `Selecione o ${itemType}`} />
           </SelectTrigger>
           <SelectContent>

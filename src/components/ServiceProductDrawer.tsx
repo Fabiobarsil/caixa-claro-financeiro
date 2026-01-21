@@ -107,25 +107,25 @@ export default function ServiceProductDrawer({
 
   return (
     <Drawer open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
-      <DrawerContent>
-        <DrawerHeader>
-          <DrawerTitle>
+      <DrawerContent className="max-h-[85vh]">
+        <DrawerHeader className="pb-2">
+          <DrawerTitle className="text-lg">
             {editingItem ? 'Editar Item' : 'Novo Item'}
           </DrawerTitle>
         </DrawerHeader>
 
-        <div className="px-4 space-y-4">
+        <div className="px-4 space-y-4 overflow-y-auto">
           {/* Type Toggle */}
-          <div className="space-y-2">
-            <Label>Tipo</Label>
+          <div className="space-y-1.5">
+            <Label className="text-sm">Tipo</Label>
             <div className="flex gap-2">
               <button
                 onClick={() => setType('servico')}
                 className={cn(
-                  'flex-1 py-3 rounded-lg font-medium transition-colors',
+                  'flex-1 py-2.5 rounded-lg font-medium text-sm transition-colors',
                   type === 'servico'
                     ? 'bg-primary text-primary-foreground'
-                    : 'bg-secondary text-secondary-foreground'
+                    : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
                 )}
               >
                 Serviço
@@ -133,10 +133,10 @@ export default function ServiceProductDrawer({
               <button
                 onClick={() => setType('produto')}
                 className={cn(
-                  'flex-1 py-3 rounded-lg font-medium transition-colors',
+                  'flex-1 py-2.5 rounded-lg font-medium text-sm transition-colors',
                   type === 'produto'
                     ? 'bg-primary text-primary-foreground'
-                    : 'bg-secondary text-secondary-foreground'
+                    : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
                 )}
               >
                 Produto
@@ -145,20 +145,20 @@ export default function ServiceProductDrawer({
           </div>
 
           {/* Name */}
-          <div className="space-y-2">
-            <Label htmlFor="name">Nome *</Label>
+          <div className="space-y-1.5">
+            <Label htmlFor="name" className="text-sm">Nome *</Label>
             <Input
               id="name"
               value={name}
               onChange={(e) => setName(capitalizeWords(e.target.value))}
               placeholder={type === 'servico' ? 'Ex: Consulta' : 'Ex: Whey Protein'}
-              className="h-12 bg-card"
+              className="h-11"
             />
           </div>
 
           {/* Price */}
-          <div className="space-y-2">
-            <Label htmlFor="basePrice">Preço (R$) *</Label>
+          <div className="space-y-1.5">
+            <Label htmlFor="basePrice" className="text-sm">Preço (R$) *</Label>
             <Input
               id="basePrice"
               type="number"
@@ -167,14 +167,14 @@ export default function ServiceProductDrawer({
               value={basePrice}
               onChange={(e) => setBasePrice(e.target.value)}
               placeholder="0,00"
-              className="h-12 bg-card"
+              className="h-11"
             />
           </div>
 
           {/* Cost (only for products) */}
           {type === 'produto' && (
-            <div className="space-y-2">
-              <Label htmlFor="cost">Custo (R$)</Label>
+            <div className="space-y-1.5">
+              <Label htmlFor="cost" className="text-sm">Custo (R$)</Label>
               <Input
                 id="cost"
                 type="number"
@@ -183,30 +183,30 @@ export default function ServiceProductDrawer({
                 value={cost}
                 onChange={(e) => setCost(e.target.value)}
                 placeholder="0,00"
-                className="h-12 bg-card"
+                className="h-11"
               />
             </div>
           )}
 
           {/* Notes */}
-          <div className="space-y-2">
-            <Label htmlFor="notes">Observações</Label>
+          <div className="space-y-1.5">
+            <Label htmlFor="notes" className="text-sm">Observações</Label>
             <Textarea
               id="notes"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="Anotações sobre o item..."
-              className="bg-card resize-none"
-              rows={3}
+              className="resize-none min-h-[72px]"
+              rows={2}
             />
           </div>
         </div>
 
-        <DrawerFooter className="pt-4">
+        <DrawerFooter className="pt-4 pb-6">
           <Button
             onClick={handleSubmit}
             disabled={!isValid || isSubmitting}
-            className="w-full h-12"
+            className="w-full h-11"
           >
             {isSubmitting ? (
               <>
@@ -223,7 +223,7 @@ export default function ServiceProductDrawer({
               <AlertDialogTrigger asChild>
                 <Button
                   variant="outline"
-                  className="w-full h-12 text-destructive border-destructive hover:bg-destructive hover:text-destructive-foreground"
+                  className="w-full h-11 text-destructive border-destructive hover:bg-destructive hover:text-destructive-foreground"
                   disabled={isSubmitting}
                 >
                   <Trash2 className="mr-2 h-4 w-4" />
@@ -247,7 +247,7 @@ export default function ServiceProductDrawer({
             </AlertDialog>
           )}
 
-          <Button variant="ghost" onClick={onClose} className="w-full h-12">
+          <Button variant="ghost" onClick={onClose} className="w-full h-10 text-muted-foreground">
             Cancelar
           </Button>
         </DrawerFooter>
