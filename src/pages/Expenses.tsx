@@ -225,10 +225,17 @@ export default function Expenses() {
           </div>
         ) : expenses.length === 0 ? (
           <div className="text-center py-12">
-            <p className="text-muted-foreground">Nenhuma despesa encontrada</p>
-            <p className="text-sm text-muted-foreground mt-1">
-              Clique no botão + para adicionar
+            <MoreHorizontal className="mx-auto h-12 w-12 text-muted-foreground/50 mb-4" />
+            <h3 className="text-lg font-medium text-foreground mb-2">
+              Sem despesas registradas.
+            </h3>
+            <p className="text-sm text-muted-foreground mb-4 max-w-xs mx-auto">
+              Registrar despesas ajuda a entender seu lucro real.
             </p>
+            <Button onClick={handleOpenCreateModal}>
+              <Plus className="mr-2 h-4 w-4" />
+              Registrar despesa
+            </Button>
           </div>
         ) : (
           <div className="space-y-2">

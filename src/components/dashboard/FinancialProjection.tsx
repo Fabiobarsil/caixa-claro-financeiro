@@ -14,6 +14,7 @@ interface FinancialProjectionProps {
   projection30: ProjectionData;
   projection60: ProjectionData;
   projection90: ProjectionData;
+  hasData?: boolean;
 }
 
 type Period = '30' | '60' | '90';
@@ -22,6 +23,7 @@ export default function FinancialProjection({
   projection30,
   projection60,
   projection90,
+  hasData = true,
 }: FinancialProjectionProps) {
   const [selectedPeriod, setSelectedPeriod] = useState<Period>('30');
 
@@ -33,6 +35,9 @@ export default function FinancialProjection({
 
   const currentProjection = projections[selectedPeriod];
   const isPositiveBalance = currentProjection.balance >= 0;
+
+  // Check if there's no data to show projection
+  const noDataAvailable = !hasData && currentProjection.receivables === 0 && currentProjection.expenses === 0;
 
   return (
     <SectionCard 
@@ -59,6 +64,15 @@ export default function FinancialProjection({
             </button>
           ))}
         </div>
+
+        {/* No data message */}
+        {noDataAvailable && (
+          <div className="text-center py-4 bg-secondary/30 rounded-lg">
+            <p className="text-sm text-muted-foreground">
+              A projeção aparecerá automaticamente conforme você registrar vencimentos.
+            </p>
+          </div>
+        )}
 
         {/* Projection Details */}
         <div className="space-y-3">
