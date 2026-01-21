@@ -77,14 +77,26 @@ export function useDashboard(selectedMonth?: string) {
 
       if (expensesError) throw expensesError;
 
-      // Fetch entry schedules for the month
-      const { data: schedulesData, error: schedulesError } = await supabase
+      // Fetch entry schedules with due_date in month (for metrics)
+      const { data: schedulesInMonth, error: schedulesError } = await supabase
         .from('entry_schedules')
         .select('*')
         .gte('due_date', startDate)
         .lte('due_date', endDate);
 
       if (schedulesError) throw schedulesError;
+
+      // Fetch ALL entry_ids that have any schedules (to know which entries to exclude)
+      const entryIds = (entriesData || []).map(e => e.id);
+      const { data: allSchedulesForEntries } = await supabase
+        .from('entry_schedules')
+        .select('entry_id')
+        .in('entry_id', entryIds.length > 0 ? entryIds : ['']);
+
+      // Set of entry_ids that have schedules
+      const entryIdsWithSchedules = new Set(
+        (allSchedulesForEntries || []).map(s => s.entry_id)
+      );
 
       // Fetch clients and items for names
       const { data: clients } = await supabase
@@ -115,36 +127,35 @@ export function useDashboard(selectedMonth?: string) {
         };
       });
 
-      const schedules = (schedulesData || []) as ScheduleRow[];
+      const schedules = (schedulesInMonth || []) as ScheduleRow[];
       
-      // Calculate metrics including schedules
+      // Calculate metrics
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
-      // For entries without schedules
-      const entriesWithoutSchedules = entries.filter(e => {
-        const hasSchedules = schedules.some(s => s.entry_id === e.id);
-        return !hasSchedules;
-      });
+      // Entries WITHOUT any schedules (use entry values)
+      const entriesWithoutSchedules = entries.filter(e => !entryIdsWithSchedules.has(e.id));
 
-      // Paid entries (without schedules)
+      // ===== RECEBIDO (Received) =====
+      // Paid entries without schedules
       const paidEntriesValue = entriesWithoutSchedules
         .filter(e => e.status === 'pago')
         .reduce((sum, e) => sum + e.value, 0);
 
-      // Paid schedules
+      // Paid schedules in this month (source of truth for installments)
       const paidSchedulesValue = schedules
         .filter(s => s.status === 'pago')
         .reduce((sum, s) => sum + Number(s.amount), 0);
 
       const received = paidEntriesValue + paidSchedulesValue;
 
-      // Pending entries (without schedules)
+      // ===== A RECEBER (Pending) =====
+      // Pending entries without schedules
       const pendingEntriesValue = entriesWithoutSchedules
         .filter(e => e.status === 'pendente')
         .reduce((sum, e) => sum + e.value, 0);
 
-      // Pending schedules
+      // Pending schedules in this month
       const pendingSchedulesValue = schedules
         .filter(s => s.status === 'pendente')
         .reduce((sum, s) => sum + Number(s.amount), 0);
@@ -153,7 +164,7 @@ export function useDashboard(selectedMonth?: string) {
 
       const totalExpenses = (expensesData || []).reduce((sum, e) => sum + Number(e.value), 0);
 
-      // Calculate upcoming and overdue for entries without schedules
+      // ===== A VENCER (Upcoming) =====
       const upcomingEntriesData = entriesWithoutSchedules.filter(e => {
         if (e.status !== 'pendente' || !e.due_date) return false;
         const dueDate = new Date(e.due_date);
@@ -161,19 +172,25 @@ export function useDashboard(selectedMonth?: string) {
         return dueDate >= today;
       });
 
-      const overdueEntriesData = entriesWithoutSchedules.filter(e => {
-        if (e.status !== 'pendente' || !e.due_date) return false;
-        const dueDate = new Date(e.due_date);
-        dueDate.setHours(0, 0, 0, 0);
-        return dueDate < today;
-      });
-
-      // Calculate upcoming and overdue for schedules
       const upcomingSchedules = schedules.filter(s => {
         if (s.status !== 'pendente') return false;
         const dueDate = new Date(s.due_date);
         dueDate.setHours(0, 0, 0, 0);
         return dueDate >= today;
+      });
+
+      const upcomingValue = 
+        upcomingEntriesData.reduce((sum, e) => sum + e.value, 0) +
+        upcomingSchedules.reduce((sum, s) => sum + Number(s.amount), 0);
+
+      const upcomingCount = upcomingEntriesData.length + upcomingSchedules.length;
+
+      // ===== EM ATRASO (Overdue) =====
+      const overdueEntriesData = entriesWithoutSchedules.filter(e => {
+        if (e.status !== 'pendente' || !e.due_date) return false;
+        const dueDate = new Date(e.due_date);
+        dueDate.setHours(0, 0, 0, 0);
+        return dueDate < today;
       });
 
       const overdueSchedules = schedules.filter(s => {
@@ -183,19 +200,13 @@ export function useDashboard(selectedMonth?: string) {
         return dueDate < today;
       });
 
-      const upcomingValue = 
-        upcomingEntriesData.reduce((sum, e) => sum + e.value, 0) +
-        upcomingSchedules.reduce((sum, s) => sum + Number(s.amount), 0);
-
-      const upcomingCount = upcomingEntriesData.length + upcomingSchedules.length;
-
       const overdueValue = 
         overdueEntriesData.reduce((sum, e) => sum + e.value, 0) +
         overdueSchedules.reduce((sum, s) => sum + Number(s.amount), 0);
 
       const overdueCount = overdueEntriesData.length + overdueSchedules.length;
 
-      // Calculate average ticket
+      // Calculate average ticket (paid items count)
       const paidCount = entriesWithoutSchedules.filter(e => e.status === 'pago').length + 
                         schedules.filter(s => s.status === 'pago').length;
 
