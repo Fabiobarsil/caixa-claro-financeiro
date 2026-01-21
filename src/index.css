@@ -214,8 +214,8 @@
   .fab {
     @apply fixed right-4 bg-primary text-primary-foreground rounded-full shadow-lg;
     bottom: calc(4.5rem + env(safe-area-inset-bottom));
-    width: 56px;
-    height: 56px;
+    width: 48px;
+    height: 48px;
     display: flex;
     align-items: center;
     justify-content: center;
