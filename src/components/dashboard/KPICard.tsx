@@ -60,21 +60,23 @@ export default function KPICard({ title, value, icon: Icon, variant, onClick, to
         onClick && 'cursor-pointer'
       )}
     >
-      <div className="flex items-start justify-between gap-4 mb-3">
-        <div className="flex items-start gap-1.5 min-w-0">
-          <span className="text-sm font-medium text-muted-foreground leading-tight">{title}</span>
-          {tooltip && (
-            <TooltipProvider delayDuration={300}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <HelpCircle size={12} className="text-muted-foreground/50 cursor-help flex-shrink-0 mt-0.5" />
-                </TooltipTrigger>
-                <TooltipContent side="top" className="max-w-xs">
-                  <p>{tooltip}</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          )}
+      <div className="flex items-start justify-between mb-3">
+        <div className="flex-1 min-w-0 pr-3">
+          <div className="inline-flex items-center gap-1">
+            <span className="text-sm font-medium text-muted-foreground">{title}</span>
+            {tooltip && (
+              <TooltipProvider delayDuration={300}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <HelpCircle size={12} className="text-muted-foreground/50 cursor-help flex-shrink-0" />
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="max-w-xs">
+                    <p>{tooltip}</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
+          </div>
         </div>
         <div className={cn('w-10 h-10 rounded-xl flex items-center justify-center shadow-sm flex-shrink-0', styles.icon)}>
           <Icon size={20} />
