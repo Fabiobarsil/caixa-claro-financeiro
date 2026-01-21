@@ -67,7 +67,7 @@ export default function Login() {
             />
             <span className="text-3xl font-bold">
               <span className="text-foreground">Caixa</span>
-              <span className="text-primary">Certus</span>
+              <span style={{ color: '#309050' }}>Certus</span>
             </span>
           </div>
         </div>
