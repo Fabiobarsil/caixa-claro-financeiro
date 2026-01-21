@@ -34,7 +34,6 @@ export function useServicesProducts() {
   const { data: items = [], isLoading, error } = useQuery({
     queryKey: ['services_products'],
     queryFn: async () => {
-      // Use any to bypass type issue since we renamed price to base_price
       const { data, error } = await supabase
         .from('services_products')
         .select('*')
@@ -42,10 +41,9 @@ export function useServicesProducts() {
 
       if (error) throw error;
       
-      // Map price to base_price for compatibility
-      return (data || []).map((item: any) => ({
+      return (data || []).map((item) => ({
         ...item,
-        base_price: item.base_price ?? item.price ?? 0,
+        base_price: item.base_price ?? 0,
         cost: item.cost ?? 0,
         stock_quantity: item.stock_quantity ?? 0,
       })) as ServiceProduct[];
@@ -63,9 +61,10 @@ export function useServicesProducts() {
           user_id: user.id,
           type: input.type,
           name: input.name,
-          // Use price since that's what the DB type expects
-          price: input.base_price,
-        } as any)
+          base_price: input.base_price,
+          cost: input.cost ?? 0,
+          notes: input.notes,
+        })
         .select()
         .single();
 
@@ -89,8 +88,10 @@ export function useServicesProducts() {
         .update({
           type: input.type,
           name: input.name,
-          price: input.base_price,
-        } as any)
+          base_price: input.base_price,
+          cost: input.cost ?? 0,
+          notes: input.notes,
+        })
         .eq('id', id)
         .select()
         .single();
