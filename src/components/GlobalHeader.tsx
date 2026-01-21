@@ -1,10 +1,17 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Home, LogOut } from 'lucide-react';
+import { Home, LogOut, ChevronDown } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
+import logoCaixacertus from '@/assets/logo-caixacertus.svg';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 function getGreeting(): string {
   const hour = new Date().getHours();
@@ -30,6 +37,7 @@ interface GlobalHeaderProps {
 
 export default function GlobalHeader({ className }: GlobalHeaderProps) {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, logout } = useAuth();
   const now = useCurrentTime();
 
@@ -38,6 +46,8 @@ export default function GlobalHeader({ className }: GlobalHeaderProps) {
   const fullDate = format(now, "d 'de' MMMM 'de' yyyy", { locale: ptBR });
   const currentTime = format(now, "HH:mm");
 
+  const isOnDashboard = location.pathname === '/dashboard';
+
   const handleLogout = () => {
     logout();
     navigate('/');
@@ -45,22 +55,33 @@ export default function GlobalHeader({ className }: GlobalHeaderProps) {
 
   return (
     <header className={cn(
-      "flex items-center justify-between py-4 px-4 lg:px-6 bg-card border-b border-border",
+      "flex items-center justify-between py-3 px-4 lg:px-6 bg-card border-b border-border",
       className
     )}>
-      <div className="flex items-center gap-4">
-        {/* Dashboard shortcut - mobile only */}
-        <button
+      {/* Left: Logo + Dashboard shortcut */}
+      <div className="flex items-center gap-3">
+        {/* Logo - visible on mobile and tablet */}
+        <img 
+          src={logoCaixacertus} 
+          alt="CaixaCertus" 
+          className="h-8 w-auto lg:hidden cursor-pointer"
           onClick={() => navigate('/dashboard')}
-          className="lg:hidden w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary hover:bg-primary/20 transition-colors"
-          aria-label="Dashboard"
-        >
-          <Home size={20} />
-        </button>
+        />
         
-        {/* Greeting and date/time */}
-        <div>
-          <h1 className="text-lg lg:text-xl font-semibold text-foreground">
+        {/* Dashboard shortcut button - mobile only, when not on dashboard */}
+        {!isOnDashboard && (
+          <button
+            onClick={() => navigate('/dashboard')}
+            className="lg:hidden w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-primary hover:bg-primary/20 transition-colors"
+            aria-label="Dashboard"
+          >
+            <Home size={18} />
+          </button>
+        )}
+        
+        {/* Greeting and date/time - desktop */}
+        <div className="hidden lg:block">
+          <h1 className="text-lg font-semibold text-foreground">
             {greeting}, {user?.name?.split(' ')[0]}
           </h1>
           <p className="text-sm text-muted-foreground capitalize">
@@ -69,14 +90,42 @@ export default function GlobalHeader({ className }: GlobalHeaderProps) {
         </div>
       </div>
 
-      {/* Logout button */}
-      <button
-        onClick={handleLogout}
-        className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary/80 transition-colors"
-        aria-label="Sair"
-      >
-        <LogOut size={20} />
-      </button>
+      {/* Right: User menu */}
+      <div className="flex items-center gap-2">
+        {/* Mobile: Greeting compact */}
+        <div className="lg:hidden text-right mr-2">
+          <p className="text-sm font-medium text-foreground">
+            {greeting}, {user?.name?.split(' ')[0]}
+          </p>
+          <p className="text-xs text-muted-foreground">
+            {currentTime}
+          </p>
+        </div>
+
+        {/* User dropdown menu */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              className="flex items-center gap-1 px-2 py-1.5 rounded-lg hover:bg-secondary transition-colors"
+              aria-label="Menu do usuário"
+            >
+              <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-medium text-sm">
+                {user?.name?.charAt(0).toUpperCase() || 'U'}
+              </div>
+              <ChevronDown size={16} className="text-muted-foreground hidden sm:block" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-48">
+            <DropdownMenuItem 
+              onClick={handleLogout}
+              className="text-destructive focus:text-destructive cursor-pointer"
+            >
+              <LogOut size={16} className="mr-2" />
+              Sair
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
     </header>
   );
 }

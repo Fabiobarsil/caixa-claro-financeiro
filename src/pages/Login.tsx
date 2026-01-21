@@ -58,15 +58,12 @@ export default function Login() {
     <div className="min-h-screen flex flex-col items-center justify-center bg-background px-4">
       <div className="w-full max-w-sm animate-fade-in">
         {/* Logo */}
-        <div className="text-center mb-8">
+        <div className="text-center mb-10">
           <img 
             src={logoCaixacertus} 
             alt="CaixaCertus" 
-            className="h-14 w-auto mx-auto mb-4"
+            className="h-16 w-auto mx-auto"
           />
-          <p className="text-muted-foreground">
-            Controle financeiro inteligente
-          </p>
         </div>
 
         {/* Login/Signup Form */}
