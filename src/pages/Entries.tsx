@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import AppLayout from '@/components/AppLayout';
 import { useEntries, Entry } from '@/hooks/useEntries';
 import { useEntrySchedules, getScheduleSummary, EntrySchedule } from '@/hooks/useEntrySchedules';
@@ -33,6 +33,7 @@ function formatPaymentMethod(method: string): string {
 }
 
 export default function Entries() {
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { entries, isLoading, markAsPaid } = useEntries();
   const { schedulesByEntry, allSchedules, markScheduleAsPaid, isLoading: schedulesLoading } = useEntrySchedules();
@@ -122,7 +123,7 @@ export default function Entries() {
             </p>
           </div>
           <Button 
-            onClick={() => window.location.href = '/lancamentos/novo'}
+            onClick={() => navigate('/lancamentos/novo')}
             className="hidden lg:flex"
           >
             <Plus className="mr-2 h-4 w-4" />
@@ -206,7 +207,7 @@ export default function Entries() {
                   </p>
                   <Button 
                     className="mt-4"
-                    onClick={() => window.location.href = '/lancamentos/novo'}
+                    onClick={() => navigate('/lancamentos/novo')}
                   >
                     <Plus className="mr-2 h-4 w-4" />
                     Criar primeiro lançamento
