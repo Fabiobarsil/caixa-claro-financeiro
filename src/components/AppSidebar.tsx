@@ -1,8 +1,10 @@
+import { useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import { Home, Receipt, Users, TrendingDown, Settings } from 'lucide-react';
+import { Home, Receipt, Users, TrendingDown, Settings, ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import logoCaixacertus from '@/assets/logo-caixacertus.svg';
+import iconCaixacertus from '@/assets/icon-caixacertus.svg';
 
 interface NavItem {
   to: string;
@@ -22,23 +24,38 @@ const navItems: NavItem[] = [
 export default function AppSidebar() {
   const location = useLocation();
   const { isAdmin } = useAuth();
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
   // Filter items based on user role
   const visibleItems = navItems.filter(item => !item.adminOnly || isAdmin);
 
   return (
-    <aside className="hidden lg:flex flex-col w-64 bg-sidebar border-r border-sidebar-border h-screen sticky top-0">
+    <aside className={cn(
+      "hidden lg:flex flex-col bg-sidebar border-r border-sidebar-border h-screen sticky top-0 transition-all duration-300",
+      isCollapsed ? "w-16" : "w-64"
+    )}>
       {/* Logo */}
-      <div className="h-16 flex items-center px-6 border-b border-sidebar-border">
-        <img 
-          src={logoCaixacertus} 
-          alt="CaixaCertus" 
-          className="h-8 w-auto"
-        />
+      <div className={cn(
+        "h-16 flex items-center border-b border-sidebar-border",
+        isCollapsed ? "justify-center px-2" : "px-6"
+      )}>
+        {isCollapsed ? (
+          <img 
+            src={iconCaixacertus} 
+            alt="CaixaCertus" 
+            className="h-8 w-8"
+          />
+        ) : (
+          <img 
+            src={logoCaixacertus} 
+            alt="CaixaCertus" 
+            className="h-8 w-auto"
+          />
+        )}
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 py-4 px-3 overflow-y-auto">
+      <nav className="flex-1 py-4 px-2 overflow-y-auto">
         <ul className="space-y-1">
           {visibleItems.map((item) => {
             const isActive = location.pathname === item.to || 
@@ -50,13 +67,15 @@ export default function AppSidebar() {
                   to={item.to}
                   className={cn(
                     'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',
+                    isCollapsed && 'justify-center px-2',
                     isActive 
                       ? 'bg-sidebar-accent text-sidebar-accent-foreground' 
                       : 'text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground'
                   )}
+                  title={isCollapsed ? item.label : undefined}
                 >
                   <item.icon size={20} strokeWidth={isActive ? 2.5 : 2} />
-                  <span>{item.label}</span>
+                  {!isCollapsed && <span>{item.label}</span>}
                 </NavLink>
               </li>
             );
@@ -64,12 +83,32 @@ export default function AppSidebar() {
         </ul>
       </nav>
 
-      {/* Footer */}
-      <div className="p-4 border-t border-sidebar-border">
-        <p className="text-xs text-sidebar-foreground/60 text-center">
-          © 2026 CaixaCertus
-        </p>
+      {/* Collapse toggle */}
+      <div className="p-2 border-t border-sidebar-border">
+        <button
+          onClick={() => setIsCollapsed(!isCollapsed)}
+          className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sidebar-foreground/60 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground transition-colors"
+          title={isCollapsed ? "Expandir menu" : "Recolher menu"}
+        >
+          {isCollapsed ? (
+            <ChevronRight size={18} />
+          ) : (
+            <>
+              <ChevronLeft size={18} />
+              <span className="text-xs">Recolher</span>
+            </>
+          )}
+        </button>
       </div>
+
+      {/* Footer */}
+      {!isCollapsed && (
+        <div className="p-4 border-t border-sidebar-border">
+          <p className="text-xs text-sidebar-foreground/60 text-center">
+            © 2026 CaixaCertus
+          </p>
+        </div>
+      )}
     </aside>
   );
 }
