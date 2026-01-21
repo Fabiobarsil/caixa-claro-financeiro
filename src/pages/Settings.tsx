@@ -2,6 +2,10 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AppLayout from '@/components/AppLayout';
 import { useAuth } from '@/contexts/AuthContext';
+import { useUserStats } from '@/hooks/useUserStats';
+import { formatCurrency } from '@/lib/formatters';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 import { 
   User, 
   Target, 
@@ -11,12 +15,14 @@ import {
   ChevronRight,
   Shield,
   Users,
-  Loader2
+  Loader2,
+  BarChart3
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 
 export default function Settings() {
   const { user, logout, isAdmin, isLoading } = useAuth();
+  const { stats, isLoading: statsLoading } = useUserStats();
   const navigate = useNavigate();
   const [stockEnabled, setStockEnabled] = useState(false);
 
@@ -31,6 +37,11 @@ export default function Settings() {
     logout();
     navigate('/');
   };
+
+  // Format account creation date
+  const accountCreatedDate = stats.accountCreatedAt 
+    ? format(new Date(stats.accountCreatedAt), "d 'de' MMMM 'de' yyyy", { locale: ptBR })
+    : '—';
 
   // Show loading while checking auth
   if (isLoading) {
@@ -73,6 +84,44 @@ export default function Settings() {
               </div>
             </div>
             <ChevronRight size={20} className="text-muted-foreground" />
+          </div>
+        </div>
+
+        {/* System Usage Section - Invisible prep for monetization */}
+        <div className="bg-card rounded-xl border border-border mb-6">
+          <div className="flex items-center gap-3 p-4 border-b border-border">
+            <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
+              <BarChart3 size={20} />
+            </div>
+            <div>
+              <p className="font-medium text-foreground">Uso do sistema</p>
+              <p className="text-sm text-muted-foreground">Resumo da sua atividade</p>
+            </div>
+          </div>
+          
+          <div className="p-4 space-y-3">
+            <div className="flex items-center justify-between py-2">
+              <span className="text-sm text-muted-foreground">Conta criada em</span>
+              <span className="text-sm font-medium text-foreground">{accountCreatedDate}</span>
+            </div>
+            <div className="flex items-center justify-between py-2 border-t border-border">
+              <span className="text-sm text-muted-foreground">Total de lançamentos</span>
+              <span className="text-sm font-medium text-foreground">{stats.totalEntries}</span>
+            </div>
+            <div className="flex items-center justify-between py-2 border-t border-border">
+              <span className="text-sm text-muted-foreground">Total de clientes</span>
+              <span className="text-sm font-medium text-foreground">{stats.totalClients}</span>
+            </div>
+            <div className="flex items-center justify-between py-2 border-t border-border">
+              <span className="text-sm text-muted-foreground">Total movimentado</span>
+              <span className="text-sm font-medium text-foreground">{formatCurrency(stats.totalMovimentado)}</span>
+            </div>
+          </div>
+
+          <div className="px-4 pb-4">
+            <p className="text-xs text-muted-foreground text-center bg-secondary/50 rounded-lg py-2">
+              Você já utiliza o CaixaCertus de forma ativa.
+            </p>
           </div>
         </div>
 
