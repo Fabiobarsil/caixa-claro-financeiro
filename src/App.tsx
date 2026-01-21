@@ -15,6 +15,7 @@ import Expenses from "./pages/Expenses";
 import Settings from "./pages/Settings";
 import Team from "./pages/Team";
 import ServicesProducts from "./pages/ServicesProducts";
+import ServiceProductForm from "./pages/ServiceProductForm";
 import NotFound from "./pages/NotFound";
 import ResetPassword from "./pages/ResetPassword";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -127,6 +128,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute requireAdmin>
             <ServicesProducts />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/configuracoes/servicos/novo"
+        element={
+          <ProtectedRoute requireAdmin>
+            <ServiceProductForm />
           </ProtectedRoute>
         }
       />

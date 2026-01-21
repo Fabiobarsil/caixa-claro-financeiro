@@ -6,15 +6,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Plus, Search, Package, Scissors, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import ServiceProductDrawer from '@/components/ServiceProductDrawer';
 
 export default function ServicesProducts() {
   const navigate = useNavigate();
   const { items, isLoading, isAdmin } = useServicesProducts();
   const [search, setSearch] = useState('');
   const [filterType, setFilterType] = useState<ItemType | 'todos'>('todos');
-  const [drawerOpen, setDrawerOpen] = useState(false);
-  const [editingItem, setEditingItem] = useState<ServiceProduct | null>(null);
 
   const filteredItems = useMemo(() => {
     return items.filter((item) => {
@@ -25,18 +22,11 @@ export default function ServicesProducts() {
   }, [items, search, filterType]);
 
   const handleOpenNew = () => {
-    setEditingItem(null);
-    setDrawerOpen(true);
+    navigate('/configuracoes/servicos/novo');
   };
 
   const handleEdit = (item: ServiceProduct) => {
-    setEditingItem(item);
-    setDrawerOpen(true);
-  };
-
-  const handleClose = () => {
-    setDrawerOpen(false);
-    setEditingItem(null);
+    navigate(`/configuracoes/servicos/novo?id=${item.id}`);
   };
 
   return (
@@ -139,12 +129,6 @@ export default function ServicesProducts() {
           )}
         </div>
       </div>
-
-      <ServiceProductDrawer
-        open={drawerOpen}
-        onClose={handleClose}
-        editingItem={editingItem}
-      />
     </AppLayout>
   );
 }
