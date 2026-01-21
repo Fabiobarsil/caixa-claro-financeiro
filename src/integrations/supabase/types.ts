@@ -172,28 +172,37 @@ export type Database = {
       }
       services_products: {
         Row: {
+          base_price: number
+          cost: number | null
           created_at: string
           id: string
           name: string
-          price: number
+          notes: string | null
+          stock_quantity: number | null
           type: Database["public"]["Enums"]["item_type"]
           updated_at: string
           user_id: string
         }
         Insert: {
+          base_price?: number
+          cost?: number | null
           created_at?: string
           id?: string
           name: string
-          price?: number
+          notes?: string | null
+          stock_quantity?: number | null
           type: Database["public"]["Enums"]["item_type"]
           updated_at?: string
           user_id: string
         }
         Update: {
+          base_price?: number
+          cost?: number | null
           created_at?: string
           id?: string
           name?: string
-          price?: number
+          notes?: string | null
+          stock_quantity?: number | null
           type?: Database["public"]["Enums"]["item_type"]
           updated_at?: string
           user_id?: string

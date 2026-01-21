@@ -1,5 +1,6 @@
-import { PaymentStatus } from '@/types';
 import { cn } from '@/lib/utils';
+
+type PaymentStatus = 'pago' | 'pendente' | 'cancelado';
 
 interface StatusBadgeProps {
   status: PaymentStatus;
