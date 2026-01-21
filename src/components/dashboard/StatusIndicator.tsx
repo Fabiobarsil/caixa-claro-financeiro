@@ -50,9 +50,9 @@ export default function StatusIndicator({
     <Component
       onClick={onClick}
       className={cn(
-        'flex items-center gap-3 p-3 rounded-xl transition-all w-full text-left',
+        'flex items-center gap-3 p-3 rounded-xl transition-all duration-150 w-full text-left',
         styles.bg,
-        onClick && 'cursor-pointer hover:opacity-80'
+        onClick && 'cursor-pointer hover:opacity-90 hover:shadow-sm active:scale-[0.99] active:opacity-80'
       )}
     >
       <Icon size={20} className={cn('flex-shrink-0', styles.icon)} />

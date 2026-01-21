@@ -4,8 +4,9 @@ import AppLayout from '@/components/AppLayout';
 import { useServicesProducts, ServiceProduct, ItemType } from '@/hooks/useServicesProducts';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Plus, Search, Package, Scissors, Loader2 } from 'lucide-react';
+import { Plus, Search, Package, Scissors } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { ServiceProductListSkeleton } from '@/components/skeletons/ListSkeleton';
 
 export default function ServicesProducts() {
   const navigate = useNavigate();
@@ -61,10 +62,10 @@ export default function ServicesProducts() {
               key={type}
               onClick={() => setFilterType(type)}
               className={cn(
-                'flex-1 py-2.5 rounded-lg font-medium text-sm transition-colors',
+                'flex-1 py-2.5 rounded-lg font-medium text-sm transition-all duration-150',
                 filterType === type
-                  ? 'bg-primary text-primary-foreground'
-                  : 'bg-secondary text-secondary-foreground'
+                  ? 'bg-primary text-primary-foreground shadow-sm'
+                  : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
               )}
             >
               {type === 'todos' ? 'Todos' : type === 'servico' ? 'Serviços' : 'Produtos'}
@@ -75,11 +76,9 @@ export default function ServicesProducts() {
         {/* List */}
         <div className="flex-1 overflow-auto -mx-4 px-4">
           {isLoading ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-            </div>
+            <ServiceProductListSkeleton count={5} />
           ) : filteredItems.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+            <div className="flex flex-col items-center justify-center py-12 text-muted-foreground animate-fade-in">
               <Package size={48} className="mb-4 opacity-50" />
               <p className="text-center">
                 {search || filterType !== 'todos'
@@ -99,10 +98,10 @@ export default function ServicesProducts() {
                 <button
                   key={item.id}
                   onClick={() => handleEdit(item)}
-                  className="w-full bg-card rounded-xl p-4 flex items-center gap-3 text-left hover:bg-accent transition-colors"
+                  className="w-full bg-card rounded-xl p-4 flex items-center gap-3 text-left border border-border hover:border-primary/30 hover:shadow-md transition-all duration-150 active:scale-[0.99] active:opacity-90"
                 >
                   <div className={cn(
-                    'w-10 h-10 rounded-full flex items-center justify-center',
+                    'w-10 h-10 rounded-full flex items-center justify-center transition-colors',
                     item.type === 'servico' ? 'bg-primary/10 text-primary' : 'bg-accent text-accent-foreground'
                   )}>
                     {item.type === 'servico' ? <Scissors size={20} /> : <Package size={20} />}
