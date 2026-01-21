@@ -11,6 +11,7 @@ import Dashboard from "./pages/Dashboard";
 import Entries from "./pages/Entries";
 import NewEntry from "./pages/NewEntry";
 import Clients from "./pages/Clients";
+import ClientForm from "./pages/ClientForm";
 import Expenses from "./pages/Expenses";
 import Settings from "./pages/Settings";
 import Team from "./pages/Team";
@@ -96,6 +97,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <Clients />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/clientes/novo"
+        element={
+          <ProtectedRoute>
+            <ClientForm />
           </ProtectedRoute>
         }
       />

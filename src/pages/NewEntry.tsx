@@ -256,270 +256,283 @@ export default function NewEntry() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <div className="sticky top-0 z-10 bg-background border-b border-border px-4 py-3">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => navigate(-1)}
-            className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center text-foreground hover:bg-secondary/80 transition-colors"
-          >
-            <ArrowLeft size={20} />
-          </button>
-          <h1 className="text-lg font-semibold text-foreground">Novo lançamento</h1>
-        </div>
-      </div>
-
-      {/* Form */}
-      <div className="p-4 space-y-5">
-        {/* Cliente */}
-        <div className="space-y-1.5">
-          <Label className="text-sm">Cliente *</Label>
-          <Select value={clientId} onValueChange={setClientId} disabled={isLoading}>
-            <SelectTrigger className={cn(
-              "h-11 bg-card",
-              showValidation && !clientId && "border-destructive"
-            )}>
-              <SelectValue placeholder={clientsLoading ? "Carregando..." : "Selecione o cliente"} />
-            </SelectTrigger>
-            <SelectContent>
-              {clients.map((client) => (
-                <SelectItem key={client.id} value={client.id}>
-                  {client.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {clients.length === 0 && !clientsLoading && (
-            <p className="text-xs text-muted-foreground">
-              Nenhum cliente cadastrado. Adicione um cliente primeiro.
+      <div className="flex justify-center pb-8">
+        {/* Form Container */}
+        <div className="w-full max-w-[720px] bg-card rounded-xl border border-border shadow-sm mx-4 my-4">
+          {/* Header */}
+          <div className="p-5 border-b border-border">
+            <button
+              onClick={() => navigate(-1)}
+              className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-4"
+            >
+              <ArrowLeft size={16} />
+              Voltar
+            </button>
+            <h1 className="text-xl font-bold text-foreground">Novo Lançamento</h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              Registre um atendimento, venda ou cobrança.
             </p>
-          )}
-        </div>
+          </div>
 
-        {/* Item Section */}
-        <ItemSelector
-          itemType={itemType}
-          setItemType={setItemType}
-          itemId={itemId}
-          onItemChange={handleItemChange}
-          items={servicesProducts}
-          isLoading={itemsLoading}
-          onCreateNew={() => setIsServiceProductDrawerOpen(true)}
-        />
-
-        {/* Quantidade e Valor */}
-        <div className="bg-card rounded-xl border border-border p-4 space-y-3">
-          <h3 className="text-sm font-semibold text-foreground">Valores</h3>
-          
-          <div className="grid grid-cols-2 gap-3">
-            {/* Quantidade - mostra mais destaque para produtos */}
+          {/* Form Body */}
+          <div className="p-5 space-y-5">
+            {/* Cliente */}
             <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground">
-                Quantidade {itemType === 'produto' && '*'}
-              </Label>
-              <Input
-                type="number"
-                min="1"
-                value={quantity}
-                onChange={(e) => setQuantity(e.target.value)}
-                className="h-11 bg-background"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground">Valor unit. (R$) *</Label>
-              <Input
-                type="number"
-                step="0.01"
-                value={unitValue}
-                onChange={(e) => setUnitValue(e.target.value)}
-                className={cn(
-                  "h-11 bg-background",
-                  showValidation && !unitValue && "border-destructive"
-                )}
-                placeholder="0,00"
-              />
-            </div>
-          </div>
-
-          {/* Total */}
-          <div className="bg-muted/50 rounded-lg p-3 border border-border">
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-muted-foreground">Total</span>
-              <span className="text-xl font-bold text-foreground tabular-nums">
-                R$ {totalValue.toFixed(2)}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Forma de pagamento */}
-        <div className="space-y-1.5">
-          <Label className="text-sm">Forma de pagamento</Label>
-          <Select value={paymentMethod} onValueChange={(v) => setPaymentMethod(v as PaymentMethod)}>
-            <SelectTrigger className="h-11 bg-card">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="pix">Pix</SelectItem>
-              <SelectItem value="cartao_credito">Cartão de Crédito</SelectItem>
-              <SelectItem value="cartao_debito">Cartão de Débito</SelectItem>
-              <SelectItem value="dinheiro">Dinheiro</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        {/* Status */}
-        <div className="space-y-1.5">
-          <Label className="text-sm">Status</Label>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => setStatus('pendente')}
-              className={cn(
-                'flex-1 py-2.5 rounded-lg font-medium text-sm transition-colors',
-                status === 'pendente'
-                  ? 'bg-warning text-warning-foreground'
-                  : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
-              )}
-            >
-              Pendente
-            </button>
-            <button
-              type="button"
-              onClick={() => setStatus('pago')}
-              className={cn(
-                'flex-1 py-2.5 rounded-lg font-medium text-sm transition-colors',
-                status === 'pago'
-                  ? 'bg-success text-success-foreground'
-                  : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
-              )}
-            >
-              Pago
-            </button>
-          </div>
-        </div>
-
-        {/* Data do Lançamento */}
-        <div className="space-y-1.5">
-          <Label className="text-sm">Data do lançamento</Label>
-          <Input
-            type="date"
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-            className="h-11 bg-card"
-          />
-        </div>
-
-        {/* Billing Type Section - Only for pending status */}
-        {status === 'pendente' && (
-          <div className="bg-card rounded-xl border border-border p-4 space-y-3">
-            <h3 className="text-sm font-semibold text-foreground">Tipo de cobrança</h3>
-            
-            <BillingTypeSelector
-              value={billingType}
-              onChange={setBillingType}
-            />
-            
-            {/* Single payment due date */}
-            {billingType === 'single' && (
-              <div className="space-y-1.5 animate-fade-in">
-                <div className="flex items-center gap-2">
-                  <Calendar size={14} className="text-muted-foreground" />
-                  <Label className="text-xs text-muted-foreground">Vencimento</Label>
-                </div>
-                <Input
-                  type="date"
-                  value={dueDate}
-                  onChange={(e) => setDueDate(e.target.value)}
-                  className="h-11 bg-background"
-                />
+              <Label className="text-sm">Cliente *</Label>
+              <Select value={clientId} onValueChange={setClientId} disabled={isLoading}>
+                <SelectTrigger className={cn(
+                  "h-11 bg-background max-w-md",
+                  showValidation && !clientId && "border-destructive"
+                )}>
+                  <SelectValue placeholder={clientsLoading ? "Carregando..." : "Selecione o cliente"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {clients.map((client) => (
+                    <SelectItem key={client.id} value={client.id}>
+                      {client.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {clients.length === 0 && !clientsLoading && (
                 <p className="text-xs text-muted-foreground">
-                  Padrão: 30 dias após a data do lançamento
+                  Nenhum cliente cadastrado. Adicione um cliente primeiro.
                 </p>
+              )}
+            </div>
+
+            {/* Item Section */}
+            <ItemSelector
+              itemType={itemType}
+              setItemType={setItemType}
+              itemId={itemId}
+              onItemChange={handleItemChange}
+              items={servicesProducts}
+              isLoading={itemsLoading}
+              onCreateNew={() => setIsServiceProductDrawerOpen(true)}
+            />
+
+            {/* Quantidade e Valor */}
+            <div className="bg-muted/30 rounded-lg p-4 space-y-3 max-w-md">
+              <h3 className="text-sm font-semibold text-foreground">Valores</h3>
+              
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">
+                    Quantidade {itemType === 'produto' && '*'}
+                  </Label>
+                  <Input
+                    type="number"
+                    min="1"
+                    value={quantity}
+                    onChange={(e) => setQuantity(e.target.value)}
+                    className="h-11 bg-background"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">Valor unit. (R$) *</Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={unitValue}
+                    onChange={(e) => setUnitValue(e.target.value)}
+                    className={cn(
+                      "h-11 bg-background",
+                      showValidation && !unitValue && "border-destructive"
+                    )}
+                    placeholder="0,00"
+                  />
+                </div>
+              </div>
+
+              {/* Total */}
+              <div className="bg-background rounded-lg p-3 border border-border">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-muted-foreground">Total</span>
+                  <span className="text-lg font-bold text-foreground tabular-nums">
+                    R$ {totalValue.toFixed(2)}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Forma de pagamento */}
+            <div className="space-y-1.5">
+              <Label className="text-sm">Forma de pagamento</Label>
+              <Select value={paymentMethod} onValueChange={(v) => setPaymentMethod(v as PaymentMethod)}>
+                <SelectTrigger className="h-11 bg-background max-w-[240px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="pix">Pix</SelectItem>
+                  <SelectItem value="cartao_credito">Cartão de Crédito</SelectItem>
+                  <SelectItem value="cartao_debito">Cartão de Débito</SelectItem>
+                  <SelectItem value="dinheiro">Dinheiro</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Status */}
+            <div className="space-y-1.5">
+              <Label className="text-sm">Status</Label>
+              <div className="inline-flex bg-secondary rounded-lg p-1">
+                <button
+                  type="button"
+                  onClick={() => setStatus('pendente')}
+                  className={cn(
+                    'px-4 py-2 rounded-md text-sm font-medium transition-all',
+                    status === 'pendente'
+                      ? 'bg-warning text-warning-foreground shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground'
+                  )}
+                >
+                  Pendente
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setStatus('pago')}
+                  className={cn(
+                    'px-4 py-2 rounded-md text-sm font-medium transition-all',
+                    status === 'pago'
+                      ? 'bg-success text-success-foreground shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground'
+                  )}
+                >
+                  Pago
+                </button>
+              </div>
+            </div>
+
+            {/* Data do Lançamento */}
+            <div className="space-y-1.5">
+              <Label className="text-sm">Data do lançamento</Label>
+              <Input
+                type="date"
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+                className="h-11 bg-background max-w-[200px]"
+              />
+            </div>
+
+            {/* Billing Type Section - Only for pending status */}
+            {status === 'pendente' && (
+              <div className="bg-muted/30 rounded-lg p-4 space-y-3 max-w-md">
+                <h3 className="text-sm font-semibold text-foreground">Tipo de cobrança</h3>
+                
+                <BillingTypeSelector
+                  value={billingType}
+                  onChange={setBillingType}
+                />
+                
+                {/* Single payment due date */}
+                {billingType === 'single' && (
+                  <div className="space-y-1.5 animate-fade-in">
+                    <div className="flex items-center gap-2">
+                      <Calendar size={14} className="text-muted-foreground" />
+                      <Label className="text-xs text-muted-foreground">Vencimento</Label>
+                    </div>
+                    <Input
+                      type="date"
+                      value={dueDate}
+                      onChange={(e) => setDueDate(e.target.value)}
+                      className="h-11 bg-background"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Padrão: 30 dias após a data do lançamento
+                    </p>
+                  </div>
+                )}
+                
+                {/* Installment options */}
+                {billingType === 'installment' && (
+                  <InstallmentOptions
+                    installmentsTotal={installmentsTotal}
+                    setInstallmentsTotal={setInstallmentsTotal}
+                    intervalDays={intervalDays}
+                    setIntervalDays={setIntervalDays}
+                    firstDueDate={firstDueDate}
+                    setFirstDueDate={setFirstDueDate}
+                    installmentValue={installmentValue}
+                  />
+                )}
+                
+                {/* Monthly package options */}
+                {billingType === 'monthly_package' && (
+                  <MonthlyPackageOptions
+                    monthsTotal={monthsTotal}
+                    setMonthsTotal={setMonthsTotal}
+                    firstDueDate={firstDueDate}
+                    setFirstDueDate={setFirstDueDate}
+                    monthlyValue={monthlyValue}
+                  />
+                )}
               </div>
             )}
-            
-            {/* Installment options */}
-            {billingType === 'installment' && (
-              <InstallmentOptions
-                installmentsTotal={installmentsTotal}
-                setInstallmentsTotal={setInstallmentsTotal}
-                intervalDays={intervalDays}
-                setIntervalDays={setIntervalDays}
-                firstDueDate={firstDueDate}
-                setFirstDueDate={setFirstDueDate}
-                installmentValue={installmentValue}
+
+            {/* Summary - Show when form has minimum data */}
+            {(clientId || itemId) && totalValue > 0 && (
+              <EntrySummary
+                clientName={selectedClient?.name}
+                itemName={selectedItem?.name}
+                itemType={selectedItem?.type}
+                totalValue={totalValue}
+                billingType={billingType}
+                installments={effectiveInstallments}
+                monthlyValue={effectiveMonthlyValue}
+                firstDueDate={effectiveDueDate}
+                status={status}
               />
             )}
-            
-            {/* Monthly package options */}
-            {billingType === 'monthly_package' && (
-              <MonthlyPackageOptions
-                monthsTotal={monthsTotal}
-                setMonthsTotal={setMonthsTotal}
-                firstDueDate={firstDueDate}
-                setFirstDueDate={setFirstDueDate}
-                monthlyValue={monthlyValue}
-              />
+
+            {/* Validation Errors */}
+            {showValidation && validationErrors.length > 0 && (
+              <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-3 flex items-start gap-2">
+                <AlertCircle size={16} className="text-destructive flex-shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  {validationErrors.map((error, index) => (
+                    <p key={index} className="text-sm text-destructive">{error}</p>
+                  ))}
+                </div>
+              </div>
             )}
           </div>
-        )}
 
-        {/* Summary - Show when form has minimum data */}
-        {(clientId || itemId) && totalValue > 0 && (
-          <EntrySummary
-            clientName={selectedClient?.name}
-            itemName={selectedItem?.name}
-            itemType={selectedItem?.type}
-            totalValue={totalValue}
-            billingType={billingType}
-            installments={effectiveInstallments}
-            monthlyValue={effectiveMonthlyValue}
-            firstDueDate={effectiveDueDate}
-            status={status}
-          />
-        )}
-
-        {/* Validation Errors */}
-        {showValidation && validationErrors.length > 0 && (
-          <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-3 flex items-start gap-2">
-            <AlertCircle size={16} className="text-destructive flex-shrink-0 mt-0.5" />
-            <div className="space-y-1">
-              {validationErrors.map((error, index) => (
-                <p key={index} className="text-sm text-destructive">{error}</p>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Actions */}
-        <div className="pt-4 space-y-2.5 pb-8">
-          <Button
-            onClick={() => handleSubmit(false)}
-            className="w-full h-11"
-            disabled={isSubmitting}
-          >
-            {isSubmitting ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Salvando...
-              </>
-            ) : (
-              'Salvar'
-            )}
-          </Button>
-          
-          {status === 'pendente' && billingType === 'single' && (
+          {/* Footer Actions */}
+          <div className="p-5 border-t border-border flex items-center justify-end gap-3">
             <Button
-              variant="outline"
-              onClick={() => handleSubmit(true)}
-              className="w-full h-11 border-success text-success hover:bg-success hover:text-success-foreground"
+              variant="ghost"
+              onClick={() => navigate(-1)}
               disabled={isSubmitting}
             >
-              <Check className="mr-2 h-4 w-4" />
-              Salvar e marcar como pago
+              Cancelar
             </Button>
-          )}
+            
+            {status === 'pendente' && billingType === 'single' && (
+              <Button
+                variant="outline"
+                onClick={() => handleSubmit(true)}
+                className="border-success text-success hover:bg-success hover:text-success-foreground"
+                disabled={isSubmitting}
+              >
+                <Check className="mr-2 h-4 w-4" />
+                Salvar como pago
+              </Button>
+            )}
+            
+            <Button
+              onClick={() => handleSubmit(false)}
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Salvando...
+                </>
+              ) : (
+                'Salvar'
+              )}
+            </Button>
+          </div>
         </div>
       </div>
 
