@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AppLayout from '@/components/AppLayout';
 import MetricCard from '@/components/MetricCard';
@@ -8,6 +8,24 @@ import { useAuth } from '@/contexts/AuthContext';
 import { formatCurrency } from '@/lib/formatters';
 import { format, parseISO, subMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+
+function getGreeting(): string {
+  const hour = new Date().getHours();
+  if (hour >= 5 && hour < 12) return 'Bom dia';
+  if (hour >= 12 && hour < 18) return 'Boa tarde';
+  return 'Boa noite';
+}
+
+function useCurrentTime() {
+  const [now, setNow] = useState(new Date());
+  
+  useEffect(() => {
+    const interval = setInterval(() => setNow(new Date()), 60000);
+    return () => clearInterval(interval);
+  }, []);
+  
+  return now;
+}
 import { 
   ArrowDownCircle, 
   Clock, 
@@ -52,8 +70,14 @@ export default function Dashboard() {
   const { user, logout } = useAuth();
   const [selectedMonth, setSelectedMonth] = useState(format(new Date(), 'yyyy-MM'));
   const months = useMemo(() => getMonthOptions(), []);
+  const now = useCurrentTime();
   
   const { metrics, recentEntries, pendingEntries, isLoading } = useDashboard(selectedMonth);
+
+  const greeting = getGreeting();
+  const dayOfWeek = format(now, "EEEE", { locale: ptBR });
+  const fullDate = format(now, "d 'de' MMMM 'de' yyyy", { locale: ptBR });
+  const currentTime = format(now, "HH:mm");
 
   const handleLogout = () => {
     logout();
@@ -64,10 +88,14 @@ export default function Dashboard() {
     <AppLayout>
       <div className="flex flex-col h-full">
         {/* Header */}
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between mb-5">
           <div>
-            <p className="text-sm text-muted-foreground">Olá, {user?.name}</p>
-            <h1 className="text-xl font-bold text-foreground">Resumo do mês</h1>
+            <h1 className="text-xl font-semibold text-foreground">
+              {greeting}, {user?.name?.split(' ')[0]}
+            </h1>
+            <p className="text-sm text-muted-foreground capitalize">
+              {dayOfWeek}, {fullDate} — {currentTime}
+            </p>
           </div>
           <button
             onClick={handleLogout}
