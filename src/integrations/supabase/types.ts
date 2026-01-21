@@ -207,25 +207,34 @@ export type Database = {
           created_at: string
           email: string
           id: string
+          is_active: boolean
           name: string
           updated_at: string
           user_id: string
+          vacation_end: string | null
+          vacation_start: string | null
         }
         Insert: {
           created_at?: string
           email: string
           id?: string
+          is_active?: boolean
           name: string
           updated_at?: string
           user_id: string
+          vacation_end?: string | null
+          vacation_start?: string | null
         }
         Update: {
           created_at?: string
           email?: string
           id?: string
+          is_active?: boolean
           name?: string
           updated_at?: string
           user_id?: string
+          vacation_end?: string | null
+          vacation_start?: string | null
         }
         Relationships: []
       }
