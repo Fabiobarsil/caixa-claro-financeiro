@@ -48,7 +48,7 @@ export default function BillingTypeSelector({
             onClick={() => onChange(type.id)}
             disabled={disabled}
             className={cn(
-              'flex flex-col items-center gap-1.5 p-3 rounded-lg border-2 transition-all',
+              'flex flex-col items-center gap-1 py-2.5 px-2 rounded-lg border transition-all',
               'focus:outline-none focus:ring-2 focus:ring-primary/50',
               isSelected
                 ? 'border-primary bg-primary/10 text-primary'
@@ -56,7 +56,7 @@ export default function BillingTypeSelector({
               disabled && 'opacity-50 cursor-not-allowed'
             )}
           >
-            <Icon size={20} className={isSelected ? 'text-primary' : 'text-muted-foreground'} />
+            <Icon size={18} className={isSelected ? 'text-primary' : 'text-muted-foreground'} />
             <span className={cn(
               'text-xs font-medium text-center leading-tight',
               isSelected ? 'text-primary' : 'text-foreground'
