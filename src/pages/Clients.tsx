@@ -140,12 +140,16 @@ export default function Clients() {
         {/* Empty State */}
         {!isLoading && clients.length === 0 && (
           <div className="text-center py-12">
-            <User className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-            <h3 className="text-lg font-medium text-foreground mb-2">Nenhum cliente cadastrado</h3>
-            <p className="text-muted-foreground mb-4">Comece cadastrando seu primeiro cliente</p>
+            <User className="mx-auto h-12 w-12 text-muted-foreground/50 mb-4" />
+            <h3 className="text-lg font-medium text-foreground mb-2">
+              Você ainda não cadastrou nenhum cliente.
+            </h3>
+            <p className="text-sm text-muted-foreground mb-4 max-w-xs mx-auto">
+              Clientes ajudam a organizar seus recebimentos e histórico financeiro.
+            </p>
             <Button onClick={() => setIsDialogOpen(true)}>
               <Plus className="mr-2 h-4 w-4" />
-              Novo Cliente
+              Adicionar cliente
             </Button>
           </div>
         )}

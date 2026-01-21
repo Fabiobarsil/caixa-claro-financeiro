@@ -4,7 +4,7 @@ import AppLayout from '@/components/AppLayout';
 import { useEntries, Entry } from '@/hooks/useEntries';
 import { useEntrySchedules, getScheduleSummary, EntrySchedule } from '@/hooks/useEntrySchedules';
 import { cn } from '@/lib/utils';
-import { Search, Loader2, Receipt, Package, Scissors, CheckCircle, ChevronDown, ChevronUp } from 'lucide-react';
+import { Search, Loader2, Receipt, Package, Scissors, CheckCircle, ChevronDown, ChevronUp, Plus } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { format, parseISO } from 'date-fns';
@@ -185,11 +185,25 @@ export default function Entries() {
           ) : filteredEntries.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
               <Receipt size={48} className="mb-4 opacity-50" />
-              <p className="text-center">
+              <p className="text-center font-medium text-foreground">
                 {search || activeFilter !== 'todos'
                   ? 'Nenhum lançamento encontrado'
-                  : 'Nenhum lançamento cadastrado'}
+                  : 'Ainda não há lançamentos registrados.'}
               </p>
+              {!search && activeFilter === 'todos' && (
+                <>
+                  <p className="text-sm text-center mt-1 max-w-xs">
+                    Registre serviços prestados, produtos vendidos ou parcelas a receber.
+                  </p>
+                  <Button 
+                    className="mt-4"
+                    onClick={() => window.location.href = '/novo-lancamento'}
+                  >
+                    <Plus className="mr-2 h-4 w-4" />
+                    Criar primeiro lançamento
+                  </Button>
+                </>
+              )}
             </div>
           ) : (
             <div className="space-y-2">

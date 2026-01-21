@@ -12,8 +12,10 @@ import FinancialProjection from '@/components/dashboard/FinancialProjection';
 import FinancialRisk from '@/components/dashboard/FinancialRisk';
 import CriticalDueDates from '@/components/dashboard/CriticalDueDates';
 import AutomaticInsight from '@/components/dashboard/AutomaticInsight';
+import OnboardingBanner from '@/components/dashboard/OnboardingBanner';
 import { useDashboard } from '@/hooks/useDashboard';
 import { useProjections } from '@/hooks/useProjections';
+import { useEntries } from '@/hooks/useEntries';
 import { formatCurrency } from '@/lib/formatters';
 import { format, subMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -57,6 +59,11 @@ export default function Dashboard() {
   
   const { metrics, recentEntries, pendingEntries, chartData, isLoading } = useDashboard(selectedMonth);
   const { projections, isLoading: projectionsLoading } = useProjections();
+  const { entries } = useEntries();
+
+  // Check if user has any entries (for onboarding)
+  const hasEntries = entries.length > 0;
+  const hasLessThan5Entries = entries.length < 5;
 
   // Get due dates for calendar highlighting
   const dueDates = useMemo(() => {
@@ -66,6 +73,9 @@ export default function Dashboard() {
   }, [pendingEntries]);
 
   const isFullyLoading = isLoading || projectionsLoading;
+
+  // Check if Status Rápido has all zero values
+  const statusAllZero = metrics.upcomingValue === 0 && metrics.overdueValue === 0 && metrics.received === 0;
 
   return (
     <AppLayout>
@@ -97,6 +107,9 @@ export default function Dashboard() {
           </div>
         ) : (
           <div className="flex-1 overflow-auto -mx-4 px-4 pb-6">
+            {/* Onboarding Banner - shows only for new users */}
+            <OnboardingBanner hasEntries={hasEntries} />
+
             {/* Section 1: KPI Cards */}
             <section className="mb-6">
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -167,6 +180,11 @@ export default function Dashboard() {
                     tooltip="Total recebido dentro do mês selecionado."
                   />
                 </div>
+                {statusAllZero && (
+                  <p className="text-xs text-muted-foreground text-center mt-3 pt-3 border-t border-border">
+                    Assim que você cadastrar lançamentos, este resumo mostrará a saúde do seu caixa.
+                  </p>
+                )}
               </SectionCard>
             </section>
 
@@ -177,6 +195,7 @@ export default function Dashboard() {
                   projection30={projections.projection30}
                   projection60={projections.projection60}
                   projection90={projections.projection90}
+                  hasData={hasEntries}
                 />
                 <FinancialRisk
                   overduePercentage={projections.overduePercentage}
@@ -194,6 +213,7 @@ export default function Dashboard() {
                   insightData={projections.insightData}
                   overduePercentage={projections.overduePercentage}
                   delinquentClientsCount={projections.delinquentClientsCount}
+                  totalEntries={entries.length}
                 />
               </div>
             </section>
