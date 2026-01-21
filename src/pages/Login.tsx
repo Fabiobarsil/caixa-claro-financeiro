@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Eye, EyeOff, Loader2 } from 'lucide-react';
 import { ForgotPasswordDialog } from '@/components/ForgotPasswordDialog';
-import logoCaixacertusLight from '@/assets/logo-caixacertus-light.svg';
+import iconCaixacertus from '@/assets/icon-caixacertus.svg';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -59,11 +59,17 @@ export default function Login() {
       <div className="w-full max-w-sm animate-fade-in">
         {/* Logo */}
         <div className="text-center mb-10">
-          <img 
-            src={logoCaixacertusLight} 
-            alt="CaixaCertus" 
-            className="h-16 w-auto mx-auto"
-          />
+          <div className="flex items-center justify-center gap-3">
+            <img 
+              src={iconCaixacertus} 
+              alt="CaixaCertus" 
+              className="h-14 w-auto"
+            />
+            <span className="text-3xl font-bold">
+              <span className="text-foreground">Caixa</span>
+              <span className="text-primary">Certus</span>
+            </span>
+          </div>
         </div>
 
         {/* Login/Signup Form */}
