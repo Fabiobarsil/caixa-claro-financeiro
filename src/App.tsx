@@ -20,6 +20,9 @@ import ServiceProductForm from "./pages/ServiceProductForm";
 import NotFound from "./pages/NotFound";
 import ResetPassword from "./pages/ResetPassword";
 import ProtectedRoute from "./components/ProtectedRoute";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
+import TermsOfUse from "./pages/TermsOfUse";
+import LGPD from "./pages/LGPD";
 
 // Component to show configuration error
 function SupabaseConfigError() {
@@ -68,6 +71,9 @@ function AppRoutes() {
         element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <Login />} 
       />
       <Route path="/reset-password" element={<ResetPassword />} />
+      <Route path="/privacidade" element={<PrivacyPolicy />} />
+      <Route path="/termos" element={<TermsOfUse />} />
+      <Route path="/lgpd" element={<LGPD />} />
       <Route
         path="/dashboard"
         element={
