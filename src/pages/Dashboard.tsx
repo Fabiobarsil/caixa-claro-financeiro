@@ -13,12 +13,15 @@ import FinancialRisk from '@/components/dashboard/FinancialRisk';
 import CriticalDueDates from '@/components/dashboard/CriticalDueDates';
 import AutomaticInsight from '@/components/dashboard/AutomaticInsight';
 import OnboardingBanner from '@/components/dashboard/OnboardingBanner';
+import OnboardingWelcome from '@/components/dashboard/OnboardingWelcome';
+import OnboardingChecklist from '@/components/dashboard/OnboardingChecklist';
 import DataTimestamp from '@/components/dashboard/DataTimestamp';
 import MilestoneToast from '@/components/dashboard/MilestoneToast';
 import { useDashboard } from '@/hooks/useDashboard';
 import { useProjections } from '@/hooks/useProjections';
 import { useEntries } from '@/hooks/useEntries';
 import { useUserStats } from '@/hooks/useUserStats';
+import { useAuth } from '@/contexts/AuthContext';
 import { formatCurrency } from '@/lib/formatters';
 import { format, subMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -57,6 +60,7 @@ function getMonthOptions() {
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const { isAdmin } = useAuth();
   const [selectedMonth, setSelectedMonth] = useState(format(new Date(), 'yyyy-MM'));
   const months = useMemo(() => getMonthOptions(), []);
   
@@ -109,6 +113,9 @@ export default function Dashboard() {
   return (
     <AppLayout>
       <div className="flex flex-col h-full">
+        {/* Onboarding Welcome Modal - non-blocking, dismissable */}
+        <OnboardingWelcome isAdmin={isAdmin} />
+
         {/* Milestone Toast - invisible, shows toasts when milestones are reached */}
         <MilestoneToast 
           totalEntries={stats.totalEntries}
@@ -146,7 +153,10 @@ export default function Dashboard() {
           </div>
         ) : (
           <div className="flex-1 overflow-auto -mx-4 px-4 pb-6">
-            {/* Onboarding Banner - shows only for new users */}
+            {/* Onboarding Checklist - shows progress for admins */}
+            <OnboardingChecklist isAdmin={isAdmin} />
+
+            {/* Onboarding Banner - shows only for new users without entries */}
             <OnboardingBanner hasEntries={hasEntries} />
 
             {/* Section 1: KPI Cards */}
