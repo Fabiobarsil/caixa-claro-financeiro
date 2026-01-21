@@ -185,7 +185,7 @@ export function useDashboard(selectedMonth?: string) {
 
       const totalExpenses = (expensesData || []).reduce((sum, e) => sum + Number(e.value), 0);
 
-      // ===== A VENCER (Upcoming - Monthly) =====
+      // ===== A VENCER (Upcoming - Global, all pending with due_date >= today) =====
       const upcomingEntriesData = entriesWithoutSchedules.filter(e => {
         if (e.status !== 'pendente' || !e.due_date) return false;
         const dueDate = new Date(e.due_date);
@@ -193,8 +193,8 @@ export function useDashboard(selectedMonth?: string) {
         return dueDate >= today;
       });
 
-      const upcomingSchedules = schedules.filter(s => {
-        if (s.status !== 'pendente') return false;
+      // Use globalSchedules for upcoming (not limited to month)
+      const upcomingSchedules = globalSchedules.filter(s => {
         const dueDate = new Date(s.due_date);
         dueDate.setHours(0, 0, 0, 0);
         return dueDate >= today;
@@ -206,7 +206,7 @@ export function useDashboard(selectedMonth?: string) {
 
       const upcomingCount = upcomingEntriesData.length + upcomingSchedules.length;
 
-      // ===== EM ATRASO (Overdue - Monthly) =====
+      // ===== EM ATRASO (Overdue - Global, all pending with due_date < today) =====
       const overdueEntriesData = entriesWithoutSchedules.filter(e => {
         if (e.status !== 'pendente' || !e.due_date) return false;
         const dueDate = new Date(e.due_date);
@@ -214,8 +214,8 @@ export function useDashboard(selectedMonth?: string) {
         return dueDate < today;
       });
 
-      const overdueSchedules = schedules.filter(s => {
-        if (s.status !== 'pendente') return false;
+      // Use globalSchedules for overdue (not limited to month)
+      const overdueSchedules = globalSchedules.filter(s => {
         const dueDate = new Date(s.due_date);
         dueDate.setHours(0, 0, 0, 0);
         return dueDate < today;
