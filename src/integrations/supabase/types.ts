@@ -113,6 +113,59 @@ export type Database = {
           },
         ]
       }
+      entry_schedules: {
+        Row: {
+          amount: number
+          created_at: string
+          due_date: string
+          entry_id: string
+          id: string
+          installment_number: number
+          installments_total: number
+          paid_at: string | null
+          schedule_type: Database["public"]["Enums"]["schedule_type"]
+          status: Database["public"]["Enums"]["entry_status"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          due_date: string
+          entry_id: string
+          id?: string
+          installment_number?: number
+          installments_total?: number
+          paid_at?: string | null
+          schedule_type: Database["public"]["Enums"]["schedule_type"]
+          status?: Database["public"]["Enums"]["entry_status"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          due_date?: string
+          entry_id?: string
+          id?: string
+          installment_number?: number
+          installments_total?: number
+          paid_at?: string | null
+          schedule_type?: Database["public"]["Enums"]["schedule_type"]
+          status?: Database["public"]["Enums"]["entry_status"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "entry_schedules_entry_id_fkey"
+            columns: ["entry_id"]
+            isOneToOne: false
+            referencedRelation: "entries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       expenses: {
         Row: {
           category: string
@@ -253,6 +306,7 @@ export type Database = {
       expense_type: "fixa" | "variavel"
       item_type: "servico" | "produto"
       payment_method: "dinheiro" | "pix" | "cartao_credito" | "cartao_debito"
+      schedule_type: "single" | "installment" | "monthly_package"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -385,6 +439,7 @@ export const Constants = {
       expense_type: ["fixa", "variavel"],
       item_type: ["servico", "produto"],
       payment_method: ["dinheiro", "pix", "cartao_credito", "cartao_debito"],
+      schedule_type: ["single", "installment", "monthly_package"],
     },
   },
 } as const

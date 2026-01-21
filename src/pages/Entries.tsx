@@ -1,8 +1,9 @@
 import { useState, useMemo } from 'react';
 import AppLayout from '@/components/AppLayout';
 import { useEntries, Entry } from '@/hooks/useEntries';
+import { useEntrySchedules, getScheduleSummary, EntrySchedule } from '@/hooks/useEntrySchedules';
 import { cn } from '@/lib/utils';
-import { Search, Loader2, Receipt, Package, Scissors, CheckCircle } from 'lucide-react';
+import { Search, Loader2, Receipt, Package, Scissors, CheckCircle, ChevronDown, ChevronUp } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { format, parseISO } from 'date-fns';
@@ -31,6 +32,7 @@ function formatPaymentMethod(method: string): string {
 
 export default function Entries() {
   const { entries, isLoading, markAsPaid } = useEntries();
+  const { schedulesByEntry, markScheduleAsPaid, isLoading: schedulesLoading } = useEntrySchedules();
   const [activeFilter, setActiveFilter] = useState<FilterType>('todos');
   const [search, setSearch] = useState('');
 
@@ -39,7 +41,9 @@ export default function Entries() {
       // Filter by visual status
       if (activeFilter !== 'todos') {
         const { visualStatus } = getEntryVisualInfo(entry.status, entry.due_date, entry.payment_date);
-        if (visualStatus !== activeFilter) return false;
+        // Group 'vence_hoje' with 'a_vencer' for filtering
+        const effectiveStatus = visualStatus === 'vence_hoje' ? 'a_vencer' : visualStatus;
+        if (effectiveStatus !== activeFilter) return false;
       }
 
       // Filter by search
@@ -53,6 +57,10 @@ export default function Entries() {
 
   const handleMarkAsPaid = (entry: Entry) => {
     markAsPaid.mutate(entry.id);
+  };
+
+  const handleMarkSchedulePaid = (scheduleId: string) => {
+    markScheduleAsPaid.mutate(scheduleId);
   };
 
   return (
@@ -96,7 +104,7 @@ export default function Entries() {
 
         {/* Entries List */}
         <div className="flex-1 overflow-auto -mx-4 px-4">
-          {isLoading ? (
+          {isLoading || schedulesLoading ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
             </div>
@@ -114,9 +122,12 @@ export default function Entries() {
               {filteredEntries.map((entry) => (
                 <EntryListCard 
                   key={entry.id} 
-                  entry={entry} 
+                  entry={entry}
+                  schedules={schedulesByEntry[entry.id] || []}
                   onMarkAsPaid={() => handleMarkAsPaid(entry)}
+                  onMarkSchedulePaid={handleMarkSchedulePaid}
                   isMarkingPaid={markAsPaid.isPending}
+                  isMarkingSchedulePaid={markScheduleAsPaid.isPending}
                 />
               ))}
             </div>
@@ -129,13 +140,26 @@ export default function Entries() {
 
 interface EntryListCardProps {
   entry: Entry;
+  schedules: EntrySchedule[];
   onMarkAsPaid: () => void;
+  onMarkSchedulePaid: (scheduleId: string) => void;
   isMarkingPaid: boolean;
+  isMarkingSchedulePaid: boolean;
 }
 
-function EntryListCard({ entry, onMarkAsPaid, isMarkingPaid }: EntryListCardProps) {
+function EntryListCard({ 
+  entry, 
+  schedules,
+  onMarkAsPaid, 
+  onMarkSchedulePaid,
+  isMarkingPaid,
+  isMarkingSchedulePaid 
+}: EntryListCardProps) {
+  const [expanded, setExpanded] = useState(false);
   const { visualStatus } = getEntryVisualInfo(entry.status, entry.due_date, entry.payment_date);
-  const showMarkAsPaid = entry.status === 'pendente';
+  const hasSchedules = schedules.length > 0;
+  const scheduleSummary = hasSchedules ? getScheduleSummary(schedules) : null;
+  const showMarkAsPaid = entry.status === 'pendente' && !hasSchedules;
 
   return (
     <div className={cn(
@@ -179,6 +203,31 @@ function EntryListCard({ entry, onMarkAsPaid, isMarkingPaid }: EntryListCardProp
           />
         </div>
       </div>
+
+      {/* Schedule Summary */}
+      {scheduleSummary && (
+        <button
+          onClick={() => setExpanded(!expanded)}
+          className="flex items-center justify-between w-full text-sm text-muted-foreground bg-secondary/50 rounded-lg px-3 py-2 hover:bg-secondary transition-colors"
+        >
+          <span>{scheduleSummary.summary}</span>
+          {expanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+        </button>
+      )}
+
+      {/* Expanded Schedules List */}
+      {expanded && hasSchedules && (
+        <div className="space-y-2 pt-2 border-t border-border">
+          {schedules.map((schedule) => (
+            <ScheduleItem
+              key={schedule.id}
+              schedule={schedule}
+              onMarkPaid={() => onMarkSchedulePaid(schedule.id)}
+              isMarking={isMarkingSchedulePaid}
+            />
+          ))}
+        </div>
+      )}
       
       {showMarkAsPaid && (
         <Button
@@ -192,6 +241,60 @@ function EntryListCard({ entry, onMarkAsPaid, isMarkingPaid }: EntryListCardProp
           Marcar como pago
         </Button>
       )}
+    </div>
+  );
+}
+
+interface ScheduleItemProps {
+  schedule: EntrySchedule;
+  onMarkPaid: () => void;
+  isMarking: boolean;
+}
+
+function ScheduleItem({ schedule, onMarkPaid, isMarking }: ScheduleItemProps) {
+  const { visualStatus, label, variant } = getEntryVisualInfo(
+    schedule.status, 
+    schedule.due_date, 
+    schedule.paid_at?.split('T')[0] || null
+  );
+  const typeLabel = schedule.schedule_type === 'installment' ? 'Parcela' : 'Mês';
+
+  return (
+    <div className="flex items-center justify-between py-2 px-3 bg-secondary/30 rounded-lg">
+      <div className="flex-1">
+        <p className="text-sm font-medium text-foreground">
+          {typeLabel} {schedule.installment_number}/{schedule.installments_total}
+        </p>
+        <p className="text-xs text-muted-foreground">
+          {format(parseISO(schedule.due_date), "dd/MM/yyyy")}
+        </p>
+      </div>
+      <div className="text-right flex items-center gap-2">
+        <div>
+          <p className="text-sm font-medium text-foreground">
+            R$ {schedule.amount.toFixed(2)}
+          </p>
+          <span className={cn(
+            'text-xs font-medium',
+            variant === 'success' && 'text-success',
+            variant === 'warning' && 'text-warning',
+            variant === 'destructive' && 'text-destructive'
+          )}>
+            {label}
+          </span>
+        </div>
+        {schedule.status === 'pendente' && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onMarkPaid}
+            disabled={isMarking}
+            className="h-8 px-2 text-success hover:text-success hover:bg-success/10"
+          >
+            <CheckCircle size={18} />
+          </Button>
+        )}
+      </div>
     </div>
   );
 }

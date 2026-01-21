@@ -3,10 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import { useServicesProducts, ServiceProduct } from '@/hooks/useServicesProducts';
 import { useClients } from '@/hooks/useClients';
 import { useAuth } from '@/contexts/AuthContext';
+import { useEntrySchedules, getDefaultDueDate } from '@/hooks/useEntrySchedules';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 import {
   Select,
   SelectContent,
@@ -14,7 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { ArrowLeft, Check, Loader2 } from 'lucide-react';
+import { ArrowLeft, Check, Loader2, Calendar, CreditCard, Package } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
@@ -27,6 +29,7 @@ export default function NewEntry() {
   const { user } = useAuth();
   const { clients, isLoading: clientsLoading } = useClients();
   const { items: servicesProducts, isLoading: itemsLoading } = useServicesProducts();
+  const { createSchedules } = useEntrySchedules();
   
   const [clientId, setClientId] = useState('');
   const [itemType, setItemType] = useState<ItemType>('servico');
@@ -36,8 +39,25 @@ export default function NewEntry() {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('pix');
   const [status, setStatus] = useState<PaymentStatus>('pendente');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
-  const [dueDate, setDueDate] = useState(new Date().toISOString().split('T')[0]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Payment rules state
+  const [customDueDate, setCustomDueDate] = useState(false);
+  const [dueDate, setDueDate] = useState(() => getDefaultDueDate(new Date().toISOString().split('T')[0]));
+  const [isInstallment, setIsInstallment] = useState(false);
+  const [isMonthlyPackage, setIsMonthlyPackage] = useState(false);
+  const [installmentsTotal, setInstallmentsTotal] = useState('3');
+  const [intervalDays, setIntervalDays] = useState('30');
+  const [firstDueDate, setFirstDueDate] = useState(() => getDefaultDueDate(new Date().toISOString().split('T')[0]));
+  const [monthsTotal, setMonthsTotal] = useState('3');
+
+  // Update default due date when entry date changes
+  useEffect(() => {
+    if (!customDueDate) {
+      setDueDate(getDefaultDueDate(date));
+    }
+    setFirstDueDate(getDefaultDueDate(date));
+  }, [date, customDueDate]);
 
   // Filter items by type
   const filteredItems = useMemo(() => {
@@ -50,6 +70,18 @@ export default function NewEntry() {
     const unit = parseFloat(unitValue) || 0;
     return qty * unit;
   }, [quantity, unitValue]);
+
+  // Calculate installment value
+  const installmentValue = useMemo(() => {
+    const count = parseInt(installmentsTotal) || 1;
+    return totalValue / count;
+  }, [totalValue, installmentsTotal]);
+
+  // Calculate monthly value
+  const monthlyValue = useMemo(() => {
+    const count = parseInt(monthsTotal) || 1;
+    return totalValue / count;
+  }, [totalValue, monthsTotal]);
 
   // Reset item selection when type changes
   useEffect(() => {
@@ -64,6 +96,18 @@ export default function NewEntry() {
     if (item) {
       setUnitValue(item.base_price.toString());
     }
+  };
+
+  // Handle installment toggle
+  const handleInstallmentToggle = (checked: boolean) => {
+    setIsInstallment(checked);
+    if (checked) setIsMonthlyPackage(false);
+  };
+
+  // Handle monthly package toggle
+  const handleMonthlyPackageToggle = (checked: boolean) => {
+    setIsMonthlyPackage(checked);
+    if (checked) setIsInstallment(false);
   };
 
   const handleSubmit = async (markAsPaid: boolean = false) => {
@@ -83,20 +127,49 @@ export default function NewEntry() {
       const finalStatus = markAsPaid ? 'pago' : status;
       const today = new Date().toISOString().split('T')[0];
       
-      const { error } = await supabase.from('entries').insert({
-        user_id: user.id,
-        client_id: clientId,
-        service_product_id: itemId,
-        quantity: parseInt(quantity) || 1,
-        value: totalValue,
-        payment_method: paymentMethod,
-        status: finalStatus,
-        date: date,
-        due_date: finalStatus === 'pendente' ? dueDate : null,
-        payment_date: finalStatus === 'pago' ? today : null,
-      });
+      // Calculate effective due date
+      const effectiveDueDate = customDueDate ? dueDate : getDefaultDueDate(date);
+      
+      // Create the base entry
+      const { data: entryData, error: entryError } = await supabase
+        .from('entries')
+        .insert({
+          user_id: user.id,
+          client_id: clientId,
+          service_product_id: itemId,
+          quantity: parseInt(quantity) || 1,
+          value: totalValue,
+          payment_method: paymentMethod,
+          status: finalStatus,
+          date: date,
+          due_date: finalStatus === 'pendente' ? effectiveDueDate : null,
+          payment_date: finalStatus === 'pago' ? today : null,
+        })
+        .select()
+        .single();
 
-      if (error) throw error;
+      if (entryError) throw entryError;
+
+      // Create schedules if installment or monthly package
+      if (isInstallment && finalStatus === 'pendente') {
+        await createSchedules.mutateAsync({
+          entry_id: entryData.id,
+          schedule_type: 'installment',
+          total_value: totalValue,
+          installments_total: parseInt(installmentsTotal) || 1,
+          first_due_date: firstDueDate,
+          interval_days: parseInt(intervalDays) || 30,
+        });
+      } else if (isMonthlyPackage && finalStatus === 'pendente') {
+        await createSchedules.mutateAsync({
+          entry_id: entryData.id,
+          schedule_type: 'monthly_package',
+          total_value: totalValue,
+          installments_total: parseInt(monthsTotal) || 1,
+          first_due_date: firstDueDate,
+          interval_days: 30, // Monthly = 30 days interval
+        });
+      }
 
       toast.success('Lançamento criado com sucesso!');
       navigate('/lancamentos');
@@ -296,16 +369,141 @@ export default function NewEntry() {
           />
         </div>
 
-        {/* Data de Vencimento (only for pending) */}
+        {/* Payment Rules Section - Only for pending status */}
         {status === 'pendente' && (
-          <div className="space-y-2">
-            <Label>Data de vencimento *</Label>
-            <Input
-              type="date"
-              value={dueDate}
-              onChange={(e) => setDueDate(e.target.value)}
-              className="h-12 bg-card"
-            />
+          <div className="bg-card rounded-xl p-4 border border-border space-y-4">
+            <div className="flex items-center gap-2 text-foreground font-medium">
+              <CreditCard size={18} />
+              Regras de Pagamento
+            </div>
+
+            {/* Custom Due Date Toggle */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Calendar size={16} className="text-muted-foreground" />
+                <Label className="cursor-pointer">Vencimento personalizado</Label>
+              </div>
+              <Switch
+                checked={customDueDate}
+                onCheckedChange={setCustomDueDate}
+              />
+            </div>
+            
+            {customDueDate && (
+              <div className="space-y-2 pl-6">
+                <Input
+                  type="date"
+                  value={dueDate}
+                  onChange={(e) => setDueDate(e.target.value)}
+                  className="h-12 bg-background"
+                />
+              </div>
+            )}
+
+            {!customDueDate && (
+              <p className="text-xs text-muted-foreground pl-6">
+                Vencimento padrão: 30 dias após a data do lançamento ({dueDate})
+              </p>
+            )}
+
+            {/* Installment Toggle */}
+            <div className="flex items-center justify-between pt-2 border-t border-border">
+              <div className="flex items-center gap-2">
+                <CreditCard size={16} className="text-muted-foreground" />
+                <Label className="cursor-pointer">Pagamento parcelado?</Label>
+              </div>
+              <Switch
+                checked={isInstallment}
+                onCheckedChange={handleInstallmentToggle}
+                disabled={isMonthlyPackage}
+              />
+            </div>
+
+            {isInstallment && (
+              <div className="space-y-3 pl-6">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label className="text-xs">Nº de parcelas</Label>
+                    <Input
+                      type="number"
+                      min="2"
+                      max="12"
+                      value={installmentsTotal}
+                      onChange={(e) => setInstallmentsTotal(e.target.value)}
+                      className="h-10 bg-background"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Intervalo (dias)</Label>
+                    <Input
+                      type="number"
+                      min="7"
+                      max="60"
+                      value={intervalDays}
+                      onChange={(e) => setIntervalDays(e.target.value)}
+                      className="h-10 bg-background"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">1ª parcela vence em</Label>
+                  <Input
+                    type="date"
+                    value={firstDueDate}
+                    onChange={(e) => setFirstDueDate(e.target.value)}
+                    className="h-10 bg-background"
+                  />
+                </div>
+                <div className="bg-primary/10 rounded-lg p-3">
+                  <p className="text-sm font-medium text-primary">
+                    {installmentsTotal}x de R$ {installmentValue.toFixed(2)}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Monthly Package Toggle */}
+            <div className="flex items-center justify-between pt-2 border-t border-border">
+              <div className="flex items-center gap-2">
+                <Package size={16} className="text-muted-foreground" />
+                <Label className="cursor-pointer">Pacote mensal?</Label>
+              </div>
+              <Switch
+                checked={isMonthlyPackage}
+                onCheckedChange={handleMonthlyPackageToggle}
+                disabled={isInstallment}
+              />
+            </div>
+
+            {isMonthlyPackage && (
+              <div className="space-y-3 pl-6">
+                <div className="space-y-1">
+                  <Label className="text-xs">Duração (meses)</Label>
+                  <Input
+                    type="number"
+                    min="2"
+                    max="12"
+                    value={monthsTotal}
+                    onChange={(e) => setMonthsTotal(e.target.value)}
+                    className="h-10 bg-background"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">1ª mensalidade vence em</Label>
+                  <Input
+                    type="date"
+                    value={firstDueDate}
+                    onChange={(e) => setFirstDueDate(e.target.value)}
+                    className="h-10 bg-background"
+                  />
+                </div>
+                <div className="bg-primary/10 rounded-lg p-3">
+                  <p className="text-sm font-medium text-primary">
+                    {monthsTotal} meses x R$ {monthlyValue.toFixed(2)}/mês
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -326,7 +524,7 @@ export default function NewEntry() {
             )}
           </Button>
           
-          {status === 'pendente' && (
+          {status === 'pendente' && !isInstallment && !isMonthlyPackage && (
             <Button
               variant="outline"
               onClick={() => handleSubmit(true)}
