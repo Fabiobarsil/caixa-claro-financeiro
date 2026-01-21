@@ -52,8 +52,10 @@ export type Database = {
           client_id: string | null
           created_at: string
           date: string
+          due_date: string | null
           id: string
           notes: string | null
+          payment_date: string | null
           payment_method: Database["public"]["Enums"]["payment_method"]
           quantity: number
           service_product_id: string | null
@@ -66,8 +68,10 @@ export type Database = {
           client_id?: string | null
           created_at?: string
           date?: string
+          due_date?: string | null
           id?: string
           notes?: string | null
+          payment_date?: string | null
           payment_method: Database["public"]["Enums"]["payment_method"]
           quantity?: number
           service_product_id?: string | null
@@ -80,8 +84,10 @@ export type Database = {
           client_id?: string | null
           created_at?: string
           date?: string
+          due_date?: string | null
           id?: string
           notes?: string | null
+          payment_date?: string | null
           payment_method?: Database["public"]["Enums"]["payment_method"]
           quantity?: number
           service_product_id?: string | null

@@ -2,18 +2,21 @@ import { useState, useMemo } from 'react';
 import AppLayout from '@/components/AppLayout';
 import { useEntries, Entry } from '@/hooks/useEntries';
 import { cn } from '@/lib/utils';
-import { Search, Loader2, Receipt, Package, Scissors } from 'lucide-react';
+import { Search, Loader2, Receipt, Package, Scissors, CheckCircle } from 'lucide-react';
 import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import StatusBadge from '@/components/StatusBadge';
+import EntryStatusBadge from '@/components/EntryStatusBadge';
+import { getEntryVisualInfo, VisualStatus } from '@/lib/entryStatus';
 
-type FilterType = 'todos' | 'pago' | 'pendente';
+type FilterType = 'todos' | 'pago' | 'a_vencer' | 'vencido';
 
 const filters: { value: FilterType; label: string }[] = [
   { value: 'todos', label: 'Todos' },
   { value: 'pago', label: 'Pagos' },
-  { value: 'pendente', label: 'Pendentes' },
+  { value: 'a_vencer', label: 'A vencer' },
+  { value: 'vencido', label: 'Vencidos' },
 ];
 
 function formatPaymentMethod(method: string): string {
@@ -27,23 +30,29 @@ function formatPaymentMethod(method: string): string {
 }
 
 export default function Entries() {
-  const { entries, isLoading, updateEntryStatus } = useEntries();
+  const { entries, isLoading, markAsPaid } = useEntries();
   const [activeFilter, setActiveFilter] = useState<FilterType>('todos');
   const [search, setSearch] = useState('');
 
   const filteredEntries = useMemo(() => {
     return entries.filter((entry) => {
-      const matchesFilter = activeFilter === 'todos' || entry.status === activeFilter;
+      // Filter by visual status
+      if (activeFilter !== 'todos') {
+        const { visualStatus } = getEntryVisualInfo(entry.status, entry.due_date, entry.payment_date);
+        if (visualStatus !== activeFilter) return false;
+      }
+
+      // Filter by search
       const matchesSearch = search === '' || 
         (entry.client_name?.toLowerCase().includes(search.toLowerCase())) ||
         (entry.item_name?.toLowerCase().includes(search.toLowerCase()));
-      return matchesFilter && matchesSearch;
+      
+      return matchesSearch;
     });
   }, [entries, activeFilter, search]);
 
-  const handleToggleStatus = async (entry: Entry) => {
-    const newStatus = entry.status === 'pago' ? 'pendente' : 'pago';
-    updateEntryStatus.mutate({ id: entry.id, status: newStatus });
+  const handleMarkAsPaid = (entry: Entry) => {
+    markAsPaid.mutate(entry.id);
   };
 
   return (
@@ -103,47 +112,86 @@ export default function Entries() {
           ) : (
             <div className="space-y-2">
               {filteredEntries.map((entry) => (
-                <button
-                  key={entry.id}
-                  onClick={() => handleToggleStatus(entry)}
-                  className="w-full bg-card rounded-xl p-4 flex items-center gap-3 text-left hover:bg-accent transition-colors"
-                >
-                  <div className={cn(
-                    'w-10 h-10 rounded-full flex items-center justify-center',
-                    entry.item_type === 'servico' ? 'bg-primary/10 text-primary' : 'bg-accent text-accent-foreground'
-                  )}>
-                    {entry.item_type === 'servico' ? <Scissors size={20} /> : <Package size={20} />}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-foreground truncate">
-                      {entry.client_name || 'Cliente não informado'}
-                    </p>
-                    <p className="text-sm text-muted-foreground truncate">
-                      {entry.item_name || 'Item não informado'}
-                      {entry.quantity > 1 && ` (${entry.quantity}x)`}
-                    </p>
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className="text-xs text-muted-foreground">
-                        {format(parseISO(entry.date), "dd MMM", { locale: ptBR })}
-                      </span>
-                      <span className="text-xs text-muted-foreground">•</span>
-                      <span className="text-xs text-muted-foreground">
-                        {formatPaymentMethod(entry.payment_method)}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="text-right flex flex-col items-end gap-1">
-                    <p className="font-semibold text-foreground">
-                      R$ {entry.value.toFixed(2)}
-                    </p>
-                    <StatusBadge status={entry.status} />
-                  </div>
-                </button>
+                <EntryListCard 
+                  key={entry.id} 
+                  entry={entry} 
+                  onMarkAsPaid={() => handleMarkAsPaid(entry)}
+                  isMarkingPaid={markAsPaid.isPending}
+                />
               ))}
             </div>
           )}
         </div>
       </div>
     </AppLayout>
+  );
+}
+
+interface EntryListCardProps {
+  entry: Entry;
+  onMarkAsPaid: () => void;
+  isMarkingPaid: boolean;
+}
+
+function EntryListCard({ entry, onMarkAsPaid, isMarkingPaid }: EntryListCardProps) {
+  const { visualStatus } = getEntryVisualInfo(entry.status, entry.due_date, entry.payment_date);
+  const showMarkAsPaid = entry.status === 'pendente';
+
+  return (
+    <div className={cn(
+      "bg-card rounded-xl p-4 flex flex-col gap-3",
+      visualStatus === 'vencido' && "border-l-4 border-destructive"
+    )}>
+      <div className="flex items-center gap-3">
+        <div className={cn(
+          'w-10 h-10 rounded-full flex items-center justify-center',
+          entry.item_type === 'servico' ? 'bg-primary/10 text-primary' : 'bg-accent text-accent-foreground'
+        )}>
+          {entry.item_type === 'servico' ? <Scissors size={20} /> : <Package size={20} />}
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="font-medium text-foreground truncate">
+            {entry.client_name || 'Cliente não informado'}
+          </p>
+          <p className="text-sm text-muted-foreground truncate">
+            {entry.item_name || 'Item não informado'}
+            {entry.quantity > 1 && ` (${entry.quantity}x)`}
+          </p>
+          <div className="flex items-center gap-2 mt-1">
+            <span className="text-xs text-muted-foreground">
+              {format(parseISO(entry.date), "dd MMM", { locale: ptBR })}
+            </span>
+            <span className="text-xs text-muted-foreground">•</span>
+            <span className="text-xs text-muted-foreground">
+              {formatPaymentMethod(entry.payment_method)}
+            </span>
+          </div>
+        </div>
+        <div className="text-right flex flex-col items-end gap-1">
+          <p className="font-semibold text-foreground">
+            R$ {entry.value.toFixed(2)}
+          </p>
+          <EntryStatusBadge 
+            status={entry.status}
+            dueDate={entry.due_date}
+            paymentDate={entry.payment_date}
+            size="sm"
+          />
+        </div>
+      </div>
+      
+      {showMarkAsPaid && (
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={onMarkAsPaid}
+          disabled={isMarkingPaid}
+          className="w-full border-success text-success hover:bg-success hover:text-success-foreground"
+        >
+          <CheckCircle className="mr-2 h-4 w-4" />
+          Marcar como pago
+        </Button>
+      )}
+    </div>
   );
 }
