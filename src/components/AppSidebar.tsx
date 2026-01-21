@@ -3,7 +3,6 @@ import { NavLink, useLocation } from 'react-router-dom';
 import { Home, Receipt, Users, TrendingDown, Settings, ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
-import logoCaixacertusDark from '@/assets/logo-caixacertus-dark.svg';
 import iconCaixacertus from '@/assets/icon-caixacertus.svg';
 
 interface NavItem {
@@ -39,18 +38,16 @@ export default function AppSidebar() {
         "h-16 flex items-center border-b border-sidebar-border",
         isCollapsed ? "justify-center px-2" : "px-6"
       )}>
-        {isCollapsed ? (
-          <img 
-            src={iconCaixacertus} 
-            alt="CaixaCertus" 
-            className="h-8 w-8"
-          />
-        ) : (
-          <img 
-            src={logoCaixacertusDark} 
-            alt="CaixaCertus" 
-            className="h-8 w-auto"
-          />
+        <img 
+          src={iconCaixacertus} 
+          alt="CaixaCertus" 
+          className="h-8 w-8"
+        />
+        {!isCollapsed && (
+          <span className="text-lg font-bold ml-2">
+            <span className="text-sidebar-foreground">Caixa</span>
+            <span className="text-primary">Certus</span>
+          </span>
         )}
       </div>
 

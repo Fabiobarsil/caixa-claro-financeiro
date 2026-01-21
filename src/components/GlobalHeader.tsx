@@ -5,7 +5,7 @@ import { ptBR } from 'date-fns/locale';
 import { Home, LogOut, ChevronDown } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
-import logoCaixacertusLight from '@/assets/logo-caixacertus-light.svg';
+import iconCaixacertus from '@/assets/icon-caixacertus.svg';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -61,12 +61,20 @@ export default function GlobalHeader({ className }: GlobalHeaderProps) {
       {/* Left: Logo + Dashboard shortcut */}
       <div className="flex items-center gap-3">
         {/* Logo - visible on mobile and tablet */}
-        <img 
-          src={logoCaixacertusLight} 
-          alt="CaixaCertus" 
-          className="h-8 w-auto lg:hidden cursor-pointer"
+        <div 
+          className="flex items-center gap-2 lg:hidden cursor-pointer"
           onClick={() => navigate('/dashboard')}
-        />
+        >
+          <img 
+            src={iconCaixacertus} 
+            alt="CaixaCertus" 
+            className="h-8 w-auto"
+          />
+          <span className="text-lg font-bold">
+            <span className="text-foreground">Caixa</span>
+            <span className="text-primary">Certus</span>
+          </span>
+        </div>
         
         {/* Dashboard shortcut button - mobile only, when not on dashboard */}
         {!isOnDashboard && (
