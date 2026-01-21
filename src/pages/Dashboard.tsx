@@ -6,8 +6,8 @@ import StatusIndicator from '@/components/dashboard/StatusIndicator';
 import SectionCard from '@/components/dashboard/SectionCard';
 import UpcomingDeadlines from '@/components/dashboard/UpcomingDeadlines';
 import MiniCalendar from '@/components/dashboard/MiniCalendar';
-import QuickTools from '@/components/dashboard/QuickTools';
 import DistributionChart from '@/components/dashboard/DistributionChart';
+import FinancialEvolutionChart from '@/components/dashboard/FinancialEvolutionChart';
 import { useDashboard } from '@/hooks/useDashboard';
 import { formatCurrency } from '@/lib/formatters';
 import { format, subMonths } from 'date-fns';
@@ -156,11 +156,14 @@ export default function Dashboard() {
               <UpcomingDeadlines entries={[...pendingEntries, ...recentEntries]} />
             </section>
 
-            {/* Section 4: Calendar & Tools (2 columns on desktop) */}
+            {/* Section 4: Calendar & Financial Evolution (2 columns on desktop) */}
             <section className="mb-6">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <MiniCalendar highlightDates={dueDates} />
-                <QuickTools />
+                <FinancialEvolutionChart 
+                  entries={[...recentEntries, ...pendingEntries]} 
+                  selectedMonth={selectedMonth} 
+                />
               </div>
             </section>
 

@@ -6,6 +6,7 @@ import { Home, LogOut, ChevronDown } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 import iconCaixacertus from '@/assets/icon-caixacertus.svg';
+import { CalculatorDrawer } from '@/components/CalculatorDrawer';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -98,10 +99,10 @@ export default function GlobalHeader({ className }: GlobalHeaderProps) {
         </div>
       </div>
 
-      {/* Right: User menu */}
-      <div className="flex items-center gap-2">
+      {/* Right: Tools and User menu */}
+      <div className="flex items-center gap-3">
         {/* Mobile: Greeting compact */}
-        <div className="lg:hidden text-right mr-2">
+        <div className="lg:hidden text-right">
           <p className="text-sm font-medium text-foreground">
             {greeting}, {user?.name?.split(' ')[0]}
           </p>
@@ -109,6 +110,9 @@ export default function GlobalHeader({ className }: GlobalHeaderProps) {
             {currentTime}
           </p>
         </div>
+
+        {/* Calculator shortcut */}
+        <CalculatorDrawer />
 
         {/* User dropdown menu */}
         <DropdownMenu>
