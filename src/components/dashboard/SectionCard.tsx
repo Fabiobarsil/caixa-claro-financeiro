@@ -1,12 +1,6 @@
 import { cn } from '@/lib/utils';
 import { ReactNode } from 'react';
-import { HelpCircle } from 'lucide-react';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
+import CertusCardHeader from '@/components/ui/CertusCardHeader';
 
 export interface SectionCardProps {
   title?: string;
@@ -37,29 +31,15 @@ export default function SectionCard({
       className
     )}>
       {(title || action) && (
-        <div className="flex items-center justify-between px-5 py-4 border-b border-border">
-          <div className="flex items-center gap-2">
-            {icon}
-            <div>
-              <div className="flex items-center gap-1.5">
-                {title && <h3 className="text-base font-semibold text-foreground">{title}</h3>}
-                {tooltip && (
-                  <TooltipProvider delayDuration={300}>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <HelpCircle size={14} className="text-muted-foreground/60 cursor-help" />
-                      </TooltipTrigger>
-                      <TooltipContent side="top" className="max-w-xs">
-                        <p>{tooltip}</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                )}
-              </div>
-              {subtitle && <p className="text-xs text-muted-foreground mt-0.5">{subtitle}</p>}
-            </div>
-          </div>
-          {action}
+        <div className="px-5 py-4 border-b border-border">
+          <CertusCardHeader
+            title={title || ''}
+            helpText={tooltip}
+            subtitle={subtitle}
+            icon={icon}
+            badgeRight={action}
+            titleClassName="text-base font-semibold text-foreground"
+          />
         </div>
       )}
       <div className={cn(!noPadding && 'p-5')}>
