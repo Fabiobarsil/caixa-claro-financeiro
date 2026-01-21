@@ -72,7 +72,7 @@ export default function GlobalHeader({ className }: GlobalHeaderProps) {
           />
           <span className="text-lg font-bold">
             <span className="text-foreground">Caixa</span>
-            <span className="text-primary">Certus</span>
+            <span style={{ color: '#309050' }}>Certus</span>
           </span>
         </div>
         

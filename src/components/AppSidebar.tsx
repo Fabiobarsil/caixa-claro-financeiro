@@ -46,7 +46,7 @@ export default function AppSidebar() {
         {!isCollapsed && (
           <span className="text-lg font-bold ml-2">
             <span className="text-sidebar-foreground">Caixa</span>
-            <span className="text-primary">Certus</span>
+            <span style={{ color: '#309050' }}>Certus</span>
           </span>
         )}
       </div>
