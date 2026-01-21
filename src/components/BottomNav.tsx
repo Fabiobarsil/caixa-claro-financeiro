@@ -26,7 +26,7 @@ export default function BottomNav() {
   const visibleItems = navItems.filter(item => !item.adminOnly || isAdmin);
 
   return (
-    <nav className="bottom-nav z-50">
+    <nav className="bottom-nav z-50 lg:hidden">
       <div className="flex items-center justify-around max-w-lg mx-auto">
         {visibleItems.map((item) => {
           const isActive = location.pathname === item.to || 

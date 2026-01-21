@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Eye, EyeOff, Loader2 } from 'lucide-react';
 import { ForgotPasswordDialog } from '@/components/ForgotPasswordDialog';
+import logoCaixacertus from '@/assets/logo-caixacertus.svg';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -58,12 +59,13 @@ export default function Login() {
       <div className="w-full max-w-sm animate-fade-in">
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary mb-4">
-            <span className="text-2xl font-bold text-primary-foreground">CC</span>
-          </div>
-          <h1 className="text-2xl font-bold text-foreground">CAIXA CLARO</h1>
-          <p className="text-muted-foreground mt-1">
-            Controle simples para quem atende e vende
+          <img 
+            src={logoCaixacertus} 
+            alt="CaixaCertus" 
+            className="h-14 w-auto mx-auto mb-4"
+          />
+          <p className="text-muted-foreground">
+            Controle financeiro inteligente
           </p>
         </div>
 
