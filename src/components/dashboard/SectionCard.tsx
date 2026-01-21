@@ -1,9 +1,10 @@
 import { cn } from '@/lib/utils';
 import { ReactNode } from 'react';
 
-interface SectionCardProps {
+export interface SectionCardProps {
   title?: string;
   subtitle?: string;
+  icon?: ReactNode;
   action?: ReactNode;
   children: ReactNode;
   className?: string;
@@ -13,6 +14,7 @@ interface SectionCardProps {
 export default function SectionCard({ 
   title, 
   subtitle,
+  icon,
   action, 
   children, 
   className,
@@ -25,9 +27,12 @@ export default function SectionCard({
     )}>
       {(title || action) && (
         <div className="flex items-center justify-between px-5 py-4 border-b border-border">
-          <div>
-            {title && <h3 className="text-base font-semibold text-foreground">{title}</h3>}
-            {subtitle && <p className="text-xs text-muted-foreground mt-0.5">{subtitle}</p>}
+          <div className="flex items-center gap-2">
+            {icon}
+            <div>
+              {title && <h3 className="text-base font-semibold text-foreground">{title}</h3>}
+              {subtitle && <p className="text-xs text-muted-foreground mt-0.5">{subtitle}</p>}
+            </div>
           </div>
           {action}
         </div>

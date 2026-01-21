@@ -8,7 +8,12 @@ import UpcomingDeadlines from '@/components/dashboard/UpcomingDeadlines';
 import MiniCalendar from '@/components/dashboard/MiniCalendar';
 import DistributionChart from '@/components/dashboard/DistributionChart';
 import FinancialEvolutionChart from '@/components/dashboard/FinancialEvolutionChart';
+import FinancialProjection from '@/components/dashboard/FinancialProjection';
+import FinancialRisk from '@/components/dashboard/FinancialRisk';
+import CriticalDueDates from '@/components/dashboard/CriticalDueDates';
+import AutomaticInsight from '@/components/dashboard/AutomaticInsight';
 import { useDashboard } from '@/hooks/useDashboard';
+import { useProjections } from '@/hooks/useProjections';
 import { formatCurrency } from '@/lib/formatters';
 import { format, subMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -22,7 +27,6 @@ import {
   CheckCircle,
   Clock,
   AlertTriangle,
-  CheckCheck
 } from 'lucide-react';
 import {
   Select,
@@ -52,13 +56,7 @@ export default function Dashboard() {
   const months = useMemo(() => getMonthOptions(), []);
   
   const { metrics, recentEntries, pendingEntries, chartData, isLoading } = useDashboard(selectedMonth);
-
-  // Calculate status counts
-  const statusCounts = useMemo(() => {
-    const onTime = metrics.upcomingCount;
-    const overdue = metrics.overdueCount;
-    return { onTime, overdue };
-  }, [metrics]);
+  const { projections, isLoading: projectionsLoading } = useProjections();
 
   // Get due dates for calendar highlighting
   const dueDates = useMemo(() => {
@@ -66,6 +64,8 @@ export default function Dashboard() {
       .filter(e => e.due_date)
       .map(e => e.due_date as string);
   }, [pendingEntries]);
+
+  const isFullyLoading = isLoading || projectionsLoading;
 
   return (
     <AppLayout>
@@ -86,7 +86,7 @@ export default function Dashboard() {
           </Select>
         </div>
 
-        {isLoading ? (
+        {isFullyLoading ? (
           <div className="flex-1 flex items-center justify-center">
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
           </div>
@@ -151,12 +151,40 @@ export default function Dashboard() {
               </SectionCard>
             </section>
 
-            {/* Section 3: Próximos Prazos */}
+            {/* Section 3: Projeção e Risco (BLOCO 3) */}
+            <section className="mb-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <FinancialProjection
+                  projection30={projections.projection30}
+                  projection60={projections.projection60}
+                  projection90={projections.projection90}
+                />
+                <FinancialRisk
+                  overduePercentage={projections.overduePercentage}
+                  delinquentClientsCount={projections.delinquentClientsCount}
+                  riskLevel={projections.riskLevel}
+                />
+              </div>
+            </section>
+
+            {/* Section 4: Vencimentos Críticos e Insight */}
+            <section className="mb-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <CriticalDueDates items={projections.criticalDueDates} />
+                <AutomaticInsight
+                  insightData={projections.insightData}
+                  overduePercentage={projections.overduePercentage}
+                  delinquentClientsCount={projections.delinquentClientsCount}
+                />
+              </div>
+            </section>
+
+            {/* Section 5: Próximos Prazos */}
             <section className="mb-6">
               <UpcomingDeadlines entries={[...pendingEntries, ...recentEntries]} />
             </section>
 
-            {/* Section 4: Charts - Distribution & Evolution */}
+            {/* Section 6: Charts - Distribution & Evolution */}
             <section className="mb-6">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <DistributionChart 
@@ -168,7 +196,7 @@ export default function Dashboard() {
               </div>
             </section>
 
-            {/* Section 5: Summary & Calendar */}
+            {/* Section 7: Summary & Calendar */}
             <section className="mb-6">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <SectionCard title="Resumo Mensal">
