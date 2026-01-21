@@ -55,23 +55,33 @@ export default function StatusIndicator({
         onClick && 'cursor-pointer hover:opacity-80'
       )}
     >
-      <Icon size={20} className={styles.icon} />
-      <div className="flex items-center gap-1.5 flex-1">
+      <Icon size={20} className={cn('flex-shrink-0', styles.icon)} />
+      
+      {/* Left zone: Label + Tooltip with proper spacing */}
+      <div className="flex items-center gap-2 flex-1 min-w-0">
         <span className="text-sm text-muted-foreground">{label}</span>
         {tooltip && (
           <TooltipProvider delayDuration={300}>
             <Tooltip>
               <TooltipTrigger asChild onClick={(e) => e.stopPropagation()}>
-                <HelpCircle size={12} className="text-muted-foreground/60 cursor-help" />
+                <button
+                  type="button"
+                  className="flex-shrink-0 p-1 -m-1 rounded-full hover:bg-black/5 transition-colors focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  aria-label={`Ajuda sobre ${label}`}
+                >
+                  <HelpCircle size={14} className="text-muted-foreground/50" />
+                </button>
               </TooltipTrigger>
-              <TooltipContent side="top" className="max-w-xs">
+              <TooltipContent side="top" className="max-w-[280px] text-sm leading-relaxed">
                 <p>{tooltip}</p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
         )}
       </div>
-      <span className="text-sm font-semibold text-foreground">{value}</span>
+      
+      {/* Right zone: Value */}
+      <span className="text-sm font-semibold text-foreground flex-shrink-0">{value}</span>
     </Component>
   );
 }

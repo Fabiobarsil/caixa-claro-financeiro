@@ -1,6 +1,7 @@
 import { LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatCurrency } from '@/lib/formatters';
+import CertusCardHeader from '@/components/ui/CertusCardHeader';
 
 interface MetricCardProps {
   title: string;
@@ -8,6 +9,7 @@ interface MetricCardProps {
   icon: LucideIcon;
   variant: 'success' | 'warning' | 'expense' | 'profit';
   subtitle?: string;
+  tooltip?: string;
 }
 
 const variantStyles = {
@@ -33,17 +35,21 @@ const variantStyles = {
   },
 };
 
-export default function MetricCard({ title, value, icon: Icon, variant, subtitle }: MetricCardProps) {
+export default function MetricCard({ title, value, icon: Icon, variant, subtitle, tooltip }: MetricCardProps) {
   const styles = variantStyles[variant];
 
   return (
     <div className={cn('rounded-xl p-4 transition-all card-interactive', styles.card)}>
-      <div className="flex items-start justify-between mb-2">
-        <span className="text-sm font-medium text-muted-foreground">{title}</span>
-        <div className={cn('w-8 h-8 rounded-lg flex items-center justify-center', styles.icon)}>
-          <Icon size={18} />
-        </div>
-      </div>
+      <CertusCardHeader
+        title={title}
+        helpText={tooltip}
+        icon={
+          <div className={cn('w-8 h-8 rounded-lg flex items-center justify-center', styles.icon)}>
+            <Icon size={18} />
+          </div>
+        }
+        className="mb-2"
+      />
       <p className={cn('money-display-lg', styles.value)}>
         {formatCurrency(value)}
       </p>
