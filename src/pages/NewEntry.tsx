@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useServicesProducts, ServiceProduct } from '@/hooks/useServicesProducts';
+import { useServicesProducts } from '@/hooks/useServicesProducts';
 import { useClients } from '@/hooks/useClients';
 import { useAuth } from '@/contexts/AuthContext';
 import { useEntrySchedules, getDefaultDueDate } from '@/hooks/useEntrySchedules';
@@ -8,7 +8,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
 import {
   Select,
   SelectContent,
@@ -16,10 +15,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { ArrowLeft, Check, Loader2, Calendar, CreditCard, Package, Plus } from 'lucide-react';
+import { ArrowLeft, Check, Loader2, Calendar, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import ServiceProductDrawer from '@/components/ServiceProductDrawer';
+import BillingTypeSelector, { BillingType } from '@/components/entry/BillingTypeSelector';
+import EntrySummary from '@/components/entry/EntrySummary';
+import ItemSelector from '@/components/entry/ItemSelector';
+import InstallmentOptions from '@/components/entry/InstallmentOptions';
+import MonthlyPackageOptions from '@/components/entry/MonthlyPackageOptions';
 
 type PaymentMethod = 'pix' | 'cartao_credito' | 'cartao_debito' | 'dinheiro';
 type PaymentStatus = 'pago' | 'pendente';
@@ -32,6 +36,7 @@ export default function NewEntry() {
   const { items: servicesProducts, isLoading: itemsLoading } = useServicesProducts();
   const { createSchedules } = useEntrySchedules();
   
+  // Form state
   const [clientId, setClientId] = useState('');
   const [itemType, setItemType] = useState<ItemType>('servico');
   const [itemId, setItemId] = useState('');
@@ -42,11 +47,9 @@ export default function NewEntry() {
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Payment rules state
-  const [customDueDate, setCustomDueDate] = useState(false);
+  // Billing type state (unified)
+  const [billingType, setBillingType] = useState<BillingType>('single');
   const [dueDate, setDueDate] = useState(() => getDefaultDueDate(new Date().toISOString().split('T')[0]));
-  const [isInstallment, setIsInstallment] = useState(false);
-  const [isMonthlyPackage, setIsMonthlyPackage] = useState(false);
   const [installmentsTotal, setInstallmentsTotal] = useState('3');
   const [intervalDays, setIntervalDays] = useState('30');
   const [firstDueDate, setFirstDueDate] = useState(() => getDefaultDueDate(new Date().toISOString().split('T')[0]));
@@ -56,18 +59,25 @@ export default function NewEntry() {
   const [isServiceProductDrawerOpen, setIsServiceProductDrawerOpen] = useState(false);
   const [pendingItemSelection, setPendingItemSelection] = useState<string | null>(null);
 
+  // Validation state
+  const [showValidation, setShowValidation] = useState(false);
+
   // Update default due date when entry date changes
   useEffect(() => {
-    if (!customDueDate) {
-      setDueDate(getDefaultDueDate(date));
-    }
-    setFirstDueDate(getDefaultDueDate(date));
-  }, [date, customDueDate]);
+    const newDueDate = getDefaultDueDate(date);
+    setDueDate(newDueDate);
+    setFirstDueDate(newDueDate);
+  }, [date]);
 
-  // Filter items by type
-  const filteredItems = useMemo(() => {
-    return servicesProducts.filter(item => item.type === itemType);
-  }, [servicesProducts, itemType]);
+  // Get selected item details
+  const selectedItem = useMemo(() => {
+    return servicesProducts.find(s => s.id === itemId);
+  }, [servicesProducts, itemId]);
+
+  // Get selected client name
+  const selectedClient = useMemo(() => {
+    return clients.find(c => c.id === clientId);
+  }, [clients, clientId]);
 
   // Calculate total
   const totalValue = useMemo(() => {
@@ -106,11 +116,6 @@ export default function NewEntry() {
   // Handle new service/product created from drawer
   const handleServiceProductDrawerClose = () => {
     setIsServiceProductDrawerOpen(false);
-    
-    // If there's a pending item to select, wait for the query to refetch and select it
-    if (pendingItemSelection) {
-      // The item will be selected after the next render when servicesProducts updates
-    }
   };
 
   // Watch for new items to auto-select after creation
@@ -127,26 +132,60 @@ export default function NewEntry() {
     }
   }, [servicesProducts, pendingItemSelection]);
 
-  // Handle installment toggle
-  const handleInstallmentToggle = (checked: boolean) => {
-    setIsInstallment(checked);
-    if (checked) setIsMonthlyPackage(false);
-  };
+  // Validation
+  const validationErrors = useMemo(() => {
+    const errors: string[] = [];
+    if (!clientId) errors.push('Selecione um cliente');
+    if (!itemId) errors.push('Selecione um item');
+    if (totalValue <= 0) errors.push('Informe o valor');
+    if (status === 'pendente' && billingType === 'single' && !dueDate) {
+      errors.push('Vencimento obrigatório para pendente');
+    }
+    return errors;
+  }, [clientId, itemId, totalValue, status, billingType, dueDate]);
 
-  // Handle monthly package toggle
-  const handleMonthlyPackageToggle = (checked: boolean) => {
-    setIsMonthlyPackage(checked);
-    if (checked) setIsInstallment(false);
-  };
+  const isFormValid = validationErrors.length === 0;
+
+  // Get effective due date for display
+  const effectiveDueDate = useMemo(() => {
+    if (billingType === 'single') {
+      return dueDate;
+    }
+    return firstDueDate;
+  }, [billingType, dueDate, firstDueDate]);
+
+  // Get number of installments/months for summary
+  const effectiveInstallments = useMemo(() => {
+    if (billingType === 'installment') {
+      return parseInt(installmentsTotal) || 1;
+    }
+    if (billingType === 'monthly_package') {
+      return parseInt(monthsTotal) || 1;
+    }
+    return 1;
+  }, [billingType, installmentsTotal, monthsTotal]);
+
+  // Get value per period for summary
+  const effectiveMonthlyValue = useMemo(() => {
+    if (billingType === 'installment') {
+      return installmentValue;
+    }
+    if (billingType === 'monthly_package') {
+      return monthlyValue;
+    }
+    return undefined;
+  }, [billingType, installmentValue, monthlyValue]);
 
   const handleSubmit = async (markAsPaid: boolean = false) => {
+    setShowValidation(true);
+    
     if (!user) {
       toast.error('Você precisa estar logado');
       return;
     }
 
-    if (!clientId || !itemId) {
-      toast.error('Selecione o cliente e o item');
+    if (!isFormValid) {
+      toast.error(validationErrors[0]);
       return;
     }
 
@@ -156,8 +195,8 @@ export default function NewEntry() {
       const finalStatus = markAsPaid ? 'pago' : status;
       const today = new Date().toISOString().split('T')[0];
       
-      // Calculate effective due date
-      const effectiveDueDate = customDueDate ? dueDate : getDefaultDueDate(date);
+      // Calculate effective due date for single payments
+      const entryDueDate = billingType === 'single' && finalStatus === 'pendente' ? dueDate : null;
       
       // Create the base entry
       const { data: entryData, error: entryError } = await supabase
@@ -171,7 +210,7 @@ export default function NewEntry() {
           payment_method: paymentMethod,
           status: finalStatus,
           date: date,
-          due_date: finalStatus === 'pendente' ? effectiveDueDate : null,
+          due_date: entryDueDate,
           payment_date: finalStatus === 'pago' ? today : null,
         })
         .select()
@@ -180,7 +219,7 @@ export default function NewEntry() {
       if (entryError) throw entryError;
 
       // Create schedules if installment or monthly package
-      if (isInstallment && finalStatus === 'pendente') {
+      if (billingType === 'installment' && finalStatus === 'pendente') {
         await createSchedules.mutateAsync({
           entry_id: entryData.id,
           schedule_type: 'installment',
@@ -189,19 +228,22 @@ export default function NewEntry() {
           first_due_date: firstDueDate,
           interval_days: parseInt(intervalDays) || 30,
         });
-      } else if (isMonthlyPackage && finalStatus === 'pendente') {
+      } else if (billingType === 'monthly_package' && finalStatus === 'pendente') {
         await createSchedules.mutateAsync({
           entry_id: entryData.id,
           schedule_type: 'monthly_package',
           total_value: totalValue,
           installments_total: parseInt(monthsTotal) || 1,
           first_due_date: firstDueDate,
-          interval_days: 30, // Monthly = 30 days interval
+          interval_days: 30,
         });
       }
 
       toast.success('Lançamento criado com sucesso!');
-      navigate('/lancamentos');
+      
+      // Navigate with appropriate filter
+      const targetFilter = finalStatus === 'pago' ? 'pago' : 'a_vencer';
+      navigate(`/lancamentos?status=${targetFilter}`);
     } catch (error: any) {
       console.error('Erro ao criar lançamento:', error);
       toast.error('Erro ao criar lançamento: ' + error.message);
@@ -219,7 +261,7 @@ export default function NewEntry() {
         <div className="flex items-center gap-3">
           <button
             onClick={() => navigate(-1)}
-            className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center text-foreground"
+            className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center text-foreground hover:bg-secondary/80 transition-colors"
           >
             <ArrowLeft size={20} />
           </button>
@@ -233,7 +275,10 @@ export default function NewEntry() {
         <div className="space-y-2">
           <Label>Cliente *</Label>
           <Select value={clientId} onValueChange={setClientId} disabled={isLoading}>
-            <SelectTrigger className="h-12 bg-card">
+            <SelectTrigger className={cn(
+              "h-12 bg-card",
+              showValidation && !clientId && "border-destructive"
+            )}>
               <SelectValue placeholder={clientsLoading ? "Carregando..." : "Selecione o cliente"} />
             </SelectTrigger>
             <SelectContent>
@@ -251,102 +296,59 @@ export default function NewEntry() {
           )}
         </div>
 
-        {/* Tipo */}
-        <div className="space-y-2">
-          <Label>Tipo</Label>
-          <div className="flex gap-2">
-            <button
-              onClick={() => setItemType('servico')}
-              className={cn(
-                'flex-1 py-3 rounded-lg font-medium transition-colors',
-                itemType === 'servico'
-                  ? 'bg-primary text-primary-foreground'
-                  : 'bg-secondary text-secondary-foreground'
-              )}
-            >
-              Serviço
-            </button>
-            <button
-              onClick={() => setItemType('produto')}
-              className={cn(
-                'flex-1 py-3 rounded-lg font-medium transition-colors',
-                itemType === 'produto'
-                  ? 'bg-primary text-primary-foreground'
-                  : 'bg-secondary text-secondary-foreground'
-              )}
-            >
-              Produto
-            </button>
-          </div>
-        </div>
-
-        {/* Item */}
-        <div className="space-y-2">
-          <Label>{itemType === 'servico' ? 'Serviço' : 'Produto'} *</Label>
-          <Select value={itemId} onValueChange={handleItemChange} disabled={isLoading}>
-            <SelectTrigger className="h-12 bg-card">
-              <SelectValue placeholder={itemsLoading ? "Carregando..." : `Selecione o ${itemType}`} />
-            </SelectTrigger>
-            <SelectContent>
-              {filteredItems.length === 0 ? (
-                <div className="py-2 px-3 text-sm text-muted-foreground">
-                  Nenhum {itemType} cadastrado
-                </div>
-              ) : (
-                filteredItems.map((item) => (
-                  <SelectItem key={item.id} value={item.id}>
-                    {item.name} - R$ {item.base_price.toFixed(2)}
-                  </SelectItem>
-                ))
-              )}
-            </SelectContent>
-          </Select>
-          <p className="text-xs text-muted-foreground">
-            Selecione um serviço ou produto previamente cadastrado
-          </p>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="h-8 px-2 text-primary hover:text-primary/80 hover:bg-primary/10 -mt-1"
-            onClick={() => setIsServiceProductDrawerOpen(true)}
-          >
-            <Plus size={14} className="mr-1" />
-            Criar novo serviço/produto
-          </Button>
-        </div>
+        {/* Item Section */}
+        <ItemSelector
+          itemType={itemType}
+          setItemType={setItemType}
+          itemId={itemId}
+          onItemChange={handleItemChange}
+          items={servicesProducts}
+          isLoading={itemsLoading}
+          onCreateNew={() => setIsServiceProductDrawerOpen(true)}
+        />
 
         {/* Quantidade e Valor */}
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label>Quantidade</Label>
-            <Input
-              type="number"
-              min="1"
-              value={quantity}
-              onChange={(e) => setQuantity(e.target.value)}
-              className="h-12 bg-card"
-            />
+        <div className="bg-card rounded-xl border border-border p-4 space-y-4">
+          <h3 className="text-sm font-semibold text-foreground">Valores</h3>
+          
+          <div className="grid grid-cols-2 gap-4">
+            {/* Quantidade - mostra mais destaque para produtos */}
+            <div className="space-y-2">
+              <Label className="text-xs text-muted-foreground">
+                Quantidade {itemType === 'produto' && '*'}
+              </Label>
+              <Input
+                type="number"
+                min="1"
+                value={quantity}
+                onChange={(e) => setQuantity(e.target.value)}
+                className="h-12 bg-background"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs text-muted-foreground">Valor unit. (R$) *</Label>
+              <Input
+                type="number"
+                step="0.01"
+                value={unitValue}
+                onChange={(e) => setUnitValue(e.target.value)}
+                className={cn(
+                  "h-12 bg-background",
+                  showValidation && !unitValue && "border-destructive"
+                )}
+                placeholder="0,00"
+              />
+            </div>
           </div>
-          <div className="space-y-2">
-            <Label>Valor unit. (R$)</Label>
-            <Input
-              type="number"
-              step="0.01"
-              value={unitValue}
-              onChange={(e) => setUnitValue(e.target.value)}
-              className="h-12 bg-card"
-            />
-          </div>
-        </div>
 
-        {/* Total */}
-        <div className="bg-card rounded-xl p-4 border border-border">
-          <div className="flex justify-between items-center">
-            <span className="text-muted-foreground">Total</span>
-            <span className="text-2xl font-bold text-foreground">
-              R$ {totalValue.toFixed(2)}
-            </span>
+          {/* Total */}
+          <div className="bg-muted/50 rounded-lg p-4 border border-border">
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-muted-foreground">Total</span>
+              <span className="text-2xl font-bold text-foreground tabular-nums">
+                R$ {totalValue.toFixed(2)}
+              </span>
+            </div>
           </div>
         </div>
 
@@ -371,23 +373,25 @@ export default function NewEntry() {
           <Label>Status</Label>
           <div className="flex gap-2">
             <button
+              type="button"
               onClick={() => setStatus('pendente')}
               className={cn(
                 'flex-1 py-3 rounded-lg font-medium transition-colors',
                 status === 'pendente'
                   ? 'bg-warning text-warning-foreground'
-                  : 'bg-secondary text-secondary-foreground'
+                  : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
               )}
             >
               Pendente
             </button>
             <button
+              type="button"
               onClick={() => setStatus('pago')}
               className={cn(
                 'flex-1 py-3 rounded-lg font-medium transition-colors',
                 status === 'pago'
                   ? 'bg-success text-success-foreground'
-                  : 'bg-secondary text-secondary-foreground'
+                  : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
               )}
             >
               Pago
@@ -406,141 +410,85 @@ export default function NewEntry() {
           />
         </div>
 
-        {/* Payment Rules Section - Only for pending status */}
+        {/* Billing Type Section - Only for pending status */}
         {status === 'pendente' && (
-          <div className="bg-card rounded-xl p-4 border border-border space-y-4">
-            <div className="flex items-center gap-2 text-foreground font-medium">
-              <CreditCard size={18} />
-              Regras de Pagamento
-            </div>
-
-            {/* Custom Due Date Toggle */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Calendar size={16} className="text-muted-foreground" />
-                <Label className="cursor-pointer">Vencimento personalizado</Label>
-              </div>
-              <Switch
-                checked={customDueDate}
-                onCheckedChange={setCustomDueDate}
-              />
-            </div>
+          <div className="bg-card rounded-xl border border-border p-4 space-y-4">
+            <h3 className="text-sm font-semibold text-foreground">Tipo de cobrança</h3>
             
-            {customDueDate && (
-              <div className="space-y-2 pl-6">
+            <BillingTypeSelector
+              value={billingType}
+              onChange={setBillingType}
+            />
+            
+            {/* Single payment due date */}
+            {billingType === 'single' && (
+              <div className="space-y-2 animate-fade-in">
+                <div className="flex items-center gap-2">
+                  <Calendar size={16} className="text-muted-foreground" />
+                  <Label className="text-xs text-muted-foreground">Vencimento</Label>
+                </div>
                 <Input
                   type="date"
                   value={dueDate}
                   onChange={(e) => setDueDate(e.target.value)}
-                  className="h-12 bg-background"
+                  className="h-11 bg-background"
                 />
+                <p className="text-xs text-muted-foreground">
+                  Padrão: 30 dias após a data do lançamento
+                </p>
               </div>
             )}
-
-            {!customDueDate && (
-              <p className="text-xs text-muted-foreground pl-6">
-                Vencimento padrão: 30 dias após a data do lançamento ({dueDate})
-              </p>
-            )}
-
-            {/* Installment Toggle */}
-            <div className="flex items-center justify-between pt-2 border-t border-border">
-              <div className="flex items-center gap-2">
-                <CreditCard size={16} className="text-muted-foreground" />
-                <Label className="cursor-pointer">Pagamento parcelado?</Label>
-              </div>
-              <Switch
-                checked={isInstallment}
-                onCheckedChange={handleInstallmentToggle}
-                disabled={isMonthlyPackage}
+            
+            {/* Installment options */}
+            {billingType === 'installment' && (
+              <InstallmentOptions
+                installmentsTotal={installmentsTotal}
+                setInstallmentsTotal={setInstallmentsTotal}
+                intervalDays={intervalDays}
+                setIntervalDays={setIntervalDays}
+                firstDueDate={firstDueDate}
+                setFirstDueDate={setFirstDueDate}
+                installmentValue={installmentValue}
               />
-            </div>
-
-            {isInstallment && (
-              <div className="space-y-3 pl-6">
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <Label className="text-xs">Nº de parcelas</Label>
-                    <Input
-                      type="number"
-                      min="2"
-                      max="12"
-                      value={installmentsTotal}
-                      onChange={(e) => setInstallmentsTotal(e.target.value)}
-                      className="h-10 bg-background"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs">Intervalo (dias)</Label>
-                    <Input
-                      type="number"
-                      min="7"
-                      max="60"
-                      value={intervalDays}
-                      onChange={(e) => setIntervalDays(e.target.value)}
-                      className="h-10 bg-background"
-                    />
-                  </div>
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs">1ª parcela vence em</Label>
-                  <Input
-                    type="date"
-                    value={firstDueDate}
-                    onChange={(e) => setFirstDueDate(e.target.value)}
-                    className="h-10 bg-background"
-                  />
-                </div>
-                <div className="bg-primary/10 rounded-lg p-3">
-                  <p className="text-sm font-medium text-primary">
-                    {installmentsTotal}x de R$ {installmentValue.toFixed(2)}
-                  </p>
-                </div>
-              </div>
             )}
-
-            {/* Monthly Package Toggle */}
-            <div className="flex items-center justify-between pt-2 border-t border-border">
-              <div className="flex items-center gap-2">
-                <Package size={16} className="text-muted-foreground" />
-                <Label className="cursor-pointer">Pacote mensal?</Label>
-              </div>
-              <Switch
-                checked={isMonthlyPackage}
-                onCheckedChange={handleMonthlyPackageToggle}
-                disabled={isInstallment}
+            
+            {/* Monthly package options */}
+            {billingType === 'monthly_package' && (
+              <MonthlyPackageOptions
+                monthsTotal={monthsTotal}
+                setMonthsTotal={setMonthsTotal}
+                firstDueDate={firstDueDate}
+                setFirstDueDate={setFirstDueDate}
+                monthlyValue={monthlyValue}
               />
-            </div>
-
-            {isMonthlyPackage && (
-              <div className="space-y-3 pl-6">
-                <div className="space-y-1">
-                  <Label className="text-xs">Duração (meses)</Label>
-                  <Input
-                    type="number"
-                    min="2"
-                    max="12"
-                    value={monthsTotal}
-                    onChange={(e) => setMonthsTotal(e.target.value)}
-                    className="h-10 bg-background"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs">1ª mensalidade vence em</Label>
-                  <Input
-                    type="date"
-                    value={firstDueDate}
-                    onChange={(e) => setFirstDueDate(e.target.value)}
-                    className="h-10 bg-background"
-                  />
-                </div>
-                <div className="bg-primary/10 rounded-lg p-3">
-                  <p className="text-sm font-medium text-primary">
-                    {monthsTotal} meses x R$ {monthlyValue.toFixed(2)}/mês
-                  </p>
-                </div>
-              </div>
             )}
+          </div>
+        )}
+
+        {/* Summary - Show when form has minimum data */}
+        {(clientId || itemId) && totalValue > 0 && (
+          <EntrySummary
+            clientName={selectedClient?.name}
+            itemName={selectedItem?.name}
+            itemType={selectedItem?.type}
+            totalValue={totalValue}
+            billingType={billingType}
+            installments={effectiveInstallments}
+            monthlyValue={effectiveMonthlyValue}
+            firstDueDate={effectiveDueDate}
+            status={status}
+          />
+        )}
+
+        {/* Validation Errors */}
+        {showValidation && validationErrors.length > 0 && (
+          <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-3 flex items-start gap-2">
+            <AlertCircle size={16} className="text-destructive flex-shrink-0 mt-0.5" />
+            <div className="space-y-1">
+              {validationErrors.map((error, index) => (
+                <p key={index} className="text-sm text-destructive">{error}</p>
+              ))}
+            </div>
           </div>
         )}
 
@@ -549,7 +497,7 @@ export default function NewEntry() {
           <Button
             onClick={() => handleSubmit(false)}
             className="w-full h-12 text-base font-semibold"
-            disabled={isSubmitting || !clientId || !itemId || totalValue <= 0}
+            disabled={isSubmitting}
           >
             {isSubmitting ? (
               <>
@@ -561,12 +509,12 @@ export default function NewEntry() {
             )}
           </Button>
           
-          {status === 'pendente' && !isInstallment && !isMonthlyPackage && (
+          {status === 'pendente' && billingType === 'single' && (
             <Button
               variant="outline"
               onClick={() => handleSubmit(true)}
               className="w-full h-12 text-base font-semibold border-success text-success hover:bg-success hover:text-success-foreground"
-              disabled={isSubmitting || !clientId || !itemId || totalValue <= 0}
+              disabled={isSubmitting}
             >
               <Check className="mr-2 h-4 w-4" />
               Salvar e marcar como pago
