@@ -51,7 +51,7 @@ export default function Dashboard() {
   const [selectedMonth, setSelectedMonth] = useState(format(new Date(), 'yyyy-MM'));
   const months = useMemo(() => getMonthOptions(), []);
   
-  const { metrics, recentEntries, pendingEntries, isLoading } = useDashboard(selectedMonth);
+  const { metrics, recentEntries, pendingEntries, chartData, isLoading } = useDashboard(selectedMonth);
 
   // Calculate status counts
   const statusCounts = useMemo(() => {
@@ -164,10 +164,7 @@ export default function Dashboard() {
                   expenses={metrics.expenses}
                   pending={metrics.pending}
                 />
-                <FinancialEvolutionChart 
-                  entries={[...recentEntries, ...pendingEntries]} 
-                  selectedMonth={selectedMonth} 
-                />
+                <FinancialEvolutionChart data={chartData} />
               </div>
             </section>
 
