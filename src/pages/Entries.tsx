@@ -1,13 +1,14 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import AppLayout from '@/components/AppLayout';
-import EntryListItem from '@/components/EntryListItem';
-import { useMockData } from '@/hooks/useMockData';
-import { PaymentStatus } from '@/types';
+import { useEntries, Entry } from '@/hooks/useEntries';
 import { cn } from '@/lib/utils';
-import { Search } from 'lucide-react';
+import { Search, Loader2, Receipt, Package, Scissors } from 'lucide-react';
 import { Input } from '@/components/ui/input';
+import { format, parseISO } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+import StatusBadge from '@/components/StatusBadge';
 
-type FilterType = 'todos' | PaymentStatus;
+type FilterType = 'todos' | 'pago' | 'pendente';
 
 const filters: { value: FilterType; label: string }[] = [
   { value: 'todos', label: 'Todos' },
@@ -15,24 +16,41 @@ const filters: { value: FilterType; label: string }[] = [
   { value: 'pendente', label: 'Pendentes' },
 ];
 
+function formatPaymentMethod(method: string): string {
+  const methods: Record<string, string> = {
+    pix: 'Pix',
+    dinheiro: 'Dinheiro',
+    cartao_credito: 'Cartão Crédito',
+    cartao_debito: 'Cartão Débito',
+  };
+  return methods[method] || method;
+}
+
 export default function Entries() {
-  const { entries } = useMockData();
+  const { entries, isLoading, updateEntryStatus } = useEntries();
   const [activeFilter, setActiveFilter] = useState<FilterType>('todos');
   const [search, setSearch] = useState('');
 
-  const filteredEntries = entries.filter((entry) => {
-    const matchesFilter = activeFilter === 'todos' || entry.status === activeFilter;
-    const matchesSearch = search === '' || 
-      entry.clientName.toLowerCase().includes(search.toLowerCase()) ||
-      entry.itemName.toLowerCase().includes(search.toLowerCase());
-    return matchesFilter && matchesSearch;
-  });
+  const filteredEntries = useMemo(() => {
+    return entries.filter((entry) => {
+      const matchesFilter = activeFilter === 'todos' || entry.status === activeFilter;
+      const matchesSearch = search === '' || 
+        (entry.client_name?.toLowerCase().includes(search.toLowerCase())) ||
+        (entry.item_name?.toLowerCase().includes(search.toLowerCase()));
+      return matchesFilter && matchesSearch;
+    });
+  }, [entries, activeFilter, search]);
+
+  const handleToggleStatus = async (entry: Entry) => {
+    const newStatus = entry.status === 'pago' ? 'pendente' : 'pago';
+    updateEntryStatus.mutate({ id: entry.id, status: newStatus });
+  };
 
   return (
     <AppLayout>
-      <div className="px-4 pt-4">
+      <div className="flex flex-col h-full">
         {/* Header */}
-        <div className="mb-6">
+        <div className="mb-4">
           <h1 className="text-xl font-bold text-foreground">Lançamentos</h1>
           <p className="text-sm text-muted-foreground">Vendas e atendimentos</p>
         </div>
@@ -68,14 +86,60 @@ export default function Entries() {
         </div>
 
         {/* Entries List */}
-        <div className="space-y-2">
-          {filteredEntries.length > 0 ? (
-            filteredEntries.map((entry) => (
-              <EntryListItem key={entry.id} entry={entry} />
-            ))
+        <div className="flex-1 overflow-auto -mx-4 px-4">
+          {isLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+          ) : filteredEntries.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+              <Receipt size={48} className="mb-4 opacity-50" />
+              <p className="text-center">
+                {search || activeFilter !== 'todos'
+                  ? 'Nenhum lançamento encontrado'
+                  : 'Nenhum lançamento cadastrado'}
+              </p>
+            </div>
           ) : (
-            <div className="text-center py-12">
-              <p className="text-muted-foreground">Nenhum lançamento encontrado</p>
+            <div className="space-y-2">
+              {filteredEntries.map((entry) => (
+                <button
+                  key={entry.id}
+                  onClick={() => handleToggleStatus(entry)}
+                  className="w-full bg-card rounded-xl p-4 flex items-center gap-3 text-left hover:bg-accent transition-colors"
+                >
+                  <div className={cn(
+                    'w-10 h-10 rounded-full flex items-center justify-center',
+                    entry.item_type === 'servico' ? 'bg-primary/10 text-primary' : 'bg-accent text-accent-foreground'
+                  )}>
+                    {entry.item_type === 'servico' ? <Scissors size={20} /> : <Package size={20} />}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-foreground truncate">
+                      {entry.client_name || 'Cliente não informado'}
+                    </p>
+                    <p className="text-sm text-muted-foreground truncate">
+                      {entry.item_name || 'Item não informado'}
+                      {entry.quantity > 1 && ` (${entry.quantity}x)`}
+                    </p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="text-xs text-muted-foreground">
+                        {format(parseISO(entry.date), "dd MMM", { locale: ptBR })}
+                      </span>
+                      <span className="text-xs text-muted-foreground">•</span>
+                      <span className="text-xs text-muted-foreground">
+                        {formatPaymentMethod(entry.payment_method)}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="text-right flex flex-col items-end gap-1">
+                    <p className="font-semibold text-foreground">
+                      R$ {entry.value.toFixed(2)}
+                    </p>
+                    <StatusBadge status={entry.status} />
+                  </div>
+                </button>
+              ))}
             </div>
           )}
         </div>

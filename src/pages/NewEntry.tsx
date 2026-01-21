@@ -1,6 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useMockData } from '@/hooks/useMockData';
+import { useServicesProducts, ServiceProduct } from '@/hooks/useServicesProducts';
+import { useClients } from '@/hooks/useClients';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -15,42 +18,93 @@ import { ArrowLeft, Check, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
-type PaymentMethod = 'pix' | 'cartao' | 'dinheiro' | 'outro';
+type PaymentMethod = 'pix' | 'cartao_credito' | 'cartao_debito' | 'dinheiro';
 type PaymentStatus = 'pago' | 'pendente';
+type ItemType = 'servico' | 'produto';
 
 export default function NewEntry() {
   const navigate = useNavigate();
-  const { clients, services } = useMockData();
+  const { user } = useAuth();
+  const { clients, isLoading: clientsLoading } = useClients();
+  const { items: servicesProducts, isLoading: itemsLoading } = useServicesProducts();
   
   const [clientId, setClientId] = useState('');
-  const [itemType, setItemType] = useState<'servico' | 'produto'>('servico');
+  const [itemType, setItemType] = useState<ItemType>('servico');
   const [itemId, setItemId] = useState('');
   const [quantity, setQuantity] = useState('1');
-  const [value, setValue] = useState('');
+  const [unitValue, setUnitValue] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('pix');
   const [status, setStatus] = useState<PaymentStatus>('pendente');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const filteredItems = services.filter(s => s.type === itemType);
+  // Filter items by type
+  const filteredItems = useMemo(() => {
+    return servicesProducts.filter(item => item.type === itemType);
+  }, [servicesProducts, itemType]);
 
+  // Calculate total
+  const totalValue = useMemo(() => {
+    const qty = parseInt(quantity) || 0;
+    const unit = parseFloat(unitValue) || 0;
+    return qty * unit;
+  }, [quantity, unitValue]);
+
+  // Reset item selection when type changes
+  useEffect(() => {
+    setItemId('');
+    setUnitValue('');
+  }, [itemType]);
+
+  // Auto-fill unit value when item is selected
   const handleItemChange = (id: string) => {
     setItemId(id);
-    const item = services.find(s => s.id === id);
+    const item = servicesProducts.find(s => s.id === id);
     if (item) {
-      setValue(item.basePrice.toString());
+      setUnitValue(item.base_price.toString());
     }
   };
 
   const handleSubmit = async (markAsPaid: boolean = false) => {
-    setIsLoading(true);
+    if (!user) {
+      toast.error('Você precisa estar logado');
+      return;
+    }
+
+    if (!clientId || !itemId) {
+      toast.error('Selecione o cliente e o item');
+      return;
+    }
+
+    setIsSubmitting(true);
     
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    toast.success('Lançamento criado com sucesso!');
-    navigate('/lancamentos');
+    try {
+      const finalStatus = markAsPaid ? 'pago' : status;
+      
+      const { error } = await supabase.from('entries').insert({
+        user_id: user.id,
+        client_id: clientId,
+        service_product_id: itemId,
+        quantity: parseInt(quantity) || 1,
+        value: totalValue,
+        payment_method: paymentMethod,
+        status: finalStatus,
+        date: date,
+      });
+
+      if (error) throw error;
+
+      toast.success('Lançamento criado com sucesso!');
+      navigate('/lancamentos');
+    } catch (error: any) {
+      console.error('Erro ao criar lançamento:', error);
+      toast.error('Erro ao criar lançamento: ' + error.message);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
+
+  const isLoading = clientsLoading || itemsLoading;
 
   return (
     <div className="min-h-screen bg-background">
@@ -71,10 +125,10 @@ export default function NewEntry() {
       <div className="p-4 space-y-5">
         {/* Cliente */}
         <div className="space-y-2">
-          <Label>Cliente</Label>
-          <Select value={clientId} onValueChange={setClientId}>
+          <Label>Cliente *</Label>
+          <Select value={clientId} onValueChange={setClientId} disabled={isLoading}>
             <SelectTrigger className="h-12 bg-card">
-              <SelectValue placeholder="Selecione o cliente" />
+              <SelectValue placeholder={clientsLoading ? "Carregando..." : "Selecione o cliente"} />
             </SelectTrigger>
             <SelectContent>
               {clients.map((client) => (
@@ -84,6 +138,11 @@ export default function NewEntry() {
               ))}
             </SelectContent>
           </Select>
+          {clients.length === 0 && !clientsLoading && (
+            <p className="text-xs text-muted-foreground">
+              Nenhum cliente cadastrado. Adicione um cliente primeiro.
+            </p>
+          )}
         </div>
 
         {/* Tipo */}
@@ -117,19 +176,30 @@ export default function NewEntry() {
 
         {/* Item */}
         <div className="space-y-2">
-          <Label>{itemType === 'servico' ? 'Serviço' : 'Produto'}</Label>
-          <Select value={itemId} onValueChange={handleItemChange}>
+          <Label>{itemType === 'servico' ? 'Serviço' : 'Produto'} *</Label>
+          <Select value={itemId} onValueChange={handleItemChange} disabled={isLoading}>
             <SelectTrigger className="h-12 bg-card">
-              <SelectValue placeholder={`Selecione o ${itemType}`} />
+              <SelectValue placeholder={itemsLoading ? "Carregando..." : `Selecione o ${itemType}`} />
             </SelectTrigger>
             <SelectContent>
-              {filteredItems.map((item) => (
-                <SelectItem key={item.id} value={item.id}>
-                  {item.name} - R$ {item.basePrice.toFixed(2)}
-                </SelectItem>
-              ))}
+              {filteredItems.length === 0 ? (
+                <div className="py-2 px-3 text-sm text-muted-foreground">
+                  Nenhum {itemType} cadastrado
+                </div>
+              ) : (
+                filteredItems.map((item) => (
+                  <SelectItem key={item.id} value={item.id}>
+                    {item.name} - R$ {item.base_price.toFixed(2)}
+                  </SelectItem>
+                ))
+              )}
             </SelectContent>
           </Select>
+          {filteredItems.length === 0 && !itemsLoading && (
+            <p className="text-xs text-muted-foreground">
+              Cadastre itens em Configurações → Serviços e Produtos
+            </p>
+          )}
         </div>
 
         {/* Quantidade e Valor */}
@@ -145,14 +215,24 @@ export default function NewEntry() {
             />
           </div>
           <div className="space-y-2">
-            <Label>Valor (R$)</Label>
+            <Label>Valor unit. (R$)</Label>
             <Input
               type="number"
               step="0.01"
-              value={value}
-              onChange={(e) => setValue(e.target.value)}
+              value={unitValue}
+              onChange={(e) => setUnitValue(e.target.value)}
               className="h-12 bg-card"
             />
+          </div>
+        </div>
+
+        {/* Total */}
+        <div className="bg-card rounded-xl p-4 border border-border">
+          <div className="flex justify-between items-center">
+            <span className="text-muted-foreground">Total</span>
+            <span className="text-2xl font-bold text-foreground">
+              R$ {totalValue.toFixed(2)}
+            </span>
           </div>
         </div>
 
@@ -165,9 +245,9 @@ export default function NewEntry() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="pix">Pix</SelectItem>
-              <SelectItem value="cartao">Cartão</SelectItem>
+              <SelectItem value="cartao_credito">Cartão de Crédito</SelectItem>
+              <SelectItem value="cartao_debito">Cartão de Débito</SelectItem>
               <SelectItem value="dinheiro">Dinheiro</SelectItem>
-              <SelectItem value="outro">Outro</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -213,13 +293,13 @@ export default function NewEntry() {
         </div>
 
         {/* Actions */}
-        <div className="pt-4 space-y-3">
+        <div className="pt-4 space-y-3 pb-8">
           <Button
             onClick={() => handleSubmit(false)}
             className="w-full h-12 text-base font-semibold"
-            disabled={isLoading || !clientId || !itemId}
+            disabled={isSubmitting || !clientId || !itemId || totalValue <= 0}
           >
-            {isLoading ? (
+            {isSubmitting ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Salvando...
@@ -234,7 +314,7 @@ export default function NewEntry() {
               variant="outline"
               onClick={() => handleSubmit(true)}
               className="w-full h-12 text-base font-semibold border-success text-success hover:bg-success hover:text-success-foreground"
-              disabled={isLoading || !clientId || !itemId}
+              disabled={isSubmitting || !clientId || !itemId || totalValue <= 0}
             >
               <Check className="mr-2 h-4 w-4" />
               Salvar e marcar como pago
