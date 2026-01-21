@@ -35,6 +35,13 @@ export interface DashboardEntry {
   payment_method: string;
 }
 
+export interface ChartDataPoint {
+  date: string;
+  received: number;
+  pending: number;
+  overdue: number;
+}
+
 interface ScheduleRow {
   id: string;
   entry_id: string;
@@ -257,10 +264,64 @@ export function useDashboard(selectedMonth?: string) {
         globalOverdue,
       };
 
+      // Build chart data aggregating by due_date for pending/overdue and by payment_date/paid_at for received
+      const chartDataMap = new Map<string, ChartDataPoint>();
+      
+      // Initialize all days in month
+      const monthStart = new Date(startDate);
+      const monthEnd = new Date(endDate);
+      for (let d = new Date(monthStart); d <= monthEnd; d.setDate(d.getDate() + 1)) {
+        const dateStr = format(d, 'yyyy-MM-dd');
+        chartDataMap.set(dateStr, { date: dateStr, received: 0, pending: 0, overdue: 0 });
+      }
+
+      // Aggregate entries without schedules
+      entriesWithoutSchedules.forEach(entry => {
+        if (entry.status === 'pago') {
+          const paymentDate = entry.payment_date || entry.date;
+          const point = chartDataMap.get(paymentDate);
+          if (point) point.received += entry.value;
+        } else if (entry.due_date) {
+          const dueDate = new Date(entry.due_date);
+          dueDate.setHours(0, 0, 0, 0);
+          const point = chartDataMap.get(entry.due_date);
+          if (point) {
+            if (dueDate < today) {
+              point.overdue += entry.value;
+            } else {
+              point.pending += entry.value;
+            }
+          }
+        }
+      });
+
+      // Aggregate schedules in month
+      schedules.forEach(schedule => {
+        if (schedule.status === 'pago' && schedule.paid_at) {
+          const paidDate = format(new Date(schedule.paid_at), 'yyyy-MM-dd');
+          const point = chartDataMap.get(paidDate);
+          if (point) point.received += Number(schedule.amount);
+        } else if (schedule.status === 'pendente') {
+          const dueDate = new Date(schedule.due_date);
+          dueDate.setHours(0, 0, 0, 0);
+          const point = chartDataMap.get(schedule.due_date);
+          if (point) {
+            if (dueDate < today) {
+              point.overdue += Number(schedule.amount);
+            } else {
+              point.pending += Number(schedule.amount);
+            }
+          }
+        }
+      });
+
+      const chartData = Array.from(chartDataMap.values()).sort((a, b) => a.date.localeCompare(b.date));
+
       return {
         metrics,
         recentEntries: entries.slice(0, 5),
         pendingEntries: entriesWithoutSchedules.filter(e => e.status === 'pendente').slice(0, 5),
+        chartData,
       };
     },
     enabled: !!user,
@@ -284,6 +345,7 @@ export function useDashboard(selectedMonth?: string) {
     },
     recentEntries: data?.recentEntries || [],
     pendingEntries: data?.pendingEntries || [],
+    chartData: data?.chartData || [],
     isLoading,
     error,
   };
