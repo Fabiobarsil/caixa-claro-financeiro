@@ -13,6 +13,8 @@ export interface Entry {
   payment_method: 'dinheiro' | 'pix' | 'cartao_credito' | 'cartao_debito';
   status: 'pendente' | 'pago';
   date: string;
+  due_date: string | null;
+  payment_date: string | null;
   notes: string | null;
   created_at: string;
   updated_at: string;
@@ -63,17 +65,50 @@ export function useEntries() {
     enabled: !!user,
   });
 
-  const updateEntryStatus = useMutation({
-    mutationFn: async ({ id, status }: { id: string; status: 'pago' | 'pendente' }) => {
+  const markAsPaid = useMutation({
+    mutationFn: async (id: string) => {
+      const today = new Date().toISOString().split('T')[0];
       const { error } = await supabase
         .from('entries')
-        .update({ status })
+        .update({ 
+          status: 'pago',
+          payment_date: today,
+        })
         .eq('id', id);
 
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['entries'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      toast.success('Marcado como pago!');
+    },
+    onError: (error: Error) => {
+      console.error('Erro ao marcar como pago:', error);
+      toast.error('Erro ao marcar como pago');
+    },
+  });
+
+  const updateEntryStatus = useMutation({
+    mutationFn: async ({ id, status }: { id: string; status: 'pago' | 'pendente' }) => {
+      const updates: { status: 'pago' | 'pendente'; payment_date?: string | null } = { status };
+      
+      if (status === 'pago') {
+        updates.payment_date = new Date().toISOString().split('T')[0];
+      } else {
+        updates.payment_date = null;
+      }
+      
+      const { error } = await supabase
+        .from('entries')
+        .update(updates)
+        .eq('id', id);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['entries'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       toast.success('Status atualizado!');
     },
     onError: (error: Error) => {
@@ -107,6 +142,7 @@ export function useEntries() {
     entries,
     isLoading,
     error,
+    markAsPaid,
     updateEntryStatus,
     deleteEntry,
     isAdmin,

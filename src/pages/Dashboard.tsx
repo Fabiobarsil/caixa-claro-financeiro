@@ -18,7 +18,9 @@ import {
   LogOut,
   Loader2,
   Package,
-  Scissors
+  Scissors,
+  AlertTriangle,
+  CalendarClock
 } from 'lucide-react';
 import {
   Select,
@@ -28,7 +30,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
-import StatusBadge from '@/components/StatusBadge';
+import EntryStatusBadge from '@/components/EntryStatusBadge';
 
 // Generate last 6 months for selector
 function getMonthOptions() {
@@ -125,7 +127,24 @@ export default function Dashboard() {
               />
             </div>
 
-            {/* Secondary Metrics */}
+            {/* Secondary Metrics - Accounts Receivable */}
+            <div className="grid grid-cols-2 gap-3 mb-4">
+              <SmallMetricCard
+                title="A vencer"
+                value={formatCurrency(metrics.upcomingValue)}
+                icon={CalendarClock}
+                iconColor="text-warning"
+              />
+              <SmallMetricCard
+                title="Em atraso"
+                value={formatCurrency(metrics.overdueValue)}
+                subtitle={metrics.overdueCount > 0 ? `${metrics.overdueCount} lançamento${metrics.overdueCount > 1 ? 's' : ''}` : undefined}
+                icon={AlertTriangle}
+                iconColor="text-destructive"
+              />
+            </div>
+
+            {/* Additional Metrics */}
             <div className="grid grid-cols-2 gap-3 mb-6">
               <SmallMetricCard
                 title="Ticket Médio"
@@ -213,7 +232,12 @@ function DashboardEntryItem({ entry, isPending }: { entry: DashboardEntry; isPen
         <p className="font-semibold text-foreground text-sm">
           R$ {entry.value.toFixed(2)}
         </p>
-        <StatusBadge status={entry.status} size="sm" />
+        <EntryStatusBadge 
+          status={entry.status}
+          dueDate={entry.due_date}
+          paymentDate={entry.payment_date}
+          size="sm"
+        />
       </div>
     </div>
   );

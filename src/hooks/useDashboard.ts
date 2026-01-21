@@ -11,6 +11,11 @@ export interface DashboardMetrics {
   profit: number;
   averageTicket: number;
   totalEntries: number;
+  // New metrics for accounts receivable
+  upcomingValue: number;
+  upcomingCount: number;
+  overdueValue: number;
+  overdueCount: number;
 }
 
 export interface DashboardEntry {
@@ -21,6 +26,8 @@ export interface DashboardEntry {
   value: number;
   status: 'pago' | 'pendente';
   date: string;
+  due_date: string | null;
+  payment_date: string | null;
   payment_method: string;
 }
 
@@ -81,6 +88,8 @@ export function useDashboard(selectedMonth?: string) {
           value: Number(entry.value),
           status: entry.status as 'pago' | 'pendente',
           date: entry.date,
+          due_date: entry.due_date || null,
+          payment_date: entry.payment_date || null,
           payment_method: entry.payment_method,
         };
       });
@@ -93,6 +102,24 @@ export function useDashboard(selectedMonth?: string) {
       const pending = pendingEntries.reduce((sum, e) => sum + e.value, 0);
       const totalExpenses = (expensesData || []).reduce((sum, e) => sum + Number(e.value), 0);
 
+      // Calculate upcoming and overdue
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const upcomingEntries = pendingEntries.filter(e => {
+        if (!e.due_date) return false;
+        const dueDate = new Date(e.due_date);
+        dueDate.setHours(0, 0, 0, 0);
+        return dueDate >= today;
+      });
+
+      const overdueEntries = pendingEntries.filter(e => {
+        if (!e.due_date) return false;
+        const dueDate = new Date(e.due_date);
+        dueDate.setHours(0, 0, 0, 0);
+        return dueDate < today;
+      });
+
       const metrics: DashboardMetrics = {
         received,
         pending,
@@ -100,6 +127,10 @@ export function useDashboard(selectedMonth?: string) {
         profit: received - totalExpenses,
         averageTicket: paidEntries.length > 0 ? received / paidEntries.length : 0,
         totalEntries: entries.length,
+        upcomingValue: upcomingEntries.reduce((sum, e) => sum + e.value, 0),
+        upcomingCount: upcomingEntries.length,
+        overdueValue: overdueEntries.reduce((sum, e) => sum + e.value, 0),
+        overdueCount: overdueEntries.length,
       };
 
       return {
@@ -119,6 +150,10 @@ export function useDashboard(selectedMonth?: string) {
       profit: 0,
       averageTicket: 0,
       totalEntries: 0,
+      upcomingValue: 0,
+      upcomingCount: 0,
+      overdueValue: 0,
+      overdueCount: 0,
     },
     recentEntries: data?.recentEntries || [],
     pendingEntries: data?.pendingEntries || [],

@@ -36,6 +36,7 @@ export default function NewEntry() {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('pix');
   const [status, setStatus] = useState<PaymentStatus>('pendente');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [dueDate, setDueDate] = useState(new Date().toISOString().split('T')[0]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Filter items by type
@@ -80,6 +81,7 @@ export default function NewEntry() {
     
     try {
       const finalStatus = markAsPaid ? 'pago' : status;
+      const today = new Date().toISOString().split('T')[0];
       
       const { error } = await supabase.from('entries').insert({
         user_id: user.id,
@@ -90,6 +92,8 @@ export default function NewEntry() {
         payment_method: paymentMethod,
         status: finalStatus,
         date: date,
+        due_date: finalStatus === 'pendente' ? dueDate : null,
+        payment_date: finalStatus === 'pago' ? today : null,
       });
 
       if (error) throw error;
@@ -281,9 +285,9 @@ export default function NewEntry() {
           </div>
         </div>
 
-        {/* Data */}
+        {/* Data do Lançamento */}
         <div className="space-y-2">
-          <Label>Data</Label>
+          <Label>Data do lançamento</Label>
           <Input
             type="date"
             value={date}
@@ -291,6 +295,19 @@ export default function NewEntry() {
             className="h-12 bg-card"
           />
         </div>
+
+        {/* Data de Vencimento (only for pending) */}
+        {status === 'pendente' && (
+          <div className="space-y-2">
+            <Label>Data de vencimento *</Label>
+            <Input
+              type="date"
+              value={dueDate}
+              onChange={(e) => setDueDate(e.target.value)}
+              className="h-12 bg-card"
+            />
+          </div>
+        )}
 
         {/* Actions */}
         <div className="pt-4 space-y-3 pb-8">
