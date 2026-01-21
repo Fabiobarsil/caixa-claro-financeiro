@@ -273,39 +273,58 @@ export default function Expenses() {
 
       {/* Create Modal */}
       <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Nova Despesa</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="type">Tipo *</Label>
-              <Select
-                value={formData.type}
-                onValueChange={(value) => handleInputChange('type', value)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione o tipo" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="fixa">Fixa</SelectItem>
-                  <SelectItem value="variavel">Variável</SelectItem>
-                </SelectContent>
-              </Select>
+        <DialogContent className="sm:max-w-[480px] p-0">
+          <div className="p-5 border-b border-border">
+            <h2 className="text-lg font-bold text-foreground">Nova Despesa</h2>
+            <p className="text-sm text-muted-foreground mt-1">
+              Registre uma despesa fixa ou variável.
+            </p>
+          </div>
+          
+          <div className="p-5 space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="type" className="text-sm">Tipo *</Label>
+              <div className="inline-flex bg-secondary rounded-lg p-1">
+                <button
+                  type="button"
+                  onClick={() => handleInputChange('type', 'fixa')}
+                  className={cn(
+                    'px-4 py-2 rounded-md text-sm font-medium transition-all',
+                    formData.type === 'fixa'
+                      ? 'bg-primary text-primary-foreground shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground'
+                  )}
+                >
+                  Fixa
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleInputChange('type', 'variavel')}
+                  className={cn(
+                    'px-4 py-2 rounded-md text-sm font-medium transition-all',
+                    formData.type === 'variavel'
+                      ? 'bg-primary text-primary-foreground shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground'
+                  )}
+                >
+                  Variável
+                </button>
+              </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="category">Categoria *</Label>
+            <div className="space-y-1.5">
+              <Label htmlFor="category" className="text-sm">Categoria *</Label>
               <Input
                 id="category"
                 value={formData.category}
                 onChange={(e) => handleInputChange('category', e.target.value)}
                 placeholder="Ex: Aluguel, Material, etc."
+                className="h-11"
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="value">Valor (R$) *</Label>
+            <div className="space-y-1.5">
+              <Label htmlFor="value" className="text-sm">Valor (R$) *</Label>
               <Input
                 id="value"
                 type="text"
@@ -313,33 +332,36 @@ export default function Expenses() {
                 value={formData.value}
                 onChange={(e) => handleInputChange('value', e.target.value)}
                 placeholder="0,00"
+                className="h-11 max-w-[180px]"
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="date">Data</Label>
+            <div className="space-y-1.5">
+              <Label htmlFor="date" className="text-sm">Data</Label>
               <Input
                 id="date"
                 type="date"
                 value={formData.date}
                 onChange={(e) => handleInputChange('date', e.target.value)}
+                className="h-11 max-w-[180px]"
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="notes">Observações</Label>
+            <div className="space-y-1.5">
+              <Label htmlFor="notes" className="text-sm">Observações</Label>
               <Textarea
                 id="notes"
                 value={formData.notes}
                 onChange={(e) => handleInputChange('notes', e.target.value)}
                 placeholder="Observações opcionais..."
-                rows={3}
+                rows={2}
+                className="resize-none min-h-[64px]"
               />
             </div>
           </div>
 
-          <div className="flex gap-3 justify-end">
-            <Button variant="outline" onClick={handleCloseModals}>
+          <div className="p-5 border-t border-border flex justify-end gap-3">
+            <Button variant="ghost" onClick={handleCloseModals}>
               Cancelar
             </Button>
             <Button 
@@ -357,39 +379,58 @@ export default function Expenses() {
 
       {/* Edit Modal */}
       <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Editar Despesa</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="edit-type">Tipo *</Label>
-              <Select
-                value={formData.type}
-                onValueChange={(value) => handleInputChange('type', value)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione o tipo" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="fixa">Fixa</SelectItem>
-                  <SelectItem value="variavel">Variável</SelectItem>
-                </SelectContent>
-              </Select>
+        <DialogContent className="sm:max-w-[480px] p-0">
+          <div className="p-5 border-b border-border">
+            <h2 className="text-lg font-bold text-foreground">Editar Despesa</h2>
+            <p className="text-sm text-muted-foreground mt-1">
+              Atualize os dados da despesa.
+            </p>
+          </div>
+          
+          <div className="p-5 space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="edit-type" className="text-sm">Tipo *</Label>
+              <div className="inline-flex bg-secondary rounded-lg p-1">
+                <button
+                  type="button"
+                  onClick={() => handleInputChange('type', 'fixa')}
+                  className={cn(
+                    'px-4 py-2 rounded-md text-sm font-medium transition-all',
+                    formData.type === 'fixa'
+                      ? 'bg-primary text-primary-foreground shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground'
+                  )}
+                >
+                  Fixa
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleInputChange('type', 'variavel')}
+                  className={cn(
+                    'px-4 py-2 rounded-md text-sm font-medium transition-all',
+                    formData.type === 'variavel'
+                      ? 'bg-primary text-primary-foreground shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground'
+                  )}
+                >
+                  Variável
+                </button>
+              </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="edit-category">Categoria *</Label>
+            <div className="space-y-1.5">
+              <Label htmlFor="edit-category" className="text-sm">Categoria *</Label>
               <Input
                 id="edit-category"
                 value={formData.category}
                 onChange={(e) => handleInputChange('category', e.target.value)}
                 placeholder="Ex: Aluguel, Material, etc."
+                className="h-11"
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="edit-value">Valor (R$) *</Label>
+            <div className="space-y-1.5">
+              <Label htmlFor="edit-value" className="text-sm">Valor (R$) *</Label>
               <Input
                 id="edit-value"
                 type="text"
@@ -397,36 +438,41 @@ export default function Expenses() {
                 value={formData.value}
                 onChange={(e) => handleInputChange('value', e.target.value)}
                 placeholder="0,00"
+                className="h-11 max-w-[180px]"
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="edit-date">Data</Label>
+            <div className="space-y-1.5">
+              <Label htmlFor="edit-date" className="text-sm">Data</Label>
               <Input
                 id="edit-date"
                 type="date"
                 value={formData.date}
                 onChange={(e) => handleInputChange('date', e.target.value)}
+                className="h-11 max-w-[180px]"
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="edit-notes">Observações</Label>
+            <div className="space-y-1.5">
+              <Label htmlFor="edit-notes" className="text-sm">Observações</Label>
               <Textarea
                 id="edit-notes"
                 value={formData.notes}
                 onChange={(e) => handleInputChange('notes', e.target.value)}
                 placeholder="Observações opcionais..."
-                rows={3}
+                rows={2}
+                className="resize-none min-h-[64px]"
               />
             </div>
           </div>
 
-          <div className="flex gap-3 justify-between">
+          <div className="p-5 border-t border-border flex items-center justify-between">
             <div>
               {isAdmin && (
                 <Button 
-                  variant="destructive" 
+                  variant="ghost"
+                  size="sm"
+                  className="text-destructive hover:text-destructive hover:bg-destructive/10"
                   onClick={() => setIsDeleteDialogOpen(true)}
                 >
                   Excluir
@@ -434,7 +480,7 @@ export default function Expenses() {
               )}
             </div>
             <div className="flex gap-3">
-              <Button variant="outline" onClick={handleCloseModals}>
+              <Button variant="ghost" onClick={handleCloseModals}>
                 Cancelar
               </Button>
               <Button 

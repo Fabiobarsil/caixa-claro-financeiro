@@ -333,23 +333,27 @@ export default function Team() {
               <Plus size={20} className="ml-auto text-primary" />
             </button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-md">
-            <DialogHeader>
-              <DialogTitle>Convidar Operador</DialogTitle>
-            </DialogHeader>
-            <form onSubmit={handleInviteOperator} className="space-y-4 mt-4">
-              <div className="space-y-2">
-                <Label htmlFor="name">Nome</Label>
+          <DialogContent className="sm:max-w-[480px] p-0">
+            <div className="p-5 border-b border-border">
+              <h2 className="text-lg font-bold text-foreground">Convidar Operador</h2>
+              <p className="text-sm text-muted-foreground mt-1">
+                O operador receberá um email para definir sua senha.
+              </p>
+            </div>
+            <form onSubmit={handleInviteOperator} className="p-5 space-y-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="name" className="text-sm">Nome *</Label>
                 <Input
                   id="name"
                   placeholder="Nome do operador"
                   value={newMember.name}
                   onChange={(e) => setNewMember({ ...newMember, name: capitalizeWords(e.target.value) })}
                   required
+                  className="h-11"
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
+              <div className="space-y-1.5">
+                <Label htmlFor="email" className="text-sm">Email *</Label>
                 <Input
                   id="email"
                   type="email"
@@ -357,32 +361,32 @@ export default function Team() {
                   value={newMember.email}
                   onChange={(e) => setNewMember({ ...newMember, email: e.target.value })}
                   required
+                  className="h-11"
                 />
               </div>
-              <p className="text-sm text-muted-foreground">
-                O operador receberá um email para definir sua senha e acessar o sistema.
-              </p>
-              <div className="flex gap-3 pt-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setIsDialogOpen(false)}
-                  className="flex-1"
-                >
-                  Cancelar
-                </Button>
-                <Button type="submit" disabled={isSubmitting} className="flex-1">
-                  {isSubmitting ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Enviando...
-                    </>
-                  ) : (
-                    'Enviar convite'
-                  )}
-                </Button>
-              </div>
             </form>
+            <div className="p-5 border-t border-border flex justify-end gap-3">
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => setIsDialogOpen(false)}
+              >
+                Cancelar
+              </Button>
+              <Button 
+                onClick={handleInviteOperator as any}
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Enviando...
+                  </>
+                ) : (
+                  'Enviar convite'
+                )}
+              </Button>
+            </div>
           </DialogContent>
         </Dialog>
 
