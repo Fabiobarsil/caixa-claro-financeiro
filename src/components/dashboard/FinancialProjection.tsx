@@ -38,6 +38,8 @@ export default function FinancialProjection({
     <SectionCard 
       title="Projeção Financeira" 
       icon={<TrendingUp size={18} className="text-primary" />}
+      tooltip="Estimativa automática baseada nos vencimentos cadastrados e despesas recorrentes."
+      footer="Esta projeção ajuda você a se planejar com antecedência e evitar surpresas no caixa."
     >
       <div className="space-y-4">
         {/* Period Selector */}
@@ -93,10 +95,6 @@ export default function FinancialProjection({
             </span>
           </div>
         </div>
-
-        <p className="text-xs text-muted-foreground text-center">
-          Baseado em vencimentos e despesas fixas recorrentes
-        </p>
       </div>
     </SectionCard>
   );

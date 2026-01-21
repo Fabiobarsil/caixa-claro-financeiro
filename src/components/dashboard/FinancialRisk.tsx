@@ -20,6 +20,7 @@ export default function FinancialRisk({
       bgColor: 'bg-success/10',
       borderColor: 'border-success/30',
       icon: '✓',
+      statusMessage: 'Situação financeira saudável no momento.',
     },
     medium: {
       label: 'Médio',
@@ -27,6 +28,7 @@ export default function FinancialRisk({
       bgColor: 'bg-warning/10',
       borderColor: 'border-warning/30',
       icon: '⚠',
+      statusMessage: 'Atenção a possíveis atrasos futuros.',
     },
     high: {
       label: 'Alto',
@@ -34,6 +36,7 @@ export default function FinancialRisk({
       bgColor: 'bg-expense/10',
       borderColor: 'border-expense/30',
       icon: '⚠',
+      statusMessage: 'Existem sinais de risco que merecem ação imediata.',
     },
   };
 
@@ -43,18 +46,24 @@ export default function FinancialRisk({
     <SectionCard 
       title="Risco Financeiro" 
       icon={<AlertTriangle size={18} className="text-warning" />}
+      tooltip="Análise automática baseada em atrasos, inadimplência e histórico recente."
     >
       <div className="space-y-4">
         {/* Risk Level Badge */}
         <div className={cn(
-          'flex items-center justify-center gap-2 py-3 rounded-xl border-2',
+          'flex flex-col items-center justify-center gap-2 py-4 rounded-xl border-2',
           config.bgColor,
           config.borderColor
         )}>
-          <span className="text-xl">{config.icon}</span>
-          <span className={cn('text-lg font-bold', config.color)}>
-            Risco {config.label}
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="text-xl">{config.icon}</span>
+            <span className={cn('text-lg font-bold', config.color)}>
+              Risco {config.label}
+            </span>
+          </div>
+          <p className="text-xs text-muted-foreground text-center px-3">
+            {config.statusMessage}
+          </p>
         </div>
 
         {/* Risk Indicators */}
@@ -90,13 +99,6 @@ export default function FinancialRisk({
               {delinquentClientsCount === 1 ? 'cliente' : 'clientes'}
             </p>
           </div>
-        </div>
-
-        {/* Risk Advice */}
-        <div className="text-xs text-muted-foreground text-center border-t border-border pt-3">
-          {riskLevel === 'high' && 'Atenção: considere ações de cobrança imediatas'}
-          {riskLevel === 'medium' && 'Monitore os vencimentos próximos com atenção'}
-          {riskLevel === 'low' && 'Situação financeira saudável'}
         </div>
       </div>
     </SectionCard>
