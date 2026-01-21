@@ -5,7 +5,7 @@ import { ptBR } from 'date-fns/locale';
 import { Home, LogOut, ChevronDown } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
-import logoCaixacertus from '@/assets/logo-caixacertus.svg';
+import logoCaixacertusLight from '@/assets/logo-caixacertus-light.svg';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -62,7 +62,7 @@ export default function GlobalHeader({ className }: GlobalHeaderProps) {
       <div className="flex items-center gap-3">
         {/* Logo - visible on mobile and tablet */}
         <img 
-          src={logoCaixacertus} 
+          src={logoCaixacertusLight} 
           alt="CaixaCertus" 
           className="h-8 w-auto lg:hidden cursor-pointer"
           onClick={() => navigate('/dashboard')}

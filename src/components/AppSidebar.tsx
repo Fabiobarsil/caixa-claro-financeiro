@@ -3,7 +3,7 @@ import { NavLink, useLocation } from 'react-router-dom';
 import { Home, Receipt, Users, TrendingDown, Settings, ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
-import logoCaixacertus from '@/assets/logo-caixacertus.svg';
+import logoCaixacertusDark from '@/assets/logo-caixacertus-dark.svg';
 import iconCaixacertus from '@/assets/icon-caixacertus.svg';
 
 interface NavItem {
@@ -47,7 +47,7 @@ export default function AppSidebar() {
           />
         ) : (
           <img 
-            src={logoCaixacertus} 
+            src={logoCaixacertusDark} 
             alt="CaixaCertus" 
             className="h-8 w-auto"
           />
