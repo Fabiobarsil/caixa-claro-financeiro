@@ -1,5 +1,4 @@
-import { useState } from 'react';
-import { X, Check, Sparkles } from 'lucide-react';
+import { ExternalLink, Check, Sparkles } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -10,22 +9,6 @@ import {
 import { Button } from '@/components/ui/button';
 import { useSubscription } from '@/hooks/useSubscription';
 
-// Pricing configuration
-const PRICING = {
-  monthly: {
-    value: 29.90,
-    label: 'Mensal',
-    description: 'Cobrado mensalmente',
-  },
-  yearly: {
-    value: 299.90,
-    monthlyEquivalent: 24.99,
-    label: 'Anual',
-    description: 'Cobrado anualmente',
-    savings: 59, // R$ savings compared to monthly
-  },
-};
-
 interface UpgradeModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -33,21 +16,10 @@ interface UpgradeModalProps {
 }
 
 export default function UpgradeModal({ open, onOpenChange, context = 'dashboard' }: UpgradeModalProps) {
-  const { createCheckout, trialDaysUsed } = useSubscription();
-  const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'yearly'>('yearly');
-  const [isLoading, setIsLoading] = useState(false);
+  const { openKiwifyCheckout, trialDaysUsed } = useSubscription();
 
-  const handleUpgrade = async () => {
-    setIsLoading(true);
-    try {
-      await createCheckout(selectedPlan);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const formatCurrency = (value: number) => {
-    return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  const handleUpgrade = () => {
+    openKiwifyCheckout();
   };
 
   return (
@@ -61,95 +33,22 @@ export default function UpgradeModal({ open, onOpenChange, context = 'dashboard'
           <DialogDescription className="text-base pt-2">
             {context === 'create-blocked' ? (
               <>
-                Você usou o CaixaCertus com frequência nos últimos {trialDaysUsed} dias.
+                Seu período gratuito de {trialDaysUsed} dias terminou.
                 <br />
-                Para continuar registrando movimentações, ative o plano completo.
+                Para continuar criando lançamentos, ative seu plano.
               </>
             ) : (
               <>
                 Você já criou o hábito de controlar seu caixa.
                 <br />
-                O plano completo libera registros ilimitados e uso contínuo.
+                Ative o plano completo para uso contínuo e ilimitado.
               </>
             )}
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-3 py-4">
-          {/* Yearly Plan */}
-          <button
-            type="button"
-            onClick={() => setSelectedPlan('yearly')}
-            className={`w-full p-4 rounded-lg border-2 text-left transition-all ${
-              selectedPlan === 'yearly'
-                ? 'border-primary bg-primary/5'
-                : 'border-border hover:border-primary/50'
-            }`}
-          >
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="font-semibold">{PRICING.yearly.label}</span>
-                  <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full font-medium">
-                    Economize {formatCurrency(PRICING.yearly.savings)}
-                  </span>
-                </div>
-                <div className="text-2xl font-bold mt-1">
-                  {formatCurrency(PRICING.yearly.monthlyEquivalent)}
-                  <span className="text-sm font-normal text-muted-foreground">/mês</span>
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  {PRICING.yearly.description} ({formatCurrency(PRICING.yearly.value)})
-                </div>
-              </div>
-              <div
-                className={`h-5 w-5 rounded-full border-2 flex items-center justify-center ${
-                  selectedPlan === 'yearly'
-                    ? 'border-primary bg-primary'
-                    : 'border-muted-foreground'
-                }`}
-              >
-                {selectedPlan === 'yearly' && <Check className="h-3 w-3 text-primary-foreground" />}
-              </div>
-            </div>
-          </button>
-
-          {/* Monthly Plan */}
-          <button
-            type="button"
-            onClick={() => setSelectedPlan('monthly')}
-            className={`w-full p-4 rounded-lg border-2 text-left transition-all ${
-              selectedPlan === 'monthly'
-                ? 'border-primary bg-primary/5'
-                : 'border-border hover:border-primary/50'
-            }`}
-          >
-            <div className="flex items-center justify-between">
-              <div>
-                <span className="font-semibold">{PRICING.monthly.label}</span>
-                <div className="text-2xl font-bold mt-1">
-                  {formatCurrency(PRICING.monthly.value)}
-                  <span className="text-sm font-normal text-muted-foreground">/mês</span>
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  {PRICING.monthly.description}
-                </div>
-              </div>
-              <div
-                className={`h-5 w-5 rounded-full border-2 flex items-center justify-center ${
-                  selectedPlan === 'monthly'
-                    ? 'border-primary bg-primary'
-                    : 'border-muted-foreground'
-                }`}
-              >
-                {selectedPlan === 'monthly' && <Check className="h-3 w-3 text-primary-foreground" />}
-              </div>
-            </div>
-          </button>
-        </div>
-
         {/* Features */}
-        <div className="space-y-2 text-sm text-muted-foreground">
+        <div className="space-y-2 py-4 text-sm text-muted-foreground">
           <div className="flex items-center gap-2">
             <Check className="h-4 w-4 text-primary" />
             <span>Registros ilimitados</span>
@@ -162,16 +61,20 @@ export default function UpgradeModal({ open, onOpenChange, context = 'dashboard'
             <Check className="h-4 w-4 text-primary" />
             <span>Histórico completo sempre disponível</span>
           </div>
+          <div className="flex items-center gap-2">
+            <Check className="h-4 w-4 text-primary" />
+            <span>Suporte prioritário</span>
+          </div>
         </div>
 
         <div className="flex flex-col gap-2 pt-4">
           <Button
             onClick={handleUpgrade}
-            disabled={isLoading}
             className="w-full"
             size="lg"
           >
-            {isLoading ? 'Carregando...' : 'Ativar plano completo'}
+            <ExternalLink className="h-4 w-4 mr-2" />
+            Assinar na Kiwify
           </Button>
           <Button
             variant="ghost"
@@ -181,6 +84,10 @@ export default function UpgradeModal({ open, onOpenChange, context = 'dashboard'
             Agora não
           </Button>
         </div>
+
+        <p className="text-xs text-muted-foreground text-center pt-2">
+          Você será redirecionado para o checkout seguro da Kiwify
+        </p>
       </DialogContent>
     </Dialog>
   );
