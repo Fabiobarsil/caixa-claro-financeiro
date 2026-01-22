@@ -11,7 +11,8 @@ import FinancialEvolutionChart from '@/components/dashboard/FinancialEvolutionCh
 import FinancialProjection from '@/components/dashboard/FinancialProjection';
 import FinancialRisk from '@/components/dashboard/FinancialRisk';
 import CriticalDueDates from '@/components/dashboard/CriticalDueDates';
-import AutomaticInsight from '@/components/dashboard/AutomaticInsight';
+import CashHealthScore from '@/components/dashboard/CashHealthScore';
+import DailyInsight from '@/components/dashboard/DailyInsight';
 import OnboardingBanner from '@/components/dashboard/OnboardingBanner';
 import OnboardingWelcome from '@/components/dashboard/OnboardingWelcome';
 import OnboardingChecklist from '@/components/dashboard/OnboardingChecklist';
@@ -21,11 +22,11 @@ import { useDashboard } from '@/hooks/useDashboard';
 import { useProjections } from '@/hooks/useProjections';
 import { useEntries } from '@/hooks/useEntries';
 import { useUserStats } from '@/hooks/useUserStats';
+import { useCashIntelligence } from '@/hooks/useCashIntelligence';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatCurrency } from '@/lib/formatters';
 import { format, subMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-
 import { 
   ArrowDownCircle, 
   Wallet,
@@ -68,10 +69,10 @@ export default function Dashboard() {
   const { projections, isLoading: projectionsLoading } = useProjections();
   const { entries } = useEntries();
   const { stats } = useUserStats();
+  const { healthScore, userStats: intelligenceStats, dailyInsight, dailyAlert, activeMessage, isLoading: intelligenceLoading } = useCashIntelligence();
 
   // Check if user has any entries (for onboarding)
   const hasEntries = entries.length > 0;
-  const hasLessThan5Entries = entries.length < 5;
 
   // Get due dates for calendar highlighting
   const dueDates = useMemo(() => {
@@ -80,35 +81,10 @@ export default function Dashboard() {
       .map(e => e.due_date as string);
   }, [pendingEntries]);
 
-  const isFullyLoading = isLoading || projectionsLoading;
+  const isFullyLoading = isLoading || projectionsLoading || intelligenceLoading;
 
   // Check if Status Rápido has all zero values
   const statusAllZero = metrics.upcomingValue === 0 && metrics.overdueValue === 0 && metrics.received === 0;
-
-  // Check for concentration warnings (for analytical insights)
-  const concentrationWarning = useMemo(() => {
-    // If more than 60% of pending value is in top 2 entries, warn about concentration
-    if (pendingEntries.length < 3) return false;
-    const sortedByValue = [...pendingEntries].sort((a, b) => b.value - a.value);
-    const top2Value = sortedByValue.slice(0, 2).reduce((sum, e) => sum + e.value, 0);
-    const totalValue = pendingEntries.reduce((sum, e) => sum + e.value, 0);
-    return totalValue > 0 && (top2Value / totalValue) > 0.6;
-  }, [pendingEntries]);
-
-  // Check for upcoming concentration (many due dates in next 3 days)
-  const upcomingConcentration = useMemo(() => {
-    const today = new Date();
-    const threeDaysFromNow = new Date(today);
-    threeDaysFromNow.setDate(threeDaysFromNow.getDate() + 3);
-    
-    const upcomingCount = pendingEntries.filter(e => {
-      if (!e.due_date) return false;
-      const dueDate = new Date(e.due_date);
-      return dueDate >= today && dueDate <= threeDaysFromNow;
-    }).length;
-    
-    return upcomingCount >= 3;
-  }, [pendingEntries]);
 
   return (
     <AppLayout>
@@ -254,19 +230,26 @@ export default function Dashboard() {
               </div>
             </section>
 
-            {/* Section 4: Vencimentos Críticos e Insight */}
+            {/* Section 4: Saúde do Caixa e Insight Diário */}
             <section className="mb-6">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <CriticalDueDates items={projections.criticalDueDates} />
-                <AutomaticInsight
-                  insightData={projections.insightData}
-                  overduePercentage={projections.overduePercentage}
-                  delinquentClientsCount={projections.delinquentClientsCount}
+                <CashHealthScore
+                  healthScore={healthScore}
+                  learningPhase={intelligenceStats.learningPhase}
+                  totalDaysActive={intelligenceStats.totalDaysActive}
+                />
+                <DailyInsight
+                  activeMessage={activeMessage}
+                  insight={dailyInsight}
+                  alert={dailyAlert}
                   totalEntries={entries.length}
-                  concentrationWarning={concentrationWarning}
-                  upcomingConcentration={upcomingConcentration}
                 />
               </div>
+            </section>
+
+            {/* Section 5: Vencimentos Críticos */}
+            <section className="mb-6">
+              <CriticalDueDates items={projections.criticalDueDates} />
             </section>
 
             {/* Section 5: Próximos Prazos */}
