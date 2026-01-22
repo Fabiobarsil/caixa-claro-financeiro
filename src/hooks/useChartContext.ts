@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo } from 'react';
-import type { DashboardMetrics, ChartDataPoint } from './useDashboard';
+import type { BIMetrics, BIChartDataPoint } from './useBIData';
 
 // Types for chart context
 export type DistributionContextType = 'recebido' | 'despesas' | 'a_receber' | null;
@@ -34,8 +34,8 @@ export interface FilteredMetrics {
 }
 
 interface UseChartContextOptions {
-  metrics: DashboardMetrics;
-  chartData: ChartDataPoint[];
+  metrics: BIMetrics;
+  chartData: BIChartDataPoint[];
 }
 
 export function useChartContext({ metrics, chartData }: UseChartContextOptions): ChartContext & { filteredMetrics: FilteredMetrics } {
