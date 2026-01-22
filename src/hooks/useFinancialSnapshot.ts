@@ -377,14 +377,16 @@ export function useFinancialSnapshot(timeWindow: TimeWindow): UseFinancialSnapsh
       });
 
       // Agregar schedules pendentes por data de vencimento
+      // Se a due_date estiver fora do período, agregar no último dia do período
+      const lastDayStr = endDate;
       (pendingSchedules || []).forEach(s => {
         const dueDate = s.due_date;
-        // Só incluir se estiver dentro do período do gráfico
-        if (dueDate >= startDate && dueDate <= endDate) {
-          const point = dailyData.get(dueDate);
-          if (point) {
-            point.a_receber += Number(s.amount);
-          }
+        // Se estiver dentro do período, usar a data de vencimento
+        // Se estiver fora (futuro), agregar no último dia do gráfico
+        const targetDate = (dueDate >= startDate && dueDate <= endDate) ? dueDate : lastDayStr;
+        const point = dailyData.get(targetDate);
+        if (point) {
+          point.a_receber += Number(s.amount);
         }
       });
 
@@ -402,14 +404,15 @@ export function useFinancialSnapshot(timeWindow: TimeWindow): UseFinancialSnapsh
         });
 
       // Agregar entries sem schedules pendentes por data de vencimento
+      // Se a due_date estiver fora do período, agregar no último dia do período
       entriesWithoutSchedules
         .filter(e => e.status === 'pendente' && e.due_date)
         .forEach(e => {
-          if (e.due_date && e.due_date >= startDate && e.due_date <= endDate) {
-            const point = dailyData.get(e.due_date);
-            if (point) {
-              point.a_receber += Number(e.value);
-            }
+          const dueDate = e.due_date!;
+          const targetDate = (dueDate >= startDate && dueDate <= endDate) ? dueDate : lastDayStr;
+          const point = dailyData.get(targetDate);
+          if (point) {
+            point.a_receber += Number(e.value);
           }
         });
 
