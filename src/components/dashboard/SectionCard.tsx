@@ -7,6 +7,7 @@ export interface SectionCardProps {
   subtitle?: string;
   icon?: ReactNode;
   action?: ReactNode;
+  headerContent?: ReactNode;
   children: ReactNode;
   className?: string;
   noPadding?: boolean;
@@ -19,6 +20,7 @@ export default function SectionCard({
   subtitle,
   icon,
   action, 
+  headerContent,
   children, 
   className,
   noPadding,
@@ -30,16 +32,23 @@ export default function SectionCard({
       'bg-card rounded-2xl border border-border shadow-sm',
       className
     )}>
-      {(title || action) && (
+      {(title || action || headerContent) && (
         <div className="px-5 py-4 border-b border-border">
-          <CertusCardHeader
-            title={title || ''}
-            helpText={tooltip}
-            subtitle={subtitle}
-            icon={icon}
-            badgeRight={action}
-            titleClassName="text-base font-semibold text-foreground"
-          />
+          <div className="flex flex-col gap-3">
+            <CertusCardHeader
+              title={title || ''}
+              helpText={tooltip}
+              subtitle={subtitle}
+              icon={icon}
+              badgeRight={action}
+              titleClassName="text-base font-semibold text-foreground"
+            />
+            {headerContent && (
+              <div className="flex justify-start">
+                {headerContent}
+              </div>
+            )}
+          </div>
         </div>
       )}
       <div className={cn(!noPadding && 'p-5')}>

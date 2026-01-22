@@ -18,6 +18,7 @@ import OnboardingChecklist from '@/components/dashboard/OnboardingChecklist';
 import DataTimestamp from '@/components/dashboard/DataTimestamp';
 import MilestoneToast from '@/components/dashboard/MilestoneToast';
 import { useDashboard } from '@/hooks/useDashboard';
+import { useBIData, TimeWindow } from '@/hooks/useBIData';
 import { useChartContext } from '@/hooks/useChartContext';
 import { useProjections } from '@/hooks/useProjections';
 import { useEntries } from '@/hooks/useEntries';
@@ -65,15 +66,17 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const { isAdmin } = useAuth();
   const [selectedMonth, setSelectedMonth] = useState(format(new Date(), 'yyyy-MM'));
+  const [biTimeWindow, setBITimeWindow] = useState<TimeWindow>(90);
   const months = useMemo(() => getMonthOptions(), []);
   
   const { metrics, recentEntries, pendingEntries, chartData, isLoading } = useDashboard(selectedMonth);
+  const { metrics: biMetrics, chartData: biChartData, isLoading: biLoading } = useBIData(biTimeWindow);
   const { projections, isLoading: projectionsLoading } = useProjections();
   const { entries } = useEntries();
   const { stats } = useUserStats();
   const { smartState } = useSmartState();
 
-  // Chart context for interactive filtering
+  // Chart context for interactive filtering (using BI data for charts)
   const {
     distributionContext,
     setDistributionContext,
@@ -83,7 +86,16 @@ export default function Dashboard() {
     resetContext,
     hasActiveContext,
     filteredMetrics,
-  } = useChartContext({ metrics, chartData });
+  } = useChartContext({ 
+    metrics: {
+      ...metrics,
+      received: biMetrics.received,
+      pending: biMetrics.pending,
+      expenses: biMetrics.expenses,
+      profit: biMetrics.profit,
+    }, 
+    chartData: biChartData 
+  });
 
   // Check if user has any entries (for onboarding)
   const hasEntries = entries.length > 0;
@@ -95,7 +107,7 @@ export default function Dashboard() {
       .map(e => e.due_date as string);
   }, [pendingEntries]);
 
-  const isFullyLoading = isLoading || projectionsLoading;
+  const isFullyLoading = isLoading || projectionsLoading || biLoading;
 
   // Check if Status Rápido has all zero values
   const statusAllZero = metrics.upcomingValue === 0 && metrics.overdueValue === 0 && metrics.received === 0;
@@ -277,20 +289,24 @@ export default function Dashboard() {
               <UpcomingDeadlines entries={[...pendingEntries, ...recentEntries]} />
             </section>
 
-            {/* Section 6: Charts - Distribution & Evolution */}
+            {/* Section 6: Charts - Distribution & Evolution (BI Guiado) */}
             <section className="mb-6">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <DistributionChart 
-                  received={metrics.received}
-                  expenses={metrics.expenses}
-                  pending={metrics.pending}
+                  received={biMetrics.received}
+                  expenses={biMetrics.expenses}
+                  pending={biMetrics.pending}
                   activeContext={distributionContext}
                   onContextChange={setDistributionContext}
+                  timeWindow={biTimeWindow}
+                  onTimeWindowChange={setBITimeWindow}
                 />
                 <FinancialEvolutionChart 
-                  data={chartData}
+                  data={biChartData}
                   activeContext={evolutionContext}
                   onContextChange={setEvolutionContext}
+                  timeWindow={biTimeWindow}
+                  onTimeWindowChange={setBITimeWindow}
                 />
               </div>
             </section>
