@@ -18,6 +18,7 @@ import OnboardingChecklist from '@/components/dashboard/OnboardingChecklist';
 import DataTimestamp from '@/components/dashboard/DataTimestamp';
 import MilestoneToast from '@/components/dashboard/MilestoneToast';
 import { useDashboard } from '@/hooks/useDashboard';
+import { useChartContext } from '@/hooks/useChartContext';
 import { useProjections } from '@/hooks/useProjections';
 import { useEntries } from '@/hooks/useEntries';
 import { useUserStats } from '@/hooks/useUserStats';
@@ -26,6 +27,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { formatCurrency } from '@/lib/formatters';
 import { format, subMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { Button } from '@/components/ui/button';
 import { 
   ArrowDownCircle, 
   Wallet,
@@ -35,6 +37,7 @@ import {
   CheckCircle,
   Clock,
   AlertTriangle,
+  X,
 } from 'lucide-react';
 import {
   Select,
@@ -69,6 +72,18 @@ export default function Dashboard() {
   const { entries } = useEntries();
   const { stats } = useUserStats();
   const { smartState } = useSmartState();
+
+  // Chart context for interactive filtering
+  const {
+    distributionContext,
+    setDistributionContext,
+    evolutionContext,
+    setEvolutionContext,
+    activeContextLabel,
+    resetContext,
+    hasActiveContext,
+    filteredMetrics,
+  } = useChartContext({ metrics, chartData });
 
   // Check if user has any entries (for onboarding)
   const hasEntries = entries.length > 0;
@@ -137,41 +152,61 @@ export default function Dashboard() {
             {/* Onboarding Banner - shows only for new users without entries */}
             <OnboardingBanner hasEntries={hasEntries} />
 
+            {/* Context Active Banner */}
+            {hasActiveContext && (
+              <div className="mb-4 flex items-center justify-between bg-primary/10 border border-primary/20 rounded-lg px-4 py-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-foreground">
+                    Filtro ativo: <strong>{activeContextLabel}</strong>
+                  </span>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={resetContext}
+                  className="h-7 px-2 text-xs hover:bg-primary/20"
+                >
+                  <X className="h-3 w-3 mr-1" />
+                  Limpar
+                </Button>
+              </div>
+            )}
+
             {/* Section 1: KPI Cards */}
             <section className="mb-6">
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 <KPICard
                   title="Recebido"
-                  value={metrics.received}
+                  value={hasActiveContext ? filteredMetrics.received : metrics.received}
                   icon={ArrowDownCircle}
                   variant="success"
                   tooltip="Total de valores já pagos e confirmados no período selecionado."
-                  subtitle="Pagamentos que já entraram no seu caixa."
+                  subtitle={hasActiveContext ? `Filtrado: ${activeContextLabel}` : "Pagamentos que já entraram no seu caixa."}
                 />
                 <KPICard
                   title="A Receber (Geral)"
-                  value={metrics.globalPending}
+                  value={hasActiveContext ? filteredMetrics.pending : metrics.globalPending}
                   icon={Wallet}
                   variant="info"
-                  onClick={() => navigate('/lancamentos?status=pendente_geral')}
+                  onClick={!hasActiveContext ? () => navigate('/lancamentos?status=pendente_geral') : undefined}
                   tooltip="Valores futuros esperados, incluindo parcelas, recorrências e serviços já vendidos."
-                  subtitle="Projeção total do que você ainda vai receber."
+                  subtitle={hasActiveContext ? `Filtrado: ${activeContextLabel}` : "Projeção total do que você ainda vai receber."}
                 />
                 <KPICard
                   title="Despesas"
-                  value={metrics.expenses}
+                  value={hasActiveContext ? filteredMetrics.expenses : metrics.expenses}
                   icon={TrendingDown}
                   variant="expense"
                   tooltip="Total de despesas registradas no período selecionado."
-                  subtitle="Gastos que impactam diretamente seu lucro."
+                  subtitle={hasActiveContext ? `Filtrado: ${activeContextLabel}` : "Gastos que impactam diretamente seu lucro."}
                 />
                 <KPICard
                   title="Lucro Estimado"
-                  value={metrics.profit}
+                  value={hasActiveContext ? filteredMetrics.profit : metrics.profit}
                   icon={TrendingUp}
                   variant="neutral"
                   tooltip="Resultado estimado considerando valores recebidos menos despesas."
-                  subtitle="Visão clara do quanto sobra no seu caixa."
+                  subtitle={hasActiveContext ? `Filtrado: ${activeContextLabel}` : "Visão clara do quanto sobra no seu caixa."}
                 />
               </div>
             </section>
@@ -249,8 +284,14 @@ export default function Dashboard() {
                   received={metrics.received}
                   expenses={metrics.expenses}
                   pending={metrics.pending}
+                  activeContext={distributionContext}
+                  onContextChange={setDistributionContext}
                 />
-                <FinancialEvolutionChart data={chartData} />
+                <FinancialEvolutionChart 
+                  data={chartData}
+                  activeContext={evolutionContext}
+                  onContextChange={setEvolutionContext}
+                />
               </div>
             </section>
 
