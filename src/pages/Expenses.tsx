@@ -31,6 +31,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import SmartValueInput from '@/components/ui/smart-value-input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import {
@@ -325,14 +326,11 @@ export default function Expenses() {
 
             <div className="space-y-1.5">
               <Label htmlFor="value" className="text-sm">Valor (R$) *</Label>
-              <Input
-                id="value"
-                type="text"
-                inputMode="decimal"
+              <SmartValueInput
                 value={formData.value}
-                onChange={(e) => handleInputChange('value', e.target.value)}
+                onChange={(val) => handleInputChange('value', val)}
                 placeholder="0,00"
-                className="h-11 max-w-[180px]"
+                className="max-w-[180px]"
               />
             </div>
 

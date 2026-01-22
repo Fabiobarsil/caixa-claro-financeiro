@@ -5,6 +5,7 @@ import { useServicesProducts, ServiceProduct, ItemType } from '@/hooks/useServic
 import { capitalizeWords } from '@/lib/inputFormatters';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import SmartValueInput from '@/components/ui/smart-value-input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import {
@@ -187,15 +188,11 @@ export default function ServiceProductForm() {
             {/* Price */}
             <div className="space-y-1.5">
               <Label htmlFor="basePrice" className="text-sm">Preço (R$) *</Label>
-              <Input
-                id="basePrice"
-                type="number"
-                step="0.01"
-                min="0"
+              <SmartValueInput
                 value={basePrice}
-                onChange={(e) => setBasePrice(e.target.value)}
+                onChange={setBasePrice}
                 placeholder="0,00"
-                className="h-11 max-w-[200px]"
+                className="max-w-[200px]"
               />
             </div>
 
@@ -203,15 +200,11 @@ export default function ServiceProductForm() {
             {type === 'produto' && (
               <div className="space-y-1.5">
                 <Label htmlFor="cost" className="text-sm">Custo (R$)</Label>
-                <Input
-                  id="cost"
-                  type="number"
-                  step="0.01"
-                  min="0"
+                <SmartValueInput
                   value={cost}
-                  onChange={(e) => setCost(e.target.value)}
+                  onChange={setCost}
                   placeholder="0,00"
-                  className="h-11 max-w-[200px]"
+                  className="max-w-[200px]"
                 />
               </div>
             )}

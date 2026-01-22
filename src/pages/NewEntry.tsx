@@ -8,6 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import SmartValueInput from '@/components/ui/smart-value-input';
 import {
   Select,
   SelectContent,
@@ -331,16 +332,13 @@ export default function NewEntry() {
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-xs text-muted-foreground">Valor unit. (R$) *</Label>
-                  <Input
-                    type="number"
-                    step="0.01"
+                  <SmartValueInput
                     value={unitValue}
-                    onChange={(e) => setUnitValue(e.target.value)}
+                    onChange={setUnitValue}
+                    placeholder="0,00"
                     className={cn(
-                      "h-11 bg-background",
                       showValidation && !unitValue && "border-destructive"
                     )}
-                    placeholder="0,00"
                   />
                 </div>
               </div>
