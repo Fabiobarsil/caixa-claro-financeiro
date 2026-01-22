@@ -11,8 +11,7 @@ import FinancialEvolutionChart from '@/components/dashboard/FinancialEvolutionCh
 import FinancialProjection from '@/components/dashboard/FinancialProjection';
 import FinancialRisk from '@/components/dashboard/FinancialRisk';
 import CriticalDueDates from '@/components/dashboard/CriticalDueDates';
-import CashHealthScore from '@/components/dashboard/CashHealthScore';
-import DailyInsight from '@/components/dashboard/DailyInsight';
+import SmartStateBanner from '@/components/dashboard/SmartStateBanner';
 import OnboardingBanner from '@/components/dashboard/OnboardingBanner';
 import OnboardingWelcome from '@/components/dashboard/OnboardingWelcome';
 import OnboardingChecklist from '@/components/dashboard/OnboardingChecklist';
@@ -22,7 +21,7 @@ import { useDashboard } from '@/hooks/useDashboard';
 import { useProjections } from '@/hooks/useProjections';
 import { useEntries } from '@/hooks/useEntries';
 import { useUserStats } from '@/hooks/useUserStats';
-import { useCashIntelligence } from '@/hooks/useCashIntelligence';
+import { useSmartState } from '@/hooks/useSmartState';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatCurrency } from '@/lib/formatters';
 import { format, subMonths } from 'date-fns';
@@ -69,7 +68,7 @@ export default function Dashboard() {
   const { projections, isLoading: projectionsLoading } = useProjections();
   const { entries } = useEntries();
   const { stats } = useUserStats();
-  const { healthScore, userStats: intelligenceStats, dailyInsight, dailyAlert, activeMessage, isLoading: intelligenceLoading } = useCashIntelligence();
+  const { smartState } = useSmartState();
 
   // Check if user has any entries (for onboarding)
   const hasEntries = entries.length > 0;
@@ -81,7 +80,7 @@ export default function Dashboard() {
       .map(e => e.due_date as string);
   }, [pendingEntries]);
 
-  const isFullyLoading = isLoading || projectionsLoading || intelligenceLoading;
+  const isFullyLoading = isLoading || projectionsLoading;
 
   // Check if Status Rápido has all zero values
   const statusAllZero = metrics.upcomingValue === 0 && metrics.overdueValue === 0 && metrics.received === 0;
@@ -129,6 +128,9 @@ export default function Dashboard() {
           </div>
         ) : (
           <div className="flex-1 overflow-auto -mx-4 px-4 pb-6">
+            {/* Smart State Banner - daily intelligence (only renders if smart_state exists) */}
+            <SmartStateBanner smartState={smartState} />
+
             {/* Onboarding Checklist - shows progress for admins */}
             <OnboardingChecklist isAdmin={isAdmin} />
 
@@ -230,24 +232,7 @@ export default function Dashboard() {
               </div>
             </section>
 
-            {/* Section 4: Saúde do Caixa e Insight Diário */}
-            <section className="mb-6">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <CashHealthScore
-                  healthScore={healthScore}
-                  learningPhase={intelligenceStats.learningPhase}
-                  totalDaysActive={intelligenceStats.totalDaysActive}
-                />
-                <DailyInsight
-                  activeMessage={activeMessage}
-                  insight={dailyInsight}
-                  alert={dailyAlert}
-                  totalEntries={entries.length}
-                />
-              </div>
-            </section>
-
-            {/* Section 5: Vencimentos Críticos */}
+            {/* Section 4: Vencimentos Críticos */}
             <section className="mb-6">
               <CriticalDueDates items={projections.criticalDueDates} />
             </section>
