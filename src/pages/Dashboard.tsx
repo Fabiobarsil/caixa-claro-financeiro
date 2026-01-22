@@ -17,6 +17,7 @@ import OnboardingWelcome from '@/components/dashboard/OnboardingWelcome';
 import OnboardingChecklist from '@/components/dashboard/OnboardingChecklist';
 import DataTimestamp from '@/components/dashboard/DataTimestamp';
 import MilestoneToast from '@/components/dashboard/MilestoneToast';
+import SubscriptionBanner from '@/components/subscription/SubscriptionBanner';
 import { useFinancialSnapshot, TimeWindow } from '@/hooks/useFinancialSnapshot';
 import { useChartContext } from '@/hooks/useChartContext';
 import { useDashboard } from '@/hooks/useDashboard';
@@ -120,6 +121,9 @@ export default function Dashboard() {
           </div>
         ) : (
           <div className="flex-1 overflow-auto -mx-4 px-4 pb-6">
+            {/* Subscription Banner - shows trial status or upgrade prompt */}
+            <SubscriptionBanner />
+
             {/* Smart State Banner - daily intelligence (only renders if smart_state exists) */}
             <SmartStateBanner smartState={smartState} />
 

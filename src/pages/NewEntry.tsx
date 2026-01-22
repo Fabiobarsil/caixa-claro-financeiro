@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useServicesProducts } from '@/hooks/useServicesProducts';
 import { useClients } from '@/hooks/useClients';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSubscriptionContext } from '@/contexts/SubscriptionContext';
 import { useEntrySchedules, getDefaultDueDate } from '@/hooks/useEntrySchedules';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -33,6 +34,7 @@ type ItemType = 'servico' | 'produto';
 export default function NewEntry() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { requireSubscriptionForCreate } = useSubscriptionContext();
   const { clients, isLoading: clientsLoading } = useClients();
   const { items: servicesProducts, isLoading: itemsLoading } = useServicesProducts();
   const { createSchedules } = useEntrySchedules();
@@ -179,6 +181,11 @@ export default function NewEntry() {
 
   const handleSubmit = async (markAsPaid: boolean = false) => {
     setShowValidation(true);
+    
+    // Check subscription before allowing creation
+    if (requireSubscriptionForCreate()) {
+      return; // Modal will be shown by context
+    }
     
     if (!user) {
       toast.error('Você precisa estar logado');
