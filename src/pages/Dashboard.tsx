@@ -26,9 +26,8 @@ import { useUserStats } from '@/hooks/useUserStats';
 import { useSmartState } from '@/hooks/useSmartState';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatCurrency } from '@/lib/formatters';
-import { format, subMonths } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
 import { Button } from '@/components/ui/button';
+import TimeWindowSelector from '@/components/dashboard/TimeWindowSelector';
 import { 
   ArrowDownCircle, 
   Wallet,
@@ -40,43 +39,22 @@ import {
   AlertTriangle,
   X,
 } from 'lucide-react';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-
-// Generate last 6 months for selector
-function getMonthOptions() {
-  const options = [];
-  const now = new Date();
-  for (let i = 0; i < 6; i++) {
-    const date = subMonths(now, i);
-    options.push({
-      value: format(date, 'yyyy-MM'),
-      label: format(date, "MMMM yyyy", { locale: ptBR }),
-    });
-  }
-  return options;
-}
 
 export default function Dashboard() {
   const navigate = useNavigate();
   const { isAdmin } = useAuth();
-  const [selectedMonth, setSelectedMonth] = useState(format(new Date(), 'yyyy-MM'));
   const [biTimeWindow, setBITimeWindow] = useState<TimeWindow>(90);
-  const months = useMemo(() => getMonthOptions(), []);
   
-  const { metrics, recentEntries, pendingEntries, chartData, isLoading } = useDashboard(selectedMonth);
+  // Single source of truth: BI data for cards AND charts
   const { metrics: biMetrics, chartData: biChartData, isLoading: biLoading } = useBIData(biTimeWindow);
+  // Dashboard data for Status Rápido and other sections (still uses current month context)
+  const { metrics: dashboardMetrics, recentEntries, pendingEntries, isLoading: dashboardLoading } = useDashboard();
   const { projections, isLoading: projectionsLoading } = useProjections();
   const { entries } = useEntries();
   const { stats } = useUserStats();
   const { smartState } = useSmartState();
 
-  // Chart context for interactive filtering (using BI data for charts)
+  // Chart context for interactive filtering (unified BI data)
   const {
     distributionContext,
     setDistributionContext,
@@ -87,13 +65,7 @@ export default function Dashboard() {
     hasActiveContext,
     filteredMetrics,
   } = useChartContext({ 
-    metrics: {
-      ...metrics,
-      received: biMetrics.received,
-      pending: biMetrics.pending,
-      expenses: biMetrics.expenses,
-      profit: biMetrics.profit,
-    }, 
+    metrics: biMetrics, 
     chartData: biChartData 
   });
 
@@ -107,10 +79,10 @@ export default function Dashboard() {
       .map(e => e.due_date as string);
   }, [pendingEntries]);
 
-  const isFullyLoading = isLoading || projectionsLoading || biLoading;
+  const isFullyLoading = dashboardLoading || projectionsLoading || biLoading;
 
   // Check if Status Rápido has all zero values
-  const statusAllZero = metrics.upcomingValue === 0 && metrics.overdueValue === 0 && metrics.received === 0;
+  const statusAllZero = dashboardMetrics.upcomingValue === 0 && dashboardMetrics.overdueValue === 0 && biMetrics.received === 0;
 
   return (
     <AppLayout>
@@ -125,20 +97,12 @@ export default function Dashboard() {
           hasFirstPayment={stats.hasFirstPayment}
         />
 
-        {/* Month Filter + Data Timestamp */}
+        {/* Time Window Selector + Data Timestamp */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
-          <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-            <SelectTrigger className="w-48 bg-card border-border capitalize shadow-sm">
-              <SelectValue placeholder="Selecione o mês" />
-            </SelectTrigger>
-            <SelectContent>
-              {months.map((month) => (
-                <SelectItem key={month.value} value={month.value} className="capitalize">
-                  {month.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">Período:</span>
+            <TimeWindowSelector value={biTimeWindow} onChange={setBITimeWindow} />
+          </div>
           
           {/* Data Timestamp - Authority Element */}
           <DataTimestamp />
@@ -189,36 +153,36 @@ export default function Dashboard() {
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 <KPICard
                   title="Recebido"
-                  value={hasActiveContext ? filteredMetrics.received : metrics.received}
+                  value={hasActiveContext ? filteredMetrics.received : biMetrics.received}
                   icon={ArrowDownCircle}
                   variant="success"
-                  tooltip="Total de valores já pagos e confirmados no período selecionado."
-                  subtitle={hasActiveContext ? `Filtrado: ${activeContextLabel}` : "Pagamentos que já entraram no seu caixa."}
+                  tooltip={`Total de valores pagos nos últimos ${biTimeWindow} dias.`}
+                  subtitle={hasActiveContext ? `Filtrado: ${activeContextLabel}` : `Últimos ${biTimeWindow} dias`}
                 />
                 <KPICard
-                  title="A Receber (Geral)"
-                  value={hasActiveContext ? filteredMetrics.pending : metrics.globalPending}
+                  title="A Receber"
+                  value={hasActiveContext ? filteredMetrics.pending : biMetrics.pending}
                   icon={Wallet}
                   variant="info"
                   onClick={!hasActiveContext ? () => navigate('/lancamentos?status=pendente_geral') : undefined}
-                  tooltip="Valores futuros esperados, incluindo parcelas, recorrências e serviços já vendidos."
-                  subtitle={hasActiveContext ? `Filtrado: ${activeContextLabel}` : "Projeção total do que você ainda vai receber."}
+                  tooltip={`Valores pendentes a partir dos últimos ${biTimeWindow} dias.`}
+                  subtitle={hasActiveContext ? `Filtrado: ${activeContextLabel}` : `Últimos ${biTimeWindow} dias`}
                 />
                 <KPICard
                   title="Despesas"
-                  value={hasActiveContext ? filteredMetrics.expenses : metrics.expenses}
+                  value={hasActiveContext ? filteredMetrics.expenses : biMetrics.expenses}
                   icon={TrendingDown}
                   variant="expense"
-                  tooltip="Total de despesas registradas no período selecionado."
-                  subtitle={hasActiveContext ? `Filtrado: ${activeContextLabel}` : "Gastos que impactam diretamente seu lucro."}
+                  tooltip={`Total de despesas nos últimos ${biTimeWindow} dias.`}
+                  subtitle={hasActiveContext ? `Filtrado: ${activeContextLabel}` : `Últimos ${biTimeWindow} dias`}
                 />
                 <KPICard
                   title="Lucro Estimado"
-                  value={hasActiveContext ? filteredMetrics.profit : metrics.profit}
+                  value={hasActiveContext ? filteredMetrics.profit : biMetrics.profit}
                   icon={TrendingUp}
                   variant="neutral"
-                  tooltip="Resultado estimado considerando valores recebidos menos despesas."
-                  subtitle={hasActiveContext ? `Filtrado: ${activeContextLabel}` : "Visão clara do quanto sobra no seu caixa."}
+                  tooltip="Recebido menos despesas no período selecionado."
+                  subtitle={hasActiveContext ? `Filtrado: ${activeContextLabel}` : `Últimos ${biTimeWindow} dias`}
                 />
               </div>
             </section>
@@ -232,7 +196,7 @@ export default function Dashboard() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                   <StatusIndicator
                     label="A vencer"
-                    value={formatCurrency(metrics.upcomingValue)}
+                    value={formatCurrency(dashboardMetrics.upcomingValue)}
                     icon={Clock}
                     variant="warning"
                     onClick={() => navigate('/lancamentos?status=a_vencer')}
@@ -240,18 +204,18 @@ export default function Dashboard() {
                   />
                   <StatusIndicator
                     label="Em atraso"
-                    value={formatCurrency(metrics.overdueValue)}
+                    value={formatCurrency(dashboardMetrics.overdueValue)}
                     icon={AlertTriangle}
                     variant="danger"
                     onClick={() => navigate('/lancamentos?status=vencido')}
                     tooltip="Valores que já passaram do vencimento e ainda não foram pagos."
                   />
                   <StatusIndicator
-                    label="Pagos no mês"
-                    value={formatCurrency(metrics.received)}
+                    label="Recebido"
+                    value={formatCurrency(biMetrics.received)}
                     icon={CheckCircle}
                     variant="success"
-                    tooltip="Total recebido dentro do mês selecionado."
+                    tooltip={`Total recebido nos últimos ${biTimeWindow} dias.`}
                   />
                 </div>
                 {statusAllZero && (
@@ -314,23 +278,23 @@ export default function Dashboard() {
             {/* Section 7: Summary & Calendar */}
             <section className="mb-6">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <SectionCard title="Resumo Mensal">
+                <SectionCard title={`Resumo | últimos ${biTimeWindow} dias`}>
                   <div className="space-y-4">
                     <div className="flex items-center justify-between py-3 border-b border-border">
                       <span className="text-sm text-muted-foreground">Total de atendimentos</span>
-                      <span className="text-lg font-semibold text-foreground">{metrics.totalEntries}</span>
+                      <span className="text-lg font-semibold text-foreground">{biMetrics.totalEntries}</span>
                     </div>
                     <div className="flex items-center justify-between py-3 border-b border-border">
                       <span className="text-sm text-muted-foreground">Ticket médio</span>
-                      <span className="text-lg font-semibold text-foreground">{formatCurrency(metrics.averageTicket)}</span>
+                      <span className="text-lg font-semibold text-foreground">{formatCurrency(biMetrics.averageTicket)}</span>
                     </div>
                     <div className="flex items-center justify-between py-3 border-b border-border">
                       <span className="text-sm text-muted-foreground">Próximos 30 dias</span>
-                      <span className="text-lg font-semibold text-foreground">{formatCurrency(metrics.globalNext30Days)}</span>
+                      <span className="text-lg font-semibold text-foreground">{formatCurrency(dashboardMetrics.globalNext30Days)}</span>
                     </div>
                     <div className="flex items-center justify-between py-3">
                       <span className="text-sm text-muted-foreground">Total em atraso</span>
-                      <span className="text-lg font-semibold text-expense">{formatCurrency(metrics.globalOverdue)}</span>
+                      <span className="text-lg font-semibold text-expense">{formatCurrency(dashboardMetrics.globalOverdue)}</span>
                     </div>
                   </div>
                 </SectionCard>
