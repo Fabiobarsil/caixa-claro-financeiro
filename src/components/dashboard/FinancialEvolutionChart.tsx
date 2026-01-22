@@ -17,15 +17,10 @@ import { formatCurrency } from '@/lib/formatters';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { X } from 'lucide-react';
-import type { EvolutionContextType } from '@/hooks/useChartContext';
-import type { TimeWindow } from '@/hooks/useBIData';
+import type { TimeWindow, ChartDataPoint } from '@/hooks/useFinancialSnapshot';
 
-interface ChartDataPoint {
-  date: string;
-  received: number;
-  pending: number;
-  overdue: number;
-}
+// Context type for filtering
+export type EvolutionContextType = string | null; // Date string or null
 
 interface FinancialEvolutionChartProps {
   data: ChartDataPoint[];
@@ -42,27 +37,28 @@ export default function FinancialEvolutionChart({
   timeWindow,
   onTimeWindowChange
 }: FinancialEvolutionChartProps) {
+  // Os dados já vêm acumulados do snapshot, apenas formatar para exibição
   const chartData = useMemo(() => {
-    // Calculate cumulative values and day-over-day variation
-    let cumulativeReceived = 0;
-    let cumulativePending = 0;
-    let cumulativeOverdue = 0;
+    let prevRecebido = 0;
+    let prevDespesas = 0;
     
-    return data.map((day, index) => {
-      cumulativeReceived += day.received;
-      cumulativePending += day.pending;
-      cumulativeOverdue += day.overdue;
+    return data.map((day) => {
+      const recebidoDelta = day.recebido - prevRecebido;
+      const despesasDelta = day.despesas - prevDespesas;
+      
+      prevRecebido = day.recebido;
+      prevDespesas = day.despesas;
       
       return {
         date: day.date,
         day: format(parseISO(day.date), 'd/M', { locale: ptBR }),
-        received: cumulativeReceived,
-        pending: cumulativePending,
-        overdue: cumulativeOverdue,
-        // Day-over-day variations
-        receivedDelta: day.received,
-        pendingDelta: day.pending,
-        overdueDelta: day.overdue,
+        recebido: day.recebido,
+        despesas: day.despesas,
+        // Lucro acumulado = recebido - despesas
+        lucro: day.recebido - day.despesas,
+        // Delta diário
+        recebidoDelta,
+        despesasDelta,
       };
     });
   }, [data]);
@@ -96,9 +92,8 @@ export default function FinancialEvolutionChart({
         ? format(parseISO(dateStr), "d 'de' MMMM", { locale: ptBR })
         : label;
       
-      const receivedDelta = payload[0]?.payload?.receivedDelta || 0;
-      const pendingDelta = payload[0]?.payload?.pendingDelta || 0;
-      const overdueDelta = payload[0]?.payload?.overdueDelta || 0;
+      const recebidoDelta = payload[0]?.payload?.recebidoDelta || 0;
+      const despesasDelta = payload[0]?.payload?.despesasDelta || 0;
       
       return (
         <div className="bg-card border border-border rounded-lg shadow-lg p-3 min-w-[180px]">
@@ -106,7 +101,7 @@ export default function FinancialEvolutionChart({
             {formattedDate}
           </p>
           {payload.map((entry: any, index: number) => {
-            const delta = index === 0 ? receivedDelta : index === 1 ? pendingDelta : overdueDelta;
+            const delta = entry.dataKey === 'recebido' ? recebidoDelta : despesasDelta;
             const sign = delta > 0 ? '+' : '';
             
             return (
@@ -121,7 +116,7 @@ export default function FinancialEvolutionChart({
                     {formatCurrency(entry.value)}
                   </span>
                 </div>
-                {delta !== 0 && (
+                {delta !== 0 && entry.dataKey !== 'lucro' && (
                   <div className="flex items-center gap-2 text-xs ml-4">
                     <span className={delta > 0 ? 'text-success' : 'text-expense'}>
                       {sign}{formatCurrency(delta)} no dia
@@ -141,7 +136,7 @@ export default function FinancialEvolutionChart({
   };
 
   // Check if there's any data to show
-  const hasData = chartData.some(d => d.received > 0 || d.pending > 0 || d.overdue > 0);
+  const hasData = chartData.some(d => d.recebido > 0 || d.despesas > 0);
 
   // Dynamic title based on context and time window
   const getTitle = () => {
@@ -216,7 +211,7 @@ export default function FinancialEvolutionChart({
               />
               <Line
                 type="monotone"
-                dataKey="received"
+                dataKey="recebido"
                 name="Recebido"
                 stroke="hsl(var(--success))"
                 strokeWidth={2.5}
@@ -230,22 +225,8 @@ export default function FinancialEvolutionChart({
               />
               <Line
                 type="monotone"
-                dataKey="pending"
-                name="A vencer"
-                stroke="hsl(var(--warning))"
-                strokeWidth={2.5}
-                dot={false}
-                activeDot={{ 
-                  r: 6, 
-                  strokeWidth: 2,
-                  stroke: 'hsl(var(--background))',
-                  className: 'drop-shadow-md'
-                }}
-              />
-              <Line
-                type="monotone"
-                dataKey="overdue"
-                name="Em atraso"
+                dataKey="despesas"
+                name="Despesas"
                 stroke="hsl(var(--expense))"
                 strokeWidth={2.5}
                 dot={false}
@@ -262,7 +243,7 @@ export default function FinancialEvolutionChart({
                 <>
                   <ReferenceDot
                     x={chartData[activePointIndex].day}
-                    y={chartData[activePointIndex].received}
+                    y={chartData[activePointIndex].recebido}
                     r={8}
                     fill="hsl(var(--success))"
                     stroke="hsl(var(--background))"
@@ -270,15 +251,7 @@ export default function FinancialEvolutionChart({
                   />
                   <ReferenceDot
                     x={chartData[activePointIndex].day}
-                    y={chartData[activePointIndex].pending}
-                    r={8}
-                    fill="hsl(var(--warning))"
-                    stroke="hsl(var(--background))"
-                    strokeWidth={3}
-                  />
-                  <ReferenceDot
-                    x={chartData[activePointIndex].day}
-                    y={chartData[activePointIndex].overdue}
+                    y={chartData[activePointIndex].despesas}
                     r={8}
                     fill="hsl(var(--expense))"
                     stroke="hsl(var(--background))"

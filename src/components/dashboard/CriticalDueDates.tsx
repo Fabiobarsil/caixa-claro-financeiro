@@ -1,20 +1,11 @@
 import { useNavigate } from 'react-router-dom';
-import { Clock, AlertCircle, Calendar, ChevronRight } from 'lucide-react';
+import { Clock, Calendar, ChevronRight } from 'lucide-react';
 import SectionCard from './SectionCard';
 import { formatCurrency } from '@/lib/formatters';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
-
-interface CriticalDueDate {
-  id: string;
-  scheduleId?: string;
-  clientName: string;
-  value: number;
-  dueDate: string;
-  daysUntilDue: number;
-  isOverdue: boolean;
-}
+import type { CriticalDueDate } from '@/hooks/useFinancialSnapshot';
 
 interface CriticalDueDatesProps {
   items: CriticalDueDate[];

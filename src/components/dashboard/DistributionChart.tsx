@@ -13,13 +13,13 @@ import TimeWindowSelector from './TimeWindowSelector';
 import { formatCurrency } from '@/lib/formatters';
 import { Button } from '@/components/ui/button';
 import { X } from 'lucide-react';
-import type { DistributionContextType } from '@/hooks/useChartContext';
-import type { TimeWindow } from '@/hooks/useBIData';
+import type { TimeWindow, DistributionData } from '@/hooks/useFinancialSnapshot';
+
+// Context types for filtering
+export type DistributionContextType = 'recebido' | 'a_receber' | 'em_atraso' | null;
 
 interface DistributionChartProps {
-  received: number;
-  expenses: number;
-  pending: number;
+  distribution: DistributionData;
   activeContext?: DistributionContextType;
   onContextChange?: (context: DistributionContextType) => void;
   timeWindow: TimeWindow;
@@ -29,8 +29,8 @@ interface DistributionChartProps {
 // Map segment names to context types
 const nameToContext: Record<string, DistributionContextType> = {
   'Recebido': 'recebido',
-  'Despesas': 'despesas',
   'A Receber': 'a_receber',
+  'Em Atraso': 'em_atraso',
 };
 
 // Active shape for selected segment
@@ -66,9 +66,7 @@ const renderActiveShape = (props: any) => {
 };
 
 export default function DistributionChart({ 
-  received, 
-  expenses, 
-  pending,
+  distribution,
   activeContext,
   onContextChange,
   timeWindow,
@@ -76,13 +74,15 @@ export default function DistributionChart({
 }: DistributionChartProps) {
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
 
+  // Usar dados do snapshot canônico
   const data = [
-    { name: 'Recebido', value: received, color: 'hsl(var(--success))' },
-    { name: 'Despesas', value: expenses, color: 'hsl(var(--expense))' },
-    { name: 'A Receber', value: pending, color: 'hsl(var(--warning))' },
+    { name: 'Recebido', value: distribution.recebido, color: 'hsl(var(--success))' },
+    { name: 'A Receber', value: distribution.a_receber, color: 'hsl(var(--warning))' },
+    { name: 'Em Atraso', value: distribution.em_atraso, color: 'hsl(var(--expense))' },
   ].filter(d => d.value > 0);
 
-  const total = received + expenses + pending;
+  // total_entradas do snapshot
+  const total = distribution.recebido + distribution.a_receber + distribution.em_atraso;
 
   // Find active index based on context
   const activeIndex = activeContext 
@@ -109,7 +109,7 @@ export default function DistributionChart({
   const CustomTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
       const item = payload[0];
-      const percentage = ((item.value / total) * 100).toFixed(1);
+      const percentage = total > 0 ? ((item.value / total) * 100).toFixed(1) : '0';
       
       return (
         <div className="bg-card border border-border rounded-lg shadow-lg p-3 min-w-[160px]">
