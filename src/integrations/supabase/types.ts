@@ -206,9 +206,15 @@ export type Database = {
         Row: {
           created_at: string
           email: string
+          first_activity_at: string | null
           id: string
           is_active: boolean
           name: string
+          paid_until: string | null
+          plan_type: string
+          subscription_source: string
+          subscription_status: string
+          trial_days: number
           updated_at: string
           user_id: string
           vacation_end: string | null
@@ -217,9 +223,15 @@ export type Database = {
         Insert: {
           created_at?: string
           email: string
+          first_activity_at?: string | null
           id?: string
           is_active?: boolean
           name: string
+          paid_until?: string | null
+          plan_type?: string
+          subscription_source?: string
+          subscription_status?: string
+          trial_days?: number
           updated_at?: string
           user_id: string
           vacation_end?: string | null
@@ -228,9 +240,15 @@ export type Database = {
         Update: {
           created_at?: string
           email?: string
+          first_activity_at?: string | null
           id?: string
           is_active?: boolean
           name?: string
+          paid_until?: string | null
+          plan_type?: string
+          subscription_source?: string
+          subscription_status?: string
+          trial_days?: number
           updated_at?: string
           user_id?: string
           vacation_end?: string | null
