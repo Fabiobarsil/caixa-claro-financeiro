@@ -1,16 +1,16 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import AppLayout from '@/components/AppLayout';
 import { useEntries, Entry } from '@/hooks/useEntries';
 import { useEntrySchedules, getScheduleSummary, EntrySchedule } from '@/hooks/useEntrySchedules';
 import { cn } from '@/lib/utils';
-import { Search, Loader2, Receipt, Package, Scissors, CheckCircle, ChevronDown, ChevronUp, Plus } from 'lucide-react';
+import { Search, Loader2, Receipt, Package, Scissors, CheckCircle, ChevronDown, ChevronUp, Plus, DollarSign } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import EntryStatusBadge from '@/components/EntryStatusBadge';
-import { getEntryVisualInfo, VisualStatus } from '@/lib/entryStatus';
+import { getEntryVisualInfo } from '@/lib/entryStatus';
 
 type FilterType = 'todos' | 'pago' | 'a_vencer' | 'vencido' | 'pendente_geral';
 
@@ -30,6 +30,27 @@ function formatPaymentMethod(method: string): string {
     cartao_debito: 'Cartão Débito',
   };
   return methods[method] || method;
+}
+
+// Unified item for display (can be entry or paid schedule)
+interface DisplayItem {
+  type: 'entry' | 'paid_schedule';
+  id: string;
+  clientName: string;
+  itemName: string;
+  itemType: 'servico' | 'produto';
+  value: number;
+  date: string;
+  paymentDate: string | null;
+  paymentMethod?: string;
+  quantity?: number;
+  // For schedules
+  scheduleType?: 'installment' | 'monthly_package' | 'single';
+  installmentNumber?: number;
+  installmentsTotal?: number;
+  // Original entry for actions
+  entry?: Entry;
+  schedule?: EntrySchedule;
 }
 
 export default function Entries() {
@@ -56,12 +77,112 @@ export default function Entries() {
     setSearchParams(searchParams);
   };
 
-  // Check if we're in global pending mode
+  // Check modes
   const isGlobalPendingMode = activeFilter === 'pendente_geral';
+  const isPaidMode = activeFilter === 'pago';
+
+  // Build entry info map for schedules display
+  const entryInfoMap = useMemo(() => {
+    const map = new Map<string, { 
+      clientName?: string; 
+      itemName?: string; 
+      itemType?: 'servico' | 'produto';
+      paymentMethod?: string;
+      entry?: Entry;
+    }>();
+    entries.forEach(e => {
+      map.set(e.id, {
+        clientName: e.client_name,
+        itemName: e.item_name,
+        itemType: e.item_type,
+        paymentMethod: e.payment_method,
+        entry: e,
+      });
+    });
+    return map;
+  }, [entries]);
+
+  // Set of entry IDs that have schedules
+  const entryIdsWithSchedules = useMemo(() => {
+    return new Set(allSchedules.map(s => s.entry_id));
+  }, [allSchedules]);
+
+  // For "Pagos" filter: combine entries without schedules that are paid + paid schedules
+  const paidDisplayItems = useMemo((): DisplayItem[] => {
+    if (!isPaidMode) return [];
+
+    const items: DisplayItem[] = [];
+
+    // 1. Entries without schedules that are paid
+    entries
+      .filter(e => !entryIdsWithSchedules.has(e.id) && e.status === 'pago')
+      .forEach(e => {
+        items.push({
+          type: 'entry',
+          id: e.id,
+          clientName: e.client_name || 'Cliente não informado',
+          itemName: e.item_name || 'Item não informado',
+          itemType: e.item_type || 'servico',
+          value: e.value,
+          date: e.date,
+          paymentDate: e.payment_date,
+          paymentMethod: e.payment_method,
+          quantity: e.quantity,
+          entry: e,
+        });
+      });
+
+    // 2. Paid schedules
+    allSchedules
+      .filter(s => s.status === 'pago')
+      .forEach(s => {
+        const entryInfo = entryInfoMap.get(s.entry_id);
+        items.push({
+          type: 'paid_schedule',
+          id: s.id,
+          clientName: entryInfo?.clientName || 'Cliente não informado',
+          itemName: entryInfo?.itemName || 'Item não informado',
+          itemType: entryInfo?.itemType || 'servico',
+          value: s.amount,
+          date: s.due_date,
+          paymentDate: s.paid_at?.split('T')[0] || null,
+          paymentMethod: entryInfo?.paymentMethod,
+          scheduleType: s.schedule_type as 'installment' | 'monthly_package' | 'single',
+          installmentNumber: s.installment_number,
+          installmentsTotal: s.installments_total,
+          schedule: s,
+        });
+      });
+
+    // Sort by payment date descending
+    return items.sort((a, b) => {
+      const dateA = a.paymentDate || a.date;
+      const dateB = b.paymentDate || b.date;
+      return dateB.localeCompare(dateA);
+    });
+  }, [isPaidMode, entries, allSchedules, entryIdsWithSchedules, entryInfoMap]);
+
+  // Filter paidDisplayItems by search
+  const filteredPaidItems = useMemo(() => {
+    if (!isPaidMode) return [];
+    
+    return paidDisplayItems.filter(item => {
+      if (search === '') return true;
+      return (
+        item.clientName.toLowerCase().includes(search.toLowerCase()) ||
+        item.itemName.toLowerCase().includes(search.toLowerCase())
+      );
+    });
+  }, [paidDisplayItems, search, isPaidMode]);
+
+  // Calculate total for paid items
+  const paidTotal = useMemo(() => {
+    return filteredPaidItems.reduce((sum, item) => sum + item.value, 0);
+  }, [filteredPaidItems]);
 
   const filteredEntries = useMemo(() => {
-    // For global pending mode, we don't filter entries - we show schedules instead
-    if (isGlobalPendingMode) return [];
+    // For global pending mode or paid mode, we handle separately
+    if (isGlobalPendingMode || isPaidMode) return [];
 
     return entries.filter((entry) => {
       // Filter by visual status
@@ -79,7 +200,12 @@ export default function Entries() {
       
       return matchesSearch;
     });
-  }, [entries, activeFilter, search, isGlobalPendingMode]);
+  }, [entries, activeFilter, search, isGlobalPendingMode, isPaidMode]);
+
+  // Calculate total for filtered entries (non-paid modes)
+  const entriesTotal = useMemo(() => {
+    return filteredEntries.reduce((sum, entry) => sum + entry.value, 0);
+  }, [filteredEntries]);
 
   // Get global pending schedules for the new filter
   const globalPendingSchedules = useMemo(() => {
@@ -87,8 +213,21 @@ export default function Entries() {
 
     return allSchedules
       .filter(s => s.status === 'pendente')
+      .filter(s => {
+        if (search === '') return true;
+        const entryInfo = entryInfoMap.get(s.entry_id);
+        return (
+          entryInfo?.clientName?.toLowerCase().includes(search.toLowerCase()) ||
+          entryInfo?.itemName?.toLowerCase().includes(search.toLowerCase())
+        );
+      })
       .sort((a, b) => a.due_date.localeCompare(b.due_date));
-  }, [allSchedules, isGlobalPendingMode]);
+  }, [allSchedules, isGlobalPendingMode, search, entryInfoMap]);
+
+  // Calculate total for global pending
+  const pendingTotal = useMemo(() => {
+    return globalPendingSchedules.reduce((sum, s) => sum + s.amount, 0);
+  }, [globalPendingSchedules]);
 
   const handleMarkAsPaid = (entry: Entry) => {
     markAsPaid.mutate(entry.id);
@@ -98,18 +237,16 @@ export default function Entries() {
     markScheduleAsPaid.mutate(scheduleId);
   };
 
-  // Build entry info map for global schedules display
-  const entryInfoMap = useMemo(() => {
-    const map = new Map<string, { clientName?: string; itemName?: string; itemType?: 'servico' | 'produto' }>();
-    entries.forEach(e => {
-      map.set(e.id, {
-        clientName: e.client_name,
-        itemName: e.item_name,
-        itemType: e.item_type,
-      });
-    });
-    return map;
-  }, [entries]);
+  // Get current total and count based on mode
+  const { currentTotal, currentCount, totalLabel } = useMemo(() => {
+    if (isPaidMode) {
+      return { currentTotal: paidTotal, currentCount: filteredPaidItems.length, totalLabel: 'Total recebido' };
+    }
+    if (isGlobalPendingMode) {
+      return { currentTotal: pendingTotal, currentCount: globalPendingSchedules.length, totalLabel: 'Total pendente' };
+    }
+    return { currentTotal: entriesTotal, currentCount: filteredEntries.length, totalLabel: 'Total' };
+  }, [isPaidMode, isGlobalPendingMode, paidTotal, pendingTotal, entriesTotal, filteredPaidItems.length, globalPendingSchedules.length, filteredEntries.length]);
 
   return (
     <AppLayout>
@@ -119,7 +256,7 @@ export default function Entries() {
           <div>
             <h1 className="text-xl font-bold text-foreground">Lançamentos</h1>
             <p className="text-sm text-muted-foreground">
-              {isGlobalPendingMode ? 'Todas as parcelas pendentes' : 'Vendas e atendimentos'}
+              {isGlobalPendingMode ? 'Todas as parcelas pendentes' : isPaidMode ? 'Pagamentos recebidos' : 'Vendas e atendimentos'}
             </p>
           </div>
           <Button 
@@ -161,12 +298,49 @@ export default function Entries() {
           ))}
         </div>
 
+        {/* Total Summary */}
+        {currentCount > 0 && (
+          <div className="bg-primary/10 rounded-xl p-4 mb-4 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
+                <DollarSign className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">{totalLabel}</p>
+                <p className="text-lg font-bold text-foreground">
+                  R$ {currentTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </p>
+              </div>
+            </div>
+            <div className="text-right">
+              <p className="text-2xl font-bold text-primary">{currentCount}</p>
+              <p className="text-xs text-muted-foreground">
+                {isPaidMode ? 'pagamentos' : isGlobalPendingMode ? 'parcelas' : 'lançamentos'}
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Entries List */}
         <div className="flex-1 overflow-auto -mx-4 px-4 pb-36">
           {isLoading || schedulesLoading ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
             </div>
+          ) : isPaidMode ? (
+            /* Paid Items View (entries + schedules) */
+            filteredPaidItems.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+                <Receipt size={48} className="mb-4 opacity-50" />
+                <p className="text-center">Nenhum pagamento encontrado</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {filteredPaidItems.map((item) => (
+                  <PaidItemCard key={item.id} item={item} />
+                ))}
+              </div>
+            )
           ) : isGlobalPendingMode ? (
             /* Global Pending Schedules View */
             globalPendingSchedules.length === 0 ? (
@@ -233,6 +407,64 @@ export default function Entries() {
         </div>
       </div>
     </AppLayout>
+  );
+}
+
+// Card for paid items (entries or schedules)
+interface PaidItemCardProps {
+  item: DisplayItem;
+}
+
+function PaidItemCard({ item }: PaidItemCardProps) {
+  const isSchedule = item.type === 'paid_schedule';
+  const typeLabel = isSchedule 
+    ? (item.scheduleType === 'installment' ? 'Parcela' : 'Mês') 
+    : null;
+
+  return (
+    <div className="bg-card rounded-xl p-4 flex items-center gap-3">
+      <div className={cn(
+        'w-10 h-10 rounded-full flex items-center justify-center',
+        item.itemType === 'servico' ? 'bg-primary/10 text-primary' : 'bg-accent text-accent-foreground'
+      )}>
+        {item.itemType === 'servico' ? <Scissors size={20} /> : <Package size={20} />}
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="font-medium text-foreground truncate">
+          {item.clientName}
+        </p>
+        <p className="text-sm text-muted-foreground truncate">
+          {item.itemName}
+          {isSchedule && typeLabel && ` • ${typeLabel} ${item.installmentNumber}/${item.installmentsTotal}`}
+          {!isSchedule && item.quantity && item.quantity > 1 && ` (${item.quantity}x)`}
+        </p>
+        <div className="flex items-center gap-2 mt-1">
+          <span className="text-xs text-muted-foreground">
+            {item.paymentDate 
+              ? format(parseISO(item.paymentDate), "dd MMM", { locale: ptBR })
+              : format(parseISO(item.date), "dd MMM", { locale: ptBR })
+            }
+          </span>
+          {item.paymentMethod && (
+            <>
+              <span className="text-xs text-muted-foreground">•</span>
+              <span className="text-xs text-muted-foreground">
+                {formatPaymentMethod(item.paymentMethod)}
+              </span>
+            </>
+          )}
+        </div>
+      </div>
+      <div className="text-right flex flex-col items-end gap-1">
+        <p className="font-semibold text-foreground">
+          R$ {item.value.toFixed(2)}
+        </p>
+        <span className="text-xs font-medium text-success flex items-center gap-1">
+          <CheckCircle size={12} />
+          Pago
+        </span>
+      </div>
+    </div>
   );
 }
 
@@ -350,7 +582,7 @@ interface ScheduleItemProps {
 }
 
 function ScheduleItem({ schedule, onMarkPaid, isMarking }: ScheduleItemProps) {
-  const { visualStatus, label, variant } = getEntryVisualInfo(
+  const { label, variant } = getEntryVisualInfo(
     schedule.status, 
     schedule.due_date, 
     schedule.paid_at?.split('T')[0] || null
