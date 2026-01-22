@@ -106,15 +106,13 @@ export default function Dashboard() {
           hasFirstPayment={stats.hasFirstPayment}
         />
 
-        {/* Data Timestamp */}
-        <div className="flex justify-end mb-4">
+        {/* Support Text + Data Timestamp */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-6">
+          <p className="text-sm text-muted-foreground">
+            Tenha clareza sobre seu dinheiro hoje e previsibilidade para os próximos dias.
+          </p>
           <DataTimestamp />
         </div>
-
-        {/* Support Text */}
-        <p className="text-sm text-muted-foreground mb-6">
-          Tenha clareza sobre seu dinheiro hoje e previsibilidade para os próximos dias.
-        </p>
 
         {isFullyLoading ? (
           <div className="flex-1 flex items-center justify-center">
