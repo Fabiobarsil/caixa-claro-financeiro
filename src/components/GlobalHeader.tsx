@@ -6,7 +6,6 @@ import { Home, LogOut, ChevronDown } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 import iconCaixacertus from '@/assets/icon-caixacertus.svg';
-import { CalculatorDrawer } from '@/components/CalculatorDrawer';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -110,9 +109,6 @@ export default function GlobalHeader({ className }: GlobalHeaderProps) {
             {currentTime}
           </p>
         </div>
-
-        {/* Calculator shortcut */}
-        <CalculatorDrawer />
 
         {/* User dropdown menu */}
         <DropdownMenu>
