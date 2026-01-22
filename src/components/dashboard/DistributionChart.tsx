@@ -9,10 +9,12 @@ import {
   Sector
 } from 'recharts';
 import SectionCard from './SectionCard';
+import TimeWindowSelector from './TimeWindowSelector';
 import { formatCurrency } from '@/lib/formatters';
 import { Button } from '@/components/ui/button';
 import { X } from 'lucide-react';
 import type { DistributionContextType } from '@/hooks/useChartContext';
+import type { TimeWindow } from '@/hooks/useBIData';
 
 interface DistributionChartProps {
   received: number;
@@ -20,6 +22,8 @@ interface DistributionChartProps {
   pending: number;
   activeContext?: DistributionContextType;
   onContextChange?: (context: DistributionContextType) => void;
+  timeWindow: TimeWindow;
+  onTimeWindowChange: (window: TimeWindow) => void;
 }
 
 // Map segment names to context types
@@ -32,7 +36,7 @@ const nameToContext: Record<string, DistributionContextType> = {
 // Active shape for selected segment
 const renderActiveShape = (props: any) => {
   const {
-    cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill, payload, percent, value
+    cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill
   } = props;
 
   return (
@@ -66,7 +70,9 @@ export default function DistributionChart({
   expenses, 
   pending,
   activeContext,
-  onContextChange 
+  onContextChange,
+  timeWindow,
+  onTimeWindowChange
 }: DistributionChartProps) {
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
 
@@ -124,14 +130,24 @@ export default function DistributionChart({
     return null;
   };
 
-  // Dynamic title based on context
-  const title = activeContext 
-    ? `Distribuição — ${data.find(d => nameToContext[d.name] === activeContext)?.name || ''}`
-    : 'Distribuição';
+  // Dynamic title based on context and time window
+  const getTitle = () => {
+    let title = 'Distribuição';
+    if (activeContext) {
+      const contextLabel = data.find(d => nameToContext[d.name] === activeContext)?.name || '';
+      title = `Distribuição — ${contextLabel}`;
+    }
+    return `${title} | últimos ${timeWindow} dias`;
+  };
 
   if (total === 0) {
     return (
-      <SectionCard title="Distribuição">
+      <SectionCard 
+        title={`Distribuição | últimos ${timeWindow} dias`}
+        headerContent={
+          <TimeWindowSelector value={timeWindow} onChange={onTimeWindowChange} />
+        }
+      >
         <div className="flex items-center justify-center h-48 text-muted-foreground text-sm">
           Sem dados para exibir
         </div>
@@ -141,7 +157,10 @@ export default function DistributionChart({
 
   return (
     <SectionCard 
-      title={title}
+      title={getTitle()}
+      headerContent={
+        <TimeWindowSelector value={timeWindow} onChange={onTimeWindowChange} />
+      }
       action={activeContext && (
         <Button
           variant="ghost"

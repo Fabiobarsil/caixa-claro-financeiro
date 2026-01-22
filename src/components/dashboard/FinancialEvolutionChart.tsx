@@ -1,4 +1,4 @@
-import { useMemo, useCallback, useState } from 'react';
+import { useMemo, useCallback } from 'react';
 import { 
   LineChart, 
   Line, 
@@ -11,27 +11,37 @@ import {
   ReferenceDot
 } from 'recharts';
 import SectionCard from './SectionCard';
+import TimeWindowSelector from './TimeWindowSelector';
 import { Button } from '@/components/ui/button';
 import { formatCurrency } from '@/lib/formatters';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { X } from 'lucide-react';
-import type { ChartDataPoint } from '@/hooks/useDashboard';
 import type { EvolutionContextType } from '@/hooks/useChartContext';
+import type { TimeWindow } from '@/hooks/useBIData';
+
+interface ChartDataPoint {
+  date: string;
+  received: number;
+  pending: number;
+  overdue: number;
+}
 
 interface FinancialEvolutionChartProps {
   data: ChartDataPoint[];
   activeContext?: EvolutionContextType;
   onContextChange?: (context: EvolutionContextType) => void;
+  timeWindow: TimeWindow;
+  onTimeWindowChange: (window: TimeWindow) => void;
 }
 
 export default function FinancialEvolutionChart({ 
   data,
   activeContext,
-  onContextChange 
+  onContextChange,
+  timeWindow,
+  onTimeWindowChange
 }: FinancialEvolutionChartProps) {
-  const [hoveredPoint, setHoveredPoint] = useState<string | null>(null);
-
   const chartData = useMemo(() => {
     // Calculate cumulative values and day-over-day variation
     let cumulativeReceived = 0;
@@ -39,17 +49,13 @@ export default function FinancialEvolutionChart({
     let cumulativeOverdue = 0;
     
     return data.map((day, index) => {
-      const prevReceived = cumulativeReceived;
-      const prevPending = cumulativePending;
-      const prevOverdue = cumulativeOverdue;
-      
       cumulativeReceived += day.received;
       cumulativePending += day.pending;
       cumulativeOverdue += day.overdue;
       
       return {
         date: day.date,
-        day: format(parseISO(day.date), 'd', { locale: ptBR }),
+        day: format(parseISO(day.date), 'd/M', { locale: ptBR }),
         received: cumulativeReceived,
         pending: cumulativePending,
         overdue: cumulativeOverdue,
@@ -57,10 +63,6 @@ export default function FinancialEvolutionChart({
         receivedDelta: day.received,
         pendingDelta: day.pending,
         overdueDelta: day.overdue,
-        // Previous values for comparison
-        prevReceived,
-        prevPending,
-        prevOverdue,
       };
     });
   }, [data]);
@@ -141,15 +143,20 @@ export default function FinancialEvolutionChart({
   // Check if there's any data to show
   const hasData = chartData.some(d => d.received > 0 || d.pending > 0 || d.overdue > 0);
 
-  // Dynamic title based on context
-  const title = activeContext 
-    ? `Evolução até ${format(parseISO(activeContext), "dd/MM", { locale: ptBR })}`
-    : 'Evolução Financeira';
+  // Dynamic title based on context and time window
+  const getTitle = () => {
+    if (activeContext) {
+      return `Evolução até ${format(parseISO(activeContext), "dd/MM", { locale: ptBR })} | últimos ${timeWindow} dias`;
+    }
+    return `Evolução Financeira | últimos ${timeWindow} dias`;
+  };
 
   return (
     <SectionCard 
-      title={title} 
-      subtitle={activeContext ? undefined : "Acumulado no mês"}
+      title={getTitle()}
+      headerContent={
+        <TimeWindowSelector value={timeWindow} onChange={onTimeWindowChange} />
+      }
       action={activeContext && (
         <Button
           variant="ghost"
@@ -184,7 +191,7 @@ export default function FinancialEvolutionChart({
                 dataKey="day" 
                 axisLine={false}
                 tickLine={false}
-                tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }}
+                tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }}
                 interval="preserveStartEnd"
               />
               <YAxis 
