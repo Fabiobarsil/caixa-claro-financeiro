@@ -6,8 +6,7 @@ interface SubscriptionContextType extends SubscriptionState {
   canCreateRecords: boolean;
   shouldShowUpgradePrompt: boolean;
   checkSubscription: () => Promise<void>;
-  createCheckout: (priceType?: 'monthly' | 'yearly') => Promise<{ success: boolean; url?: string; error?: string }>;
-  openCustomerPortal: () => Promise<{ success: boolean; url?: string; error?: string }>;
+  openKiwifyCheckout: () => void;
   requireSubscriptionForCreate: () => boolean; // Returns true if blocked, shows modal
 }
 

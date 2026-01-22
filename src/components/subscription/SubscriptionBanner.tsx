@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Clock, Sparkles, ExternalLink } from 'lucide-react';
+import { Clock, Sparkles, ExternalLink, AlertCircle, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useSubscription } from '@/hooks/useSubscription';
 import UpgradeModal from './UpgradeModal';
@@ -11,18 +11,18 @@ export default function SubscriptionBanner() {
     trialDaysRemaining,
     trialExpired,
     trialDaysUsed,
-    openCustomerPortal,
+    openKiwifyCheckout,
     isLoading,
   } = useSubscription();
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
-  const [isPortalLoading, setIsPortalLoading] = useState(false);
+  const [dismissed, setDismissed] = useState(false);
 
   // Don't show anything while loading or before day 10
-  if (isLoading || trialDaysUsed < 10) {
+  if (isLoading || trialDaysUsed < 10 || dismissed) {
     return null;
   }
 
-  // User is subscribed - show manage subscription option
+  // User is subscribed - show active plan status
   if (subscribed && planType === 'paid') {
     return (
       <div className="bg-primary/5 border border-primary/20 rounded-lg p-4 mb-6">
@@ -38,19 +38,6 @@ export default function SubscriptionBanner() {
               </p>
             </div>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={async () => {
-              setIsPortalLoading(true);
-              await openCustomerPortal();
-              setIsPortalLoading(false);
-            }}
-            disabled={isPortalLoading}
-          >
-            <ExternalLink className="h-4 w-4 mr-2" />
-            Gerenciar assinatura
-          </Button>
         </div>
       </div>
     );
@@ -60,28 +47,26 @@ export default function SubscriptionBanner() {
   if (trialExpired) {
     return (
       <>
-        <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4 mb-6">
-          <div className="flex items-center justify-between gap-4 flex-wrap">
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 bg-amber-100 dark:bg-amber-900/50 rounded-full flex items-center justify-center">
-                <Clock className="h-5 w-5 text-amber-600 dark:text-amber-400" />
-              </div>
-              <div>
-                <p className="font-medium text-amber-800 dark:text-amber-200">
-                  Período gratuito encerrado
-                </p>
-                <p className="text-sm text-amber-700 dark:text-amber-300">
-                  Para continuar registrando movimentações, ative o plano completo.
-                </p>
-              </div>
+        <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-4 mb-6">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="h-5 w-5 text-destructive mt-0.5 shrink-0" />
+            <div className="flex-1">
+              <h4 className="font-semibold text-destructive">
+                Período gratuito encerrado
+              </h4>
+              <p className="text-sm text-muted-foreground mt-1">
+                Para continuar criando novos lançamentos, ative seu plano. 
+                Você ainda pode visualizar todo seu histórico.
+              </p>
+              <Button
+                onClick={() => setShowUpgradeModal(true)}
+                size="sm"
+                className="mt-3"
+              >
+                <ExternalLink className="h-4 w-4 mr-2" />
+                Ativar plano
+              </Button>
             </div>
-            <Button
-              onClick={() => setShowUpgradeModal(true)}
-              className="bg-amber-600 hover:bg-amber-700 text-white"
-            >
-              <Sparkles className="h-4 w-4 mr-2" />
-              Ativar plano completo
-            </Button>
           </div>
         </div>
 
@@ -98,27 +83,37 @@ export default function SubscriptionBanner() {
   if (trialDaysRemaining !== null && trialDaysRemaining <= 4) {
     return (
       <>
-        <div className="bg-muted/50 border border-border rounded-lg p-4 mb-6">
-          <div className="flex items-center justify-between gap-4 flex-wrap">
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 bg-muted rounded-full flex items-center justify-center">
-                <Clock className="h-5 w-5 text-muted-foreground" />
-              </div>
-              <div>
-                <p className="font-medium">
+        <div className="bg-primary/5 border border-primary/20 rounded-lg p-4 mb-6">
+          <div className="flex items-start gap-3">
+            <div className="flex-1">
+              <div className="flex items-center justify-between">
+                <h4 className="font-semibold text-foreground">
                   {trialDaysRemaining === 0 
                     ? 'Último dia do período gratuito'
-                    : `${trialDaysRemaining} dia${trialDaysRemaining > 1 ? 's' : ''} restante${trialDaysRemaining > 1 ? 's' : ''} no período gratuito`
+                    : `${trialDaysRemaining} dia${trialDaysRemaining > 1 ? 's' : ''} restante${trialDaysRemaining > 1 ? 's' : ''} de teste`
                   }
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  Continue com acesso completo após esse período
-                </p>
+                </h4>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6 -mr-2 -mt-2"
+                  onClick={() => setDismissed(true)}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
               </div>
+              <p className="text-sm text-muted-foreground mt-1">
+                Continue controlando seu caixa sem interrupções. Ative seu plano antes do término do período gratuito.
+              </p>
+              <Button
+                onClick={() => setShowUpgradeModal(true)}
+                variant="outline"
+                size="sm"
+                className="mt-3"
+              >
+                Ver planos
+              </Button>
             </div>
-            <Button variant="outline" size="sm" onClick={() => setShowUpgradeModal(true)}>
-              Ver planos
-            </Button>
           </div>
         </div>
 
