@@ -277,6 +277,36 @@ export type Database = {
         }
         Relationships: []
       }
+      smart_states: {
+        Row: {
+          created_at: string
+          generated_at: string
+          id: string
+          message: string
+          severity: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          generated_at?: string
+          id?: string
+          message: string
+          severity: string
+          type: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          generated_at?: string
+          id?: string
+          message?: string
+          severity?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       terms_acceptance: {
         Row: {
           accepted_at: string
