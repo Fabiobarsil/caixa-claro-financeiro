@@ -40,11 +40,12 @@ export interface FinancialSnapshot {
 
 /**
  * Ponto de dados para gráficos de evolução.
- * Apenas valores realizados (pagos).
+ * Inclui valores realizados (pagos) e pendentes (a receber).
  */
 export interface ChartDataPoint {
   date: string;
   recebido: number;       // Acumulado de entradas pagas
+  a_receber: number;      // Acumulado de valores pendentes (por data de vencimento)
   despesas: number;       // Acumulado de saídas pagas
 }
 
@@ -351,17 +352,17 @@ export function useFinancialSnapshot(timeWindow: TimeWindow): UseFinancialSnapsh
       // 4. DADOS PARA GRÁFICOS
       // ============================================
       
-      // Gráfico de evolução: apenas valores realizados (pagos)
+      // Gráfico de evolução: valores realizados (pagos) + a receber (por vencimento)
       const days = eachDayOfInterval({
         start: parseISO(startDate),
         end: parseISO(endDate),
       });
 
-      const dailyData = new Map<string, { recebido: number; despesas: number }>();
+      const dailyData = new Map<string, { recebido: number; a_receber: number; despesas: number }>();
       
       days.forEach(day => {
         const dateStr = format(day, 'yyyy-MM-dd');
-        dailyData.set(dateStr, { recebido: 0, despesas: 0 });
+        dailyData.set(dateStr, { recebido: 0, a_receber: 0, despesas: 0 });
       });
 
       // Agregar schedules pagos por data de pagamento
@@ -371,6 +372,18 @@ export function useFinancialSnapshot(timeWindow: TimeWindow): UseFinancialSnapsh
           const point = dailyData.get(paidDate);
           if (point) {
             point.recebido += Number(s.amount);
+          }
+        }
+      });
+
+      // Agregar schedules pendentes por data de vencimento
+      (pendingSchedules || []).forEach(s => {
+        const dueDate = s.due_date;
+        // Só incluir se estiver dentro do período do gráfico
+        if (dueDate >= startDate && dueDate <= endDate) {
+          const point = dailyData.get(dueDate);
+          if (point) {
+            point.a_receber += Number(s.amount);
           }
         }
       });
@@ -388,6 +401,18 @@ export function useFinancialSnapshot(timeWindow: TimeWindow): UseFinancialSnapsh
           }
         });
 
+      // Agregar entries sem schedules pendentes por data de vencimento
+      entriesWithoutSchedules
+        .filter(e => e.status === 'pendente' && e.due_date)
+        .forEach(e => {
+          if (e.due_date && e.due_date >= startDate && e.due_date <= endDate) {
+            const point = dailyData.get(e.due_date);
+            if (point) {
+              point.a_receber += Number(e.value);
+            }
+          }
+        });
+
       // Agregar despesas por data
       expenses.forEach(e => {
         const point = dailyData.get(e.date);
@@ -399,16 +424,19 @@ export function useFinancialSnapshot(timeWindow: TimeWindow): UseFinancialSnapsh
       // Converter para array acumulado
       const chartData: ChartDataPoint[] = [];
       let accRecebido = 0;
+      let accAReceber = 0;
       let accDespesas = 0;
 
       Array.from(dailyData.entries())
         .sort(([a], [b]) => a.localeCompare(b))
         .forEach(([date, values]) => {
           accRecebido += values.recebido;
+          accAReceber += values.a_receber;
           accDespesas += values.despesas;
           chartData.push({
             date,
             recebido: accRecebido,
+            a_receber: accAReceber,
             despesas: accDespesas,
           });
         });
