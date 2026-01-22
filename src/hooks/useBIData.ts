@@ -74,14 +74,28 @@ export function useBIData(timeWindow: TimeWindow) {
 
       if (expensesError) throw expensesError;
 
-      // Fetch entry schedules with due_date in the time window
-      const { data: schedulesInWindow, error: schedulesError } = await supabase
+      // Fetch entry schedules:
+      // 1. Paid schedules with paid_at in the time window
+      // 2. Pending schedules with due_date from startDate onwards (including future)
+      const { data: paidSchedulesInWindow, error: paidSchedulesError } = await supabase
         .from('entry_schedules')
         .select('*')
-        .gte('due_date', startDate)
-        .lte('due_date', endDate);
+        .eq('status', 'pago')
+        .gte('paid_at', startDate)
+        .lte('paid_at', endDate + 'T23:59:59');
 
-      if (schedulesError) throw schedulesError;
+      if (paidSchedulesError) throw paidSchedulesError;
+
+      const { data: pendingSchedules, error: pendingSchedulesError } = await supabase
+        .from('entry_schedules')
+        .select('*')
+        .eq('status', 'pendente')
+        .gte('due_date', startDate);
+
+      if (pendingSchedulesError) throw pendingSchedulesError;
+
+      // Combine both sets of schedules
+      const schedulesInWindow = [...(paidSchedulesInWindow || []), ...(pendingSchedules || [])];
 
       // Fetch all entry_ids that have any schedules
       const entryIds = (entriesData || []).map(e => e.id);
@@ -171,6 +185,9 @@ export function useBIData(timeWindow: TimeWindow) {
       });
 
       // Aggregate schedules
+      // For pending schedules with future due_date, aggregate on the last day of the chart
+      const lastDayStr = format(parseISO(endDate), 'yyyy-MM-dd');
+      
       schedules.forEach(schedule => {
         if (schedule.status === 'pago' && schedule.paid_at) {
           const paidDate = format(new Date(schedule.paid_at), 'yyyy-MM-dd');
@@ -179,7 +196,16 @@ export function useBIData(timeWindow: TimeWindow) {
         } else if (schedule.status === 'pendente') {
           const dueDate = new Date(schedule.due_date);
           dueDate.setHours(0, 0, 0, 0);
-          const point = chartDataMap.get(schedule.due_date);
+          const dueDateStr = format(dueDate, 'yyyy-MM-dd');
+          
+          // Check if due_date is within the chart range
+          let point = chartDataMap.get(dueDateStr);
+          
+          // If due_date is in the future (outside chart range), aggregate on the last day
+          if (!point) {
+            point = chartDataMap.get(lastDayStr);
+          }
+          
           if (point) {
             if (dueDate < today) {
               point.overdue += Number(schedule.amount);
