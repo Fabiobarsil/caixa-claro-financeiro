@@ -1,9 +1,11 @@
 import { useState, useCallback, useMemo } from 'react';
-import type { BIMetrics, BIChartDataPoint } from './useBIData';
-
-// Types for chart context
-export type DistributionContextType = 'recebido' | 'despesas' | 'a_receber' | null;
-export type EvolutionContextType = string | null; // Date string or null
+import type { 
+  FinancialSnapshot, 
+  ChartDataPoint,
+  DistributionData 
+} from './useFinancialSnapshot';
+import type { DistributionContextType } from '@/components/dashboard/DistributionChart';
+import type { EvolutionContextType } from '@/components/dashboard/FinancialEvolutionChart';
 
 export interface ChartContext {
   // Distribution chart context
@@ -24,21 +26,21 @@ export interface ChartContext {
   hasActiveContext: boolean;
 }
 
-export interface FilteredMetrics {
-  received: number;
-  expenses: number;
-  pending: number;
-  profit: number;
-  totalEntries: number;
-  recordCount: number;
+export interface FilteredSnapshot {
+  recebido: number;
+  a_receber: number;
+  em_atraso: number;
+  despesas_pagas: number;
+  lucro_real: number;
+  total_atendimentos: number;
 }
 
 interface UseChartContextOptions {
-  metrics: BIMetrics;
-  chartData: BIChartDataPoint[];
+  snapshot: FinancialSnapshot;
+  chartData: ChartDataPoint[];
 }
 
-export function useChartContext({ metrics, chartData }: UseChartContextOptions): ChartContext & { filteredMetrics: FilteredMetrics } {
+export function useChartContext({ snapshot, chartData }: UseChartContextOptions): ChartContext & { filteredSnapshot: FilteredSnapshot } {
   const [distributionContext, setDistributionContext] = useState<DistributionContextType>(null);
   const [evolutionContext, setEvolutionContext] = useState<EvolutionContextType>(null);
 
@@ -54,8 +56,8 @@ export function useChartContext({ metrics, chartData }: UseChartContextOptions):
     if (distributionContext) {
       const labels: Record<string, string> = {
         recebido: 'Recebido',
-        despesas: 'Despesas',
         a_receber: 'A Receber',
+        em_atraso: 'Em Atraso',
       };
       return labels[distributionContext] || null;
     }
@@ -67,17 +69,17 @@ export function useChartContext({ metrics, chartData }: UseChartContextOptions):
     return null;
   }, [distributionContext, evolutionContext]);
 
-  // Calculate filtered metrics based on active context
-  const filteredMetrics = useMemo((): FilteredMetrics => {
-    // Default: return full metrics
+  // Calculate filtered snapshot based on active context
+  const filteredSnapshot = useMemo((): FilteredSnapshot => {
+    // Default: return full snapshot
     if (!hasActiveContext) {
       return {
-        received: metrics.received,
-        expenses: metrics.expenses,
-        pending: metrics.pending,
-        profit: metrics.profit,
-        totalEntries: metrics.totalEntries,
-        recordCount: metrics.totalEntries,
+        recebido: snapshot.recebido,
+        a_receber: snapshot.a_receber,
+        em_atraso: snapshot.em_atraso,
+        despesas_pagas: snapshot.despesas_pagas,
+        lucro_real: snapshot.lucro_real,
+        total_atendimentos: snapshot.total_atendimentos,
       };
     }
 
@@ -86,30 +88,30 @@ export function useChartContext({ metrics, chartData }: UseChartContextOptions):
       switch (distributionContext) {
         case 'recebido':
           return {
-            received: metrics.received,
-            expenses: 0,
-            pending: 0,
-            profit: metrics.received,
-            totalEntries: metrics.totalEntries,
-            recordCount: metrics.totalEntries,
-          };
-        case 'despesas':
-          return {
-            received: 0,
-            expenses: metrics.expenses,
-            pending: 0,
-            profit: -metrics.expenses,
-            totalEntries: 0,
-            recordCount: 0,
+            recebido: snapshot.recebido,
+            a_receber: 0,
+            em_atraso: 0,
+            despesas_pagas: 0,
+            lucro_real: snapshot.recebido,
+            total_atendimentos: snapshot.total_atendimentos,
           };
         case 'a_receber':
           return {
-            received: 0,
-            expenses: 0,
-            pending: metrics.pending,
-            profit: 0,
-            totalEntries: 0,
-            recordCount: 0,
+            recebido: 0,
+            a_receber: snapshot.a_receber,
+            em_atraso: 0,
+            despesas_pagas: 0,
+            lucro_real: 0,
+            total_atendimentos: 0,
+          };
+        case 'em_atraso':
+          return {
+            recebido: 0,
+            a_receber: 0,
+            em_atraso: snapshot.em_atraso,
+            despesas_pagas: 0,
+            lucro_real: 0,
+            total_atendimentos: 0,
           };
         default:
           break;
@@ -118,37 +120,37 @@ export function useChartContext({ metrics, chartData }: UseChartContextOptions):
 
     // Evolution context: calculate cumulative values up to selected date
     if (evolutionContext && chartData.length > 0) {
-      let cumulativeReceived = 0;
-      let cumulativePending = 0;
+      let cumulativeRecebido = 0;
+      let cumulativeDespesas = 0;
       
       for (const point of chartData) {
-        cumulativeReceived += point.received;
-        cumulativePending += point.pending;
-        
-        if (point.date === evolutionContext) {
+        if (point.date <= evolutionContext) {
+          cumulativeRecebido = point.recebido;
+          cumulativeDespesas = point.despesas;
+        } else {
           break;
         }
       }
 
       return {
-        received: cumulativeReceived,
-        expenses: metrics.expenses, // Expenses don't change with evolution context
-        pending: cumulativePending,
-        profit: cumulativeReceived - metrics.expenses,
-        totalEntries: 0,
-        recordCount: 0,
+        recebido: cumulativeRecebido,
+        a_receber: snapshot.a_receber, // Doesn't change with evolution
+        em_atraso: snapshot.em_atraso, // Doesn't change with evolution
+        despesas_pagas: cumulativeDespesas,
+        lucro_real: cumulativeRecebido - cumulativeDespesas,
+        total_atendimentos: 0,
       };
     }
 
     return {
-      received: metrics.received,
-      expenses: metrics.expenses,
-      pending: metrics.pending,
-      profit: metrics.profit,
-      totalEntries: metrics.totalEntries,
-      recordCount: metrics.totalEntries,
+      recebido: snapshot.recebido,
+      a_receber: snapshot.a_receber,
+      em_atraso: snapshot.em_atraso,
+      despesas_pagas: snapshot.despesas_pagas,
+      lucro_real: snapshot.lucro_real,
+      total_atendimentos: snapshot.total_atendimentos,
     };
-  }, [hasActiveContext, distributionContext, evolutionContext, metrics, chartData]);
+  }, [hasActiveContext, distributionContext, evolutionContext, snapshot, chartData]);
 
   return {
     distributionContext,
@@ -164,6 +166,6 @@ export function useChartContext({ metrics, chartData }: UseChartContextOptions):
     activeContextLabel,
     resetContext,
     hasActiveContext,
-    filteredMetrics,
+    filteredSnapshot,
   };
 }

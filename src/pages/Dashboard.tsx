@@ -17,10 +17,9 @@ import OnboardingWelcome from '@/components/dashboard/OnboardingWelcome';
 import OnboardingChecklist from '@/components/dashboard/OnboardingChecklist';
 import DataTimestamp from '@/components/dashboard/DataTimestamp';
 import MilestoneToast from '@/components/dashboard/MilestoneToast';
-import { useDashboard } from '@/hooks/useDashboard';
-import { useBIData, TimeWindow } from '@/hooks/useBIData';
+import { useFinancialSnapshot, TimeWindow } from '@/hooks/useFinancialSnapshot';
 import { useChartContext } from '@/hooks/useChartContext';
-import { useProjections } from '@/hooks/useProjections';
+import { useDashboard } from '@/hooks/useDashboard';
 import { useEntries } from '@/hooks/useEntries';
 import { useUserStats } from '@/hooks/useUserStats';
 import { useSmartState } from '@/hooks/useSmartState';
@@ -43,18 +42,28 @@ import {
 export default function Dashboard() {
   const navigate = useNavigate();
   const { isAdmin } = useAuth();
-  const [biTimeWindow, setBITimeWindow] = useState<TimeWindow>(90);
+  const [timeWindow, setTimeWindow] = useState<TimeWindow>(90);
   
-  // Single source of truth: BI data for cards AND charts
-  const { metrics: biMetrics, chartData: biChartData, isLoading: biLoading } = useBIData(biTimeWindow);
-  // Dashboard data for Status Rápido and other sections (still uses current month context)
-  const { metrics: dashboardMetrics, recentEntries, pendingEntries, isLoading: dashboardLoading } = useDashboard();
-  const { projections, isLoading: projectionsLoading } = useProjections();
+  // ============================================
+  // FONTE ÚNICA DA VERDADE: useFinancialSnapshot
+  // ============================================
+  const { 
+    snapshot, 
+    chartData, 
+    distribution,
+    risk, 
+    projection, 
+    criticalDueDates,
+    isLoading: snapshotLoading 
+  } = useFinancialSnapshot(timeWindow);
+  
+  // Dados auxiliares (não financeiros)
+  const { recentEntries, pendingEntries, isLoading: dashboardLoading } = useDashboard();
   const { entries } = useEntries();
   const { stats } = useUserStats();
   const { smartState } = useSmartState();
 
-  // Chart context for interactive filtering (unified BI data)
+  // Chart context for interactive filtering (usa snapshot canônico)
   const {
     distributionContext,
     setDistributionContext,
@@ -63,10 +72,10 @@ export default function Dashboard() {
     activeContextLabel,
     resetContext,
     hasActiveContext,
-    filteredMetrics,
+    filteredSnapshot,
   } = useChartContext({ 
-    metrics: biMetrics, 
-    chartData: biChartData 
+    snapshot, 
+    chartData 
   });
 
   // Check if user has any entries (for onboarding)
@@ -79,10 +88,10 @@ export default function Dashboard() {
       .map(e => e.due_date as string);
   }, [pendingEntries]);
 
-  const isFullyLoading = dashboardLoading || projectionsLoading || biLoading;
+  const isFullyLoading = dashboardLoading || snapshotLoading;
 
   // Check if Status Rápido has all zero values
-  const statusAllZero = dashboardMetrics.upcomingValue === 0 && dashboardMetrics.overdueValue === 0 && biMetrics.received === 0;
+  const statusAllZero = snapshot.a_receber === 0 && snapshot.em_atraso === 0 && snapshot.recebido === 0;
 
   return (
     <AppLayout>
@@ -101,7 +110,7 @@ export default function Dashboard() {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
           <div className="flex items-center gap-2">
             <span className="text-sm text-muted-foreground">Período:</span>
-            <TimeWindowSelector value={biTimeWindow} onChange={setBITimeWindow} />
+            <TimeWindowSelector value={timeWindow} onChange={setTimeWindow} />
           </div>
           
           {/* Data Timestamp - Authority Element */}
@@ -148,46 +157,46 @@ export default function Dashboard() {
               </div>
             )}
 
-            {/* Section 1: KPI Cards */}
+            {/* Section 1: KPI Cards - TODOS derivados do snapshot */}
             <section className="mb-6">
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 <KPICard
                   title="Recebido"
-                  value={hasActiveContext ? filteredMetrics.received : biMetrics.received}
+                  value={hasActiveContext ? filteredSnapshot.recebido : snapshot.recebido}
                   icon={ArrowDownCircle}
                   variant="success"
-                  tooltip={`Total de valores pagos nos últimos ${biTimeWindow} dias.`}
-                  subtitle={hasActiveContext ? `Filtrado: ${activeContextLabel}` : `Últimos ${biTimeWindow} dias`}
+                  tooltip={`Total de entradas pagas nos últimos ${timeWindow} dias.`}
+                  subtitle={hasActiveContext ? `Filtrado: ${activeContextLabel}` : `Últimos ${timeWindow} dias`}
                 />
                 <KPICard
                   title="A Receber"
-                  value={hasActiveContext ? filteredMetrics.pending : biMetrics.pending}
+                  value={hasActiveContext ? filteredSnapshot.a_receber : snapshot.a_receber}
                   icon={Wallet}
                   variant="info"
                   onClick={!hasActiveContext ? () => navigate('/lancamentos?status=pendente_geral') : undefined}
-                  tooltip={`Valores pendentes a partir dos últimos ${biTimeWindow} dias.`}
-                  subtitle={hasActiveContext ? `Filtrado: ${activeContextLabel}` : `Últimos ${biTimeWindow} dias`}
+                  tooltip={`Entradas pendentes com vencimento futuro.`}
+                  subtitle={hasActiveContext ? `Filtrado: ${activeContextLabel}` : `Últimos ${timeWindow} dias`}
                 />
                 <KPICard
                   title="Despesas"
-                  value={hasActiveContext ? filteredMetrics.expenses : biMetrics.expenses}
+                  value={hasActiveContext ? filteredSnapshot.despesas_pagas : snapshot.despesas_pagas}
                   icon={TrendingDown}
                   variant="expense"
-                  tooltip={`Total de despesas nos últimos ${biTimeWindow} dias.`}
-                  subtitle={hasActiveContext ? `Filtrado: ${activeContextLabel}` : `Últimos ${biTimeWindow} dias`}
+                  tooltip={`Total de despesas pagas nos últimos ${timeWindow} dias.`}
+                  subtitle={hasActiveContext ? `Filtrado: ${activeContextLabel}` : `Últimos ${timeWindow} dias`}
                 />
                 <KPICard
-                  title="Lucro Estimado"
-                  value={hasActiveContext ? filteredMetrics.profit : biMetrics.profit}
+                  title="Lucro Real"
+                  value={hasActiveContext ? filteredSnapshot.lucro_real : snapshot.lucro_real}
                   icon={TrendingUp}
                   variant="neutral"
-                  tooltip="Recebido menos despesas no período selecionado."
-                  subtitle={hasActiveContext ? `Filtrado: ${activeContextLabel}` : `Últimos ${biTimeWindow} dias`}
+                  tooltip="Recebido menos Despesas Pagas (sem valores futuros)."
+                  subtitle={hasActiveContext ? `Filtrado: ${activeContextLabel}` : `Últimos ${timeWindow} dias`}
                 />
               </div>
             </section>
 
-            {/* Section 2: Status Rápido */}
+            {/* Section 2: Status Rápido - derivado do snapshot */}
             <section className="mb-6">
               <SectionCard 
                 title="Status Rápido" 
@@ -196,26 +205,26 @@ export default function Dashboard() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                   <StatusIndicator
                     label="A vencer"
-                    value={formatCurrency(dashboardMetrics.upcomingValue)}
+                    value={formatCurrency(snapshot.a_receber)}
                     icon={Clock}
                     variant="warning"
                     onClick={() => navigate('/lancamentos?status=a_vencer')}
-                    tooltip="Valores com pagamento previsto dentro do prazo."
+                    tooltip="Valores com vencimento futuro (>= hoje)."
                   />
                   <StatusIndicator
                     label="Em atraso"
-                    value={formatCurrency(dashboardMetrics.overdueValue)}
+                    value={formatCurrency(snapshot.em_atraso)}
                     icon={AlertTriangle}
                     variant="danger"
                     onClick={() => navigate('/lancamentos?status=vencido')}
-                    tooltip="Valores que já passaram do vencimento e ainda não foram pagos."
+                    tooltip="Valores com vencimento passado (< hoje)."
                   />
                   <StatusIndicator
                     label="Recebido"
-                    value={formatCurrency(biMetrics.received)}
+                    value={formatCurrency(snapshot.recebido)}
                     icon={CheckCircle}
                     variant="success"
-                    tooltip={`Total recebido nos últimos ${biTimeWindow} dias.`}
+                    tooltip={`Total recebido nos últimos ${timeWindow} dias.`}
                   />
                 </div>
                 {statusAllZero && (
@@ -226,26 +235,21 @@ export default function Dashboard() {
               </SectionCard>
             </section>
 
-            {/* Section 3: Projeção e Risco (BLOCO 3) */}
+            {/* Section 3: Projeção e Risco - derivados do snapshot */}
             <section className="mb-6">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <FinancialProjection
-                  projection30={projections.projection30}
-                  projection60={projections.projection60}
-                  projection90={projections.projection90}
+                  projection={projection}
+                  timeWindow={timeWindow}
                   hasData={hasEntries}
                 />
-                <FinancialRisk
-                  overduePercentage={projections.overduePercentage}
-                  delinquentClientsCount={projections.delinquentClientsCount}
-                  riskLevel={projections.riskLevel}
-                />
+                <FinancialRisk risk={risk} />
               </div>
             </section>
 
-            {/* Section 4: Vencimentos Críticos */}
+            {/* Section 4: Vencimentos Críticos - derivados do snapshot */}
             <section className="mb-6">
-              <CriticalDueDates items={projections.criticalDueDates} />
+              <CriticalDueDates items={criticalDueDates} />
             </section>
 
             {/* Section 5: Próximos Prazos */}
@@ -257,44 +261,42 @@ export default function Dashboard() {
             <section className="mb-6">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <DistributionChart 
-                  received={biMetrics.received}
-                  expenses={biMetrics.expenses}
-                  pending={biMetrics.pending}
+                  distribution={distribution}
                   activeContext={distributionContext}
                   onContextChange={setDistributionContext}
-                  timeWindow={biTimeWindow}
-                  onTimeWindowChange={setBITimeWindow}
+                  timeWindow={timeWindow}
+                  onTimeWindowChange={setTimeWindow}
                 />
                 <FinancialEvolutionChart 
-                  data={biChartData}
+                  data={chartData}
                   activeContext={evolutionContext}
                   onContextChange={setEvolutionContext}
-                  timeWindow={biTimeWindow}
-                  onTimeWindowChange={setBITimeWindow}
+                  timeWindow={timeWindow}
+                  onTimeWindowChange={setTimeWindow}
                 />
               </div>
             </section>
 
-            {/* Section 7: Summary & Calendar */}
+            {/* Section 7: Summary & Calendar - derivados do snapshot */}
             <section className="mb-6">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <SectionCard title={`Resumo | últimos ${biTimeWindow} dias`}>
+                <SectionCard title={`Resumo | últimos ${timeWindow} dias`}>
                   <div className="space-y-4">
                     <div className="flex items-center justify-between py-3 border-b border-border">
                       <span className="text-sm text-muted-foreground">Total de atendimentos</span>
-                      <span className="text-lg font-semibold text-foreground">{biMetrics.totalEntries}</span>
+                      <span className="text-lg font-semibold text-foreground">{snapshot.total_atendimentos}</span>
                     </div>
                     <div className="flex items-center justify-between py-3 border-b border-border">
                       <span className="text-sm text-muted-foreground">Ticket médio</span>
-                      <span className="text-lg font-semibold text-foreground">{formatCurrency(biMetrics.averageTicket)}</span>
+                      <span className="text-lg font-semibold text-foreground">{formatCurrency(snapshot.ticket_medio)}</span>
                     </div>
                     <div className="flex items-center justify-between py-3 border-b border-border">
-                      <span className="text-sm text-muted-foreground">Próximos 30 dias</span>
-                      <span className="text-lg font-semibold text-foreground">{formatCurrency(dashboardMetrics.globalNext30Days)}</span>
+                      <span className="text-sm text-muted-foreground">Total entradas</span>
+                      <span className="text-lg font-semibold text-foreground">{formatCurrency(snapshot.total_entradas)}</span>
                     </div>
                     <div className="flex items-center justify-between py-3">
-                      <span className="text-sm text-muted-foreground">Total em atraso</span>
-                      <span className="text-lg font-semibold text-expense">{formatCurrency(dashboardMetrics.globalOverdue)}</span>
+                      <span className="text-sm text-muted-foreground">Total saídas</span>
+                      <span className="text-lg font-semibold text-expense">{formatCurrency(snapshot.total_saidas)}</span>
                     </div>
                   </div>
                 </SectionCard>
