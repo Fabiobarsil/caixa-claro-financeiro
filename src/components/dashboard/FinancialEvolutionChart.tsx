@@ -40,24 +40,27 @@ export default function FinancialEvolutionChart({
   // Os dados já vêm acumulados do snapshot, apenas formatar para exibição
   const chartData = useMemo(() => {
     let prevRecebido = 0;
+    let prevAReceber = 0;
     let prevDespesas = 0;
     
     return data.map((day) => {
       const recebidoDelta = day.recebido - prevRecebido;
+      const aReceberDelta = day.a_receber - prevAReceber;
       const despesasDelta = day.despesas - prevDespesas;
       
       prevRecebido = day.recebido;
+      prevAReceber = day.a_receber;
       prevDespesas = day.despesas;
       
       return {
         date: day.date,
         day: format(parseISO(day.date), 'd/M', { locale: ptBR }),
         recebido: day.recebido,
+        a_receber: day.a_receber,
         despesas: day.despesas,
-        // Lucro acumulado = recebido - despesas
-        lucro: day.recebido - day.despesas,
         // Delta diário
         recebidoDelta,
+        aReceberDelta,
         despesasDelta,
       };
     });
@@ -93,6 +96,7 @@ export default function FinancialEvolutionChart({
         : label;
       
       const recebidoDelta = payload[0]?.payload?.recebidoDelta || 0;
+      const aReceberDelta = payload[0]?.payload?.aReceberDelta || 0;
       const despesasDelta = payload[0]?.payload?.despesasDelta || 0;
       
       return (
@@ -101,7 +105,11 @@ export default function FinancialEvolutionChart({
             {formattedDate}
           </p>
           {payload.map((entry: any, index: number) => {
-            const delta = entry.dataKey === 'recebido' ? recebidoDelta : despesasDelta;
+            let delta = 0;
+            if (entry.dataKey === 'recebido') delta = recebidoDelta;
+            else if (entry.dataKey === 'a_receber') delta = aReceberDelta;
+            else if (entry.dataKey === 'despesas') delta = despesasDelta;
+            
             const sign = delta > 0 ? '+' : '';
             
             return (
@@ -116,9 +124,9 @@ export default function FinancialEvolutionChart({
                     {formatCurrency(entry.value)}
                   </span>
                 </div>
-                {delta !== 0 && entry.dataKey !== 'lucro' && (
+                {delta !== 0 && (
                   <div className="flex items-center gap-2 text-xs ml-4">
-                    <span className={delta > 0 ? 'text-success' : 'text-expense'}>
+                    <span className={delta > 0 ? (entry.dataKey === 'despesas' ? 'text-expense' : 'text-success') : 'text-muted-foreground'}>
                       {sign}{formatCurrency(delta)} no dia
                     </span>
                   </div>
@@ -136,7 +144,7 @@ export default function FinancialEvolutionChart({
   };
 
   // Check if there's any data to show
-  const hasData = chartData.some(d => d.recebido > 0 || d.despesas > 0);
+  const hasData = chartData.some(d => d.recebido > 0 || d.a_receber > 0 || d.despesas > 0);
 
   // Dynamic title based on context and time window
   const getTitle = () => {
@@ -225,6 +233,20 @@ export default function FinancialEvolutionChart({
               />
               <Line
                 type="monotone"
+                dataKey="a_receber"
+                name="A Receber"
+                stroke="hsl(var(--warning))"
+                strokeWidth={2.5}
+                dot={false}
+                activeDot={{ 
+                  r: 6, 
+                  strokeWidth: 2,
+                  stroke: 'hsl(var(--background))',
+                  className: 'drop-shadow-md'
+                }}
+              />
+              <Line
+                type="monotone"
                 dataKey="despesas"
                 name="Despesas"
                 stroke="hsl(var(--expense))"
@@ -246,6 +268,14 @@ export default function FinancialEvolutionChart({
                     y={chartData[activePointIndex].recebido}
                     r={8}
                     fill="hsl(var(--success))"
+                    stroke="hsl(var(--background))"
+                    strokeWidth={3}
+                  />
+                  <ReferenceDot
+                    x={chartData[activePointIndex].day}
+                    y={chartData[activePointIndex].a_receber}
+                    r={8}
+                    fill="hsl(var(--warning))"
                     stroke="hsl(var(--background))"
                     strokeWidth={3}
                   />
