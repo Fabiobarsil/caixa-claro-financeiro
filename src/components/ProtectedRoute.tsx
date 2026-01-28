@@ -1,7 +1,7 @@
 import { ReactNode } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { Loader2 } from 'lucide-react';
+import { Loader2, ShieldAlert } from 'lucide-react';
 import { useTermsAcceptance } from '@/hooks/useTermsAcceptance';
 import { TermsAcceptanceModal } from '@/components/TermsAcceptanceModal';
 
@@ -11,7 +11,7 @@ interface ProtectedRouteProps {
 }
 
 export default function ProtectedRoute({ children, requireAdmin = false }: ProtectedRouteProps) {
-  const { isAuthenticated, isAdmin, isLoading, isAuthReady } = useAuth();
+  const { isAuthenticated, isAdmin, isLoading, isAuthReady, user, accountId } = useAuth();
   const { hasAccepted, isLoading: isTermsLoading } = useTermsAcceptance();
 
   // Wait for auth to be fully ready before making any decisions
@@ -29,6 +29,21 @@ export default function ProtectedRoute({ children, requireAdmin = false }: Prote
 
   if (requireAdmin && !isAdmin) {
     return <Navigate to="/dashboard" replace />;
+  }
+
+  // MULTI-TENANT SAFETY CHECK: Block access if user has no account_id
+  // This prevents data leakage for users not properly configured
+  if (!accountId && user) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-background px-4 text-center">
+        <ShieldAlert className="h-16 w-16 text-warning mb-4" />
+        <h1 className="text-xl font-bold text-foreground mb-2">Aguardando liberação</h1>
+        <p className="text-muted-foreground max-w-md">
+          Sua conta está sendo configurada pelo administrador. 
+          Por favor, aguarde ou entre em contato com o suporte.
+        </p>
+      </div>
+    );
   }
 
   // Show loading while checking terms acceptance for admins

@@ -10,9 +10,7 @@ import iconCaixacertus from '@/assets/icon-caixacertus.svg';
 
 export default function Login() {
   const navigate = useNavigate();
-  const { login, signup, isAuthenticated, isAuthReady } = useAuth();
-  const [isSignup, setIsSignup] = useState(false);
-  const [name, setName] = useState('');
+  const { login, isAuthenticated, isAuthReady } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -33,21 +31,12 @@ export default function Login() {
     setIsLoading(true);
 
     try {
-      if (isSignup) {
-        const result = await signup(email, password, name);
-        if (!result.success) {
-          setError(result.error || 'Erro ao criar conta');
-          setIsLoading(false);
-        }
-        // Navigation will happen via useEffect when isAuthenticated changes
-      } else {
-        const result = await login(email, password);
-        if (!result.success) {
-          setError(result.error || 'E-mail ou senha incorretos');
-          setIsLoading(false);
-        }
-        // Navigation will happen via useEffect when isAuthenticated changes
+      const result = await login(email, password);
+      if (!result.success) {
+        setError(result.error || 'E-mail ou senha incorretos');
+        setIsLoading(false);
       }
+      // Navigation will happen via useEffect when isAuthenticated changes
     } catch (err) {
       setError('Erro ao processar. Tente novamente.');
       setIsLoading(false);
@@ -72,23 +61,8 @@ export default function Login() {
           </div>
         </div>
 
-        {/* Login/Signup Form */}
+        {/* Login Form */}
         <form onSubmit={handleSubmit} className="space-y-4">
-          {isSignup && (
-            <div className="space-y-2">
-              <Label htmlFor="name">Nome</Label>
-              <Input
-                id="name"
-                type="text"
-                placeholder="Seu nome"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                required={isSignup}
-                className="h-12"
-              />
-            </div>
-          )}
-
           <div className="space-y-2">
             <Label htmlFor="email">E-mail</Label>
             <Input
@@ -113,7 +87,7 @@ export default function Login() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                autoComplete={isSignup ? 'new-password' : 'current-password'}
+                autoComplete="current-password"
                 className="h-12 pr-10"
                 minLength={6}
               />
@@ -125,15 +99,13 @@ export default function Login() {
                 {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
               </button>
             </div>
-            {!isSignup && (
-              <button
-                type="button"
-                onClick={() => setShowForgotPassword(true)}
-                className="text-sm text-primary hover:underline"
-              >
-                Esqueci minha senha
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={() => setShowForgotPassword(true)}
+              className="text-sm text-primary hover:underline"
+            >
+              Esqueci minha senha
+            </button>
           </div>
 
           {error && (
@@ -150,23 +122,14 @@ export default function Login() {
             {isLoading ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                {isSignup ? 'Criando conta...' : 'Entrando...'}
+                Entrando...
               </>
             ) : (
-              isSignup ? 'Criar conta' : 'Entrar'
+              'Entrar'
             )}
           </Button>
 
-          <button
-            type="button"
-            onClick={() => {
-              setIsSignup(!isSignup);
-              setError('');
-            }}
-            className="w-full text-sm text-primary hover:underline"
-          >
-            {isSignup ? 'Já tenho uma conta' : 'Criar nova conta'}
-          </button>
+          {/* Signup removido - apenas admins podem criar contas via convite */}
         </form>
       </div>
 

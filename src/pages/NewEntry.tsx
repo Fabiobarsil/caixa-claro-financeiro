@@ -33,7 +33,7 @@ type ItemType = 'servico' | 'produto';
 
 export default function NewEntry() {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, accountId } = useAuth();
   const { requireSubscriptionForCreate } = useSubscriptionContext();
   const { clients, isLoading: clientsLoading } = useClients();
   const { items: servicesProducts, isLoading: itemsLoading } = useServicesProducts();
@@ -187,7 +187,7 @@ export default function NewEntry() {
       return; // Modal will be shown by context
     }
     
-    if (!user) {
+    if (!user || !accountId) {
       toast.error('Você precisa estar logado');
       return;
     }
@@ -206,11 +206,12 @@ export default function NewEntry() {
       // Calculate effective due date for single payments
       const entryDueDate = billingType === 'single' && finalStatus === 'pendente' ? dueDate : null;
       
-      // Create the base entry
+      // Create the base entry with account_id
       const { data: entryData, error: entryError } = await supabase
         .from('entries')
         .insert({
           user_id: user.id,
+          account_id: accountId, // CRITICAL: Include account_id for multi-tenant
           client_id: clientId,
           service_product_id: itemId,
           quantity: parseInt(quantity) || 1,

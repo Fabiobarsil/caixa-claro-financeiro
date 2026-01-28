@@ -28,12 +28,13 @@ export interface ServiceProductInput {
 }
 
 export function useServicesProducts() {
-  const { user, isAdmin } = useAuth();
+  const { user, isAdmin, accountId } = useAuth();
   const queryClient = useQueryClient();
 
   const { data: items = [], isLoading, error } = useQuery({
-    queryKey: ['services_products'],
+    queryKey: ['services_products', accountId],
     queryFn: async () => {
+      // RLS handles filtering by account_id
       const { data, error } = await supabase
         .from('services_products')
         .select('*')
@@ -48,17 +49,18 @@ export function useServicesProducts() {
         stock_quantity: item.stock_quantity ?? 0,
       })) as ServiceProduct[];
     },
-    enabled: !!user,
+    enabled: !!user && !!accountId,
   });
 
   const createItem = useMutation({
     mutationFn: async (input: ServiceProductInput) => {
-      if (!user) throw new Error('Usuário não autenticado');
+      if (!user || !accountId) throw new Error('Usuário não autenticado');
 
       const { data, error } = await supabase
         .from('services_products')
         .insert({
           user_id: user.id,
+          account_id: accountId, // CRITICAL: Include account_id for multi-tenant
           type: input.type,
           name: input.name,
           base_price: input.base_price,

@@ -57,12 +57,13 @@ function calculateDueDate(firstDueDate: string, index: number, intervalDays: num
 }
 
 export function useEntrySchedules(entryId?: string) {
-  const { user, isAdmin } = useAuth();
+  const { user, isAdmin, accountId } = useAuth();
   const queryClient = useQueryClient();
 
   const { data: schedules = [], isLoading, error } = useQuery({
-    queryKey: ['entry_schedules', entryId],
+    queryKey: ['entry_schedules', entryId, accountId],
     queryFn: async (): Promise<EntrySchedule[]> => {
+      // RLS handles filtering by account_id
       let query = supabase
         .from('entry_schedules')
         .select('*')
@@ -80,12 +81,13 @@ export function useEntrySchedules(entryId?: string) {
         amount: Number(s.amount),
       })) as EntrySchedule[];
     },
-    enabled: !!user && (entryId !== undefined || entryId === null),
+    enabled: !!user && !!accountId && (entryId !== undefined || entryId === null),
   });
 
   const { data: allSchedules = [], isLoading: allLoading } = useQuery({
-    queryKey: ['entry_schedules', 'all'],
+    queryKey: ['entry_schedules', 'all', accountId],
     queryFn: async (): Promise<EntrySchedule[]> => {
+      // RLS handles filtering by account_id
       const { data, error } = await supabase
         .from('entry_schedules')
         .select('*')
@@ -98,17 +100,18 @@ export function useEntrySchedules(entryId?: string) {
         amount: Number(s.amount),
       })) as EntrySchedule[];
     },
-    enabled: !!user,
+    enabled: !!user && !!accountId,
   });
 
   const createSchedules = useMutation({
     mutationFn: async (input: CreateSchedulesInput) => {
-      if (!user) throw new Error('Usuário não autenticado');
+      if (!user || !accountId) throw new Error('Usuário não autenticado');
 
       const amounts = distributeAmount(input.total_value, input.installments_total);
       
       const schedules = amounts.map((amount, index) => ({
         user_id: user.id,
+        account_id: accountId, // CRITICAL: Include account_id for multi-tenant
         entry_id: input.entry_id,
         schedule_type: input.schedule_type,
         installment_number: index + 1,

@@ -118,28 +118,33 @@ export default function Team() {
 
   const fetchTeamMembers = async () => {
     try {
+      // RLS now handles filtering by account_id for admins
       const { data: profiles, error: profilesError } = await supabase
         .from('profiles')
         .select('user_id, name, email, is_active, vacation_start, vacation_end');
 
       if (profilesError) throw profilesError;
 
+      // Get all user roles
       const { data: roles, error: rolesError } = await supabase
         .from('user_roles')
         .select('user_id, role');
 
       if (rolesError) throw rolesError;
 
-      const teamData: TeamMember[] = (profiles || []).map(profile => {
-        const roleData = roles?.find(r => r.user_id === profile.user_id);
-        return {
-          ...profile,
-          role: (roleData?.role as 'admin' | 'operador') || 'operador',
-          is_active: profile.is_active ?? true,
-          vacation_start: profile.vacation_start,
-          vacation_end: profile.vacation_end,
-        };
-      });
+      // Match profiles with roles - only include users that have roles
+      const teamData: TeamMember[] = (profiles || [])
+        .filter(profile => roles?.some(r => r.user_id === profile.user_id))
+        .map(profile => {
+          const roleData = roles?.find(r => r.user_id === profile.user_id);
+          return {
+            ...profile,
+            role: (roleData?.role as 'admin' | 'operador') || 'operador',
+            is_active: profile.is_active ?? true,
+            vacation_start: profile.vacation_start,
+            vacation_end: profile.vacation_end,
+          };
+        });
 
       // Sort: active first, then vacation, then inactive
       teamData.sort((a, b) => {
