@@ -11,10 +11,10 @@ export interface UserStats {
 }
 
 export function useUserStats() {
-  const { user } = useAuth();
+  const { user, accountId } = useAuth();
 
   const { data: stats, isLoading, error } = useQuery({
-    queryKey: ['user-stats', user?.id],
+    queryKey: ['user-stats', accountId],
     queryFn: async (): Promise<UserStats> => {
       // Fetch profile for account creation date
       const { data: profile } = await supabase
@@ -23,6 +23,7 @@ export function useUserStats() {
         .eq('user_id', user!.id)
         .maybeSingle();
 
+      // RLS handles filtering by account_id
       // Fetch total entries count
       const { count: entriesCount } = await supabase
         .from('entries')
@@ -55,7 +56,7 @@ export function useUserStats() {
         hasFirstPayment,
       };
     },
-    enabled: !!user,
+    enabled: !!user && !!accountId,
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 

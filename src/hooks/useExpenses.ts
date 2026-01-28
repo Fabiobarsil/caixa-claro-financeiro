@@ -28,7 +28,7 @@ export interface UpdateExpenseData extends Partial<CreateExpenseData> {
 }
 
 export function useExpenses() {
-  const { user } = useAuth();
+  const { user, accountId } = useAuth();
   const queryClient = useQueryClient();
 
   // Get current month's start and end dates
@@ -45,16 +45,16 @@ export function useExpenses() {
     error,
     refetch,
   } = useQuery({
-    queryKey: ['expenses', user?.id, startDate, endDate],
+    queryKey: ['expenses', accountId, startDate, endDate],
     queryFn: async () => {
-      if (!user?.id) {
+      if (!user?.id || !accountId) {
         throw new Error('Usuário não autenticado');
       }
 
+      // RLS handles filtering by account_id
       const { data, error } = await supabase
         .from('expenses')
         .select('*')
-        .eq('user_id', user.id)
         .gte('date', startDate)
         .lte('date', endDate)
         .order('date', { ascending: false });
@@ -66,12 +66,12 @@ export function useExpenses() {
 
       return (data || []) as Expense[];
     },
-    enabled: !!user?.id,
+    enabled: !!user?.id && !!accountId,
   });
 
   const createExpense = useMutation({
     mutationFn: async (expenseData: CreateExpenseData) => {
-      if (!user?.id) {
+      if (!user?.id || !accountId) {
         throw new Error('Usuário não autenticado. Faça login novamente.');
       }
 
@@ -79,6 +79,7 @@ export function useExpenses() {
         .from('expenses')
         .insert({
           user_id: user.id,
+          account_id: accountId, // CRITICAL: Include account_id for multi-tenant
           type: expenseData.type,
           category: expenseData.category,
           value: expenseData.value,

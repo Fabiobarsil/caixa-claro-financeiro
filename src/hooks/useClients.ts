@@ -22,13 +22,13 @@ interface CreateClientData {
 }
 
 export function useClients() {
-  const { user } = useAuth();
+  const { user, accountId } = useAuth();
   const queryClient = useQueryClient();
 
   const clientsQuery = useQuery({
-    queryKey: ['clients'],
+    queryKey: ['clients', accountId],
     queryFn: async (): Promise<ClientWithStats[]> => {
-      // Fetch clients
+      // RLS handles filtering by account_id
       const { data: clients, error } = await supabase
         .from('clients')
         .select('*')
@@ -36,7 +36,7 @@ export function useClients() {
 
       if (error) throw error;
 
-      // Fetch entries to calculate stats
+      // Fetch entries to calculate stats (also filtered by RLS)
       const { data: entries } = await supabase
         .from('entries')
         .select('client_id, value, status');
@@ -54,17 +54,18 @@ export function useClients() {
 
       return clientStats;
     },
-    enabled: !!user,
+    enabled: !!user && !!accountId,
   });
 
   const createClientMutation = useMutation({
     mutationFn: async (data: CreateClientData) => {
-      if (!user) throw new Error('Usuário não autenticado');
+      if (!user || !accountId) throw new Error('Usuário não autenticado');
 
       const { data: newClient, error } = await supabase
         .from('clients')
         .insert({
           user_id: user.id,
+          account_id: accountId, // CRITICAL: Include account_id for multi-tenant
           name: data.name,
           phone: data.phone || null,
           email: data.email || null,

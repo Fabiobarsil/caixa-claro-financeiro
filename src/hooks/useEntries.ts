@@ -25,13 +25,13 @@ export interface Entry {
 }
 
 export function useEntries() {
-  const { user, isAdmin } = useAuth();
+  const { user, isAdmin, accountId } = useAuth();
   const queryClient = useQueryClient();
 
   const { data: entries = [], isLoading, error } = useQuery({
-    queryKey: ['entries'],
+    queryKey: ['entries', accountId],
     queryFn: async (): Promise<Entry[]> => {
-      // Fetch entries
+      // RLS handles filtering by account_id
       const { data: entriesData, error: entriesError } = await supabase
         .from('entries')
         .select('*')
@@ -39,12 +39,12 @@ export function useEntries() {
 
       if (entriesError) throw entriesError;
 
-      // Fetch clients for names
+      // Fetch clients for names (also filtered by RLS)
       const { data: clients } = await supabase
         .from('clients')
         .select('id, name');
 
-      // Fetch services/products for names
+      // Fetch services/products for names (also filtered by RLS)
       const { data: items } = await supabase
         .from('services_products')
         .select('id, name, type');
@@ -62,7 +62,7 @@ export function useEntries() {
         };
       });
     },
-    enabled: !!user,
+    enabled: !!user && !!accountId,
   });
 
   const markAsPaid = useMutation({

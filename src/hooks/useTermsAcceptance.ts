@@ -54,11 +54,19 @@ export function useTermsAcceptance(): TermsAcceptance {
       return { success: false, error: 'Usuário não autenticado' };
     }
 
+    // Get account_id from profile
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('account_id')
+      .eq('user_id', user.id)
+      .maybeSingle();
+
     try {
       const { error } = await supabase
         .from('terms_acceptance')
         .insert({
           user_id: user.id,
+          account_id: profile?.account_id || null,
           terms_version: CURRENT_TERMS_VERSION,
           user_agent: navigator.userAgent,
         });

@@ -135,7 +135,7 @@ interface ExpenseRow {
  * @returns Snapshot financeiro completo e dados derivados
  */
 export function useFinancialSnapshot(timeWindow: TimeWindow): UseFinancialSnapshotReturn {
-  const { user } = useAuth();
+  const { user, accountId } = useAuth();
 
   // Calcular intervalo de datas
   const { startDate, endDate, today, todayStr } = useMemo(() => {
@@ -152,7 +152,7 @@ export function useFinancialSnapshot(timeWindow: TimeWindow): UseFinancialSnapsh
   }, [timeWindow]);
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ['financial-snapshot', timeWindow, startDate, endDate],
+    queryKey: ['financial-snapshot', timeWindow, startDate, endDate, accountId],
     queryFn: async () => {
       // ============================================
       // 1. BUSCAR DADOS BRUTOS
@@ -564,7 +564,7 @@ export function useFinancialSnapshot(timeWindow: TimeWindow): UseFinancialSnapsh
         criticalDueDates,
       };
     },
-    enabled: !!user,
+    enabled: !!user && !!accountId,
     staleTime: 1000 * 60 * 5, // 5 minutos
   });
 

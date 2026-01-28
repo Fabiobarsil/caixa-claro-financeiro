@@ -13,6 +13,7 @@ interface User {
   email: string;
   name: string;
   role: AppRole;
+  accountId: string | null;
 }
 
 interface AuthContextType {
@@ -21,8 +22,8 @@ interface AuthContextType {
   isAdmin: boolean;
   isLoading: boolean;
   isAuthReady: boolean;
+  accountId: string | null;
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
-  signup: (email: string, password: string, name: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ success: boolean; error?: string }>;
   updatePassword: (newPassword: string) => Promise<{ success: boolean; error?: string }>;
@@ -38,10 +39,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const fetchUserData = useCallback(async (supabaseUser: SupabaseUser): Promise<User | null> => {
     try {
-      // Fetch profile
+      // Fetch profile including account_id
       const { data: profile } = await supabase
         .from('profiles')
-        .select('name, email')
+        .select('name, email, account_id')
         .eq('user_id', supabaseUser.id)
         .maybeSingle();
 
@@ -57,6 +58,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         email: profile?.email || supabaseUser.email || '',
         name: profile?.name || 'Usuário',
         role: (roleData?.role as AppRole) || 'operador',
+        accountId: profile?.account_id || null,
       };
     } catch (error) {
       console.error('Error fetching user data:', error);
@@ -198,27 +200,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const signup = useCallback(async (email: string, password: string, name: string): Promise<{ success: boolean; error?: string }> => {
-    try {
-      const { error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          emailRedirectTo: window.location.origin,
-          data: { name },
-        },
-      });
-
-      if (error) {
-        return { success: false, error: error.message };
-      }
-
-      return { success: true };
-    } catch (error) {
-      return { success: false, error: 'Erro ao criar conta' };
-    }
-  }, []);
-
   const logout = useCallback(async () => {
     await supabase.auth.signOut();
     setUser(null);
@@ -262,8 +243,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isAdmin: user?.role === 'admin',
     isLoading,
     isAuthReady,
+    accountId: user?.accountId || null,
     login,
-    signup,
     logout,
     resetPassword,
     updatePassword,

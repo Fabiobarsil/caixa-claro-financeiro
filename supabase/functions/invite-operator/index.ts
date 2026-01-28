@@ -54,6 +54,20 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Get admin's account_id from profile
+    const { data: adminProfile, error: profileError } = await supabaseUser
+      .from('profiles')
+      .select('account_id')
+      .eq('user_id', user.id)
+      .single();
+
+    if (profileError || !adminProfile?.account_id) {
+      return new Response(
+        JSON.stringify({ error: 'Admin profile not found or missing account_id' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     // Parse request body
     const { email, name } = await req.json();
     
@@ -88,10 +102,12 @@ Deno.serve(async (req) => {
     }
 
     // Generate invite link - this creates the user and sends magic link
+    // Pass account_id in metadata so handle_new_user can inherit it
     const { data: inviteData, error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
       data: { 
         name,
-        role: 'operador'
+        role: 'operador',
+        account_id: adminProfile.account_id, // CRITICAL: Pass admin's account_id
       },
       redirectTo: `${req.headers.get('origin') || 'https://caixaclaro.app'}/reset-password`
     });

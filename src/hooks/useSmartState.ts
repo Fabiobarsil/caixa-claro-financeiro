@@ -12,16 +12,16 @@ export interface SmartState {
 }
 
 export function useSmartState() {
-  const { user } = useAuth();
+  const { user, accountId } = useAuth();
   const today = format(new Date(), 'yyyy-MM-dd');
 
   const { data: smartState, isLoading } = useQuery({
-    queryKey: ['smart-state', user?.id, today],
+    queryKey: ['smart-state', accountId, today],
     queryFn: async (): Promise<SmartState | null> => {
+      // RLS handles filtering by account_id
       const { data, error } = await supabase
         .from('smart_states')
         .select('*')
-        .eq('user_id', user!.id)
         .eq('generated_at', today)
         .maybeSingle();
 
@@ -32,7 +32,7 @@ export function useSmartState() {
 
       return data as SmartState | null;
     },
-    enabled: !!user,
+    enabled: !!user && !!accountId,
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
 
