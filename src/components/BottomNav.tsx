@@ -1,5 +1,5 @@
 import { NavLink, useLocation } from 'react-router-dom';
-import { Home, Receipt, Users, TrendingDown, Settings } from 'lucide-react';
+import { Home, Receipt, Users, TrendingDown, Settings, Package } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -13,7 +13,7 @@ interface NavItem {
 const navItems: NavItem[] = [
   { to: '/dashboard', icon: Home, label: 'Início' },
   { to: '/lancamentos', icon: Receipt, label: 'Lançamentos' },
-  { to: '/clientes', icon: Users, label: 'Clientes' },
+  { to: '/servicos-produtos', icon: Package, label: 'Catálogo' },
   { to: '/despesas', icon: TrendingDown, label: 'Despesas' },
   { to: '/configuracoes', icon: Settings, label: 'Config', adminOnly: true },
 ];

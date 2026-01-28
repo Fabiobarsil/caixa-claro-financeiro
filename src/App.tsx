@@ -140,17 +140,17 @@ function AppRoutes() {
         }
       />
       <Route
-        path="/configuracoes/servicos"
+        path="/servicos-produtos"
         element={
-          <ProtectedRoute requireAdmin>
+          <ProtectedRoute>
             <ServicesProducts />
           </ProtectedRoute>
         }
       />
       <Route
-        path="/configuracoes/servicos/novo"
+        path="/servicos-produtos/novo"
         element={
-          <ProtectedRoute requireAdmin>
+          <ProtectedRoute>
             <ServiceProductForm />
           </ProtectedRoute>
         }
