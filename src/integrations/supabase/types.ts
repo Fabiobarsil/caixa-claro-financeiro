@@ -14,8 +14,27 @@ export type Database = {
   }
   public: {
     Tables: {
+      accounts: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
       clients: {
         Row: {
+          account_id: string | null
           created_at: string
           email: string | null
           id: string
@@ -26,6 +45,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          account_id?: string | null
           created_at?: string
           email?: string | null
           id?: string
@@ -36,6 +56,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          account_id?: string | null
           created_at?: string
           email?: string | null
           id?: string
@@ -45,10 +66,19 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "clients_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       entries: {
         Row: {
+          account_id: string | null
           client_id: string | null
           created_at: string
           date: string
@@ -65,6 +95,7 @@ export type Database = {
           value: number
         }
         Insert: {
+          account_id?: string | null
           client_id?: string | null
           created_at?: string
           date?: string
@@ -81,6 +112,7 @@ export type Database = {
           value: number
         }
         Update: {
+          account_id?: string | null
           client_id?: string | null
           created_at?: string
           date?: string
@@ -97,6 +129,13 @@ export type Database = {
           value?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "entries_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "entries_client_id_fkey"
             columns: ["client_id"]
@@ -115,6 +154,7 @@ export type Database = {
       }
       entry_schedules: {
         Row: {
+          account_id: string | null
           amount: number
           created_at: string
           due_date: string
@@ -132,6 +172,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          account_id?: string | null
           amount: number
           created_at?: string
           due_date: string
@@ -149,6 +190,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          account_id?: string | null
           amount?: number
           created_at?: string
           due_date?: string
@@ -167,6 +209,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "entry_schedules_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "entry_schedules_entry_id_fkey"
             columns: ["entry_id"]
             isOneToOne: false
@@ -177,6 +226,7 @@ export type Database = {
       }
       expenses: {
         Row: {
+          account_id: string | null
           category: string
           created_at: string
           date: string
@@ -188,6 +238,7 @@ export type Database = {
           value: number
         }
         Insert: {
+          account_id?: string | null
           category: string
           created_at?: string
           date?: string
@@ -199,6 +250,7 @@ export type Database = {
           value: number
         }
         Update: {
+          account_id?: string | null
           category?: string
           created_at?: string
           date?: string
@@ -209,10 +261,19 @@ export type Database = {
           user_id?: string
           value?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "expenses_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
+          account_id: string | null
           created_at: string
           email: string
           first_activity_at: string | null
@@ -230,6 +291,7 @@ export type Database = {
           vacation_start: string | null
         }
         Insert: {
+          account_id?: string | null
           created_at?: string
           email: string
           first_activity_at?: string | null
@@ -247,6 +309,7 @@ export type Database = {
           vacation_start?: string | null
         }
         Update: {
+          account_id?: string | null
           created_at?: string
           email?: string
           first_activity_at?: string | null
@@ -263,10 +326,19 @@ export type Database = {
           vacation_end?: string | null
           vacation_start?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "profiles_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       services_products: {
         Row: {
+          account_id: string | null
           base_price: number
           cost: number | null
           created_at: string
@@ -279,6 +351,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          account_id?: string | null
           base_price?: number
           cost?: number | null
           created_at?: string
@@ -291,6 +364,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          account_id?: string | null
           base_price?: number
           cost?: number | null
           created_at?: string
@@ -302,10 +376,19 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "services_products_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       smart_states: {
         Row: {
+          account_id: string | null
           created_at: string
           generated_at: string
           id: string
@@ -315,6 +398,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          account_id?: string | null
           created_at?: string
           generated_at?: string
           id?: string
@@ -324,6 +408,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          account_id?: string | null
           created_at?: string
           generated_at?: string
           id?: string
@@ -332,10 +417,19 @@ export type Database = {
           type?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "smart_states_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       subscriptions: {
         Row: {
+          account_id: string | null
           created_at: string
           current_period_end: string | null
           current_period_start: string | null
@@ -350,6 +444,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          account_id?: string | null
           created_at?: string
           current_period_end?: string | null
           current_period_start?: string | null
@@ -364,6 +459,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          account_id?: string | null
           created_at?: string
           current_period_end?: string | null
           current_period_start?: string | null
@@ -377,11 +473,20 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "subscriptions_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       terms_acceptance: {
         Row: {
           accepted_at: string
+          account_id: string | null
           created_at: string
           id: string
           ip_address: string | null
@@ -391,6 +496,7 @@ export type Database = {
         }
         Insert: {
           accepted_at?: string
+          account_id?: string | null
           created_at?: string
           id?: string
           ip_address?: string | null
@@ -400,6 +506,7 @@ export type Database = {
         }
         Update: {
           accepted_at?: string
+          account_id?: string | null
           created_at?: string
           id?: string
           ip_address?: string | null
@@ -407,7 +514,15 @@ export type Database = {
           user_agent?: string | null
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "terms_acceptance_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_roles: {
         Row: {
