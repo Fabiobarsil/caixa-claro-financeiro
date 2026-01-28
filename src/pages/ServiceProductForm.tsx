@@ -26,10 +26,11 @@ export default function ServiceProductForm() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const editId = searchParams.get('id');
+  const typeFromUrl = searchParams.get('type') as ItemType | null;
   
   const { items, createItem, updateItem, deleteItem, isAdmin, isLoading: isLoadingItems } = useServicesProducts();
   
-  const [type, setType] = useState<ItemType>('servico');
+  const [type, setType] = useState<ItemType>(typeFromUrl || 'servico');
   const [name, setName] = useState('');
   const [basePrice, setBasePrice] = useState('');
   const [cost, setCost] = useState('');
@@ -51,7 +52,7 @@ export default function ServiceProductForm() {
   }, [editId, items]);
 
   const handleBack = () => {
-    navigate('/configuracoes/servicos');
+    navigate('/servicos-produtos');
   };
 
   const handleSubmit = async () => {
@@ -72,7 +73,7 @@ export default function ServiceProductForm() {
       } else {
         await createItem.mutateAsync(data);
       }
-      navigate('/configuracoes/servicos');
+      navigate('/servicos-produtos');
     } finally {
       setIsSubmitting(false);
     }
@@ -84,7 +85,7 @@ export default function ServiceProductForm() {
     setIsSubmitting(true);
     try {
       await deleteItem.mutateAsync(editId);
-      navigate('/configuracoes/servicos');
+      navigate('/servicos-produtos');
     } finally {
       setIsSubmitting(false);
     }
