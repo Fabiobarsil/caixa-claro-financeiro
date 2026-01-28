@@ -118,11 +118,14 @@ export type Database = {
           amount: number
           created_at: string
           due_date: string
+          edited_at: string | null
+          edited_by: string | null
           entry_id: string
           id: string
           installment_number: number
           installments_total: number
           paid_at: string | null
+          previous_status: string | null
           schedule_type: Database["public"]["Enums"]["schedule_type"]
           status: Database["public"]["Enums"]["entry_status"]
           updated_at: string
@@ -132,11 +135,14 @@ export type Database = {
           amount: number
           created_at?: string
           due_date: string
+          edited_at?: string | null
+          edited_by?: string | null
           entry_id: string
           id?: string
           installment_number?: number
           installments_total?: number
           paid_at?: string | null
+          previous_status?: string | null
           schedule_type: Database["public"]["Enums"]["schedule_type"]
           status?: Database["public"]["Enums"]["entry_status"]
           updated_at?: string
@@ -146,11 +152,14 @@ export type Database = {
           amount?: number
           created_at?: string
           due_date?: string
+          edited_at?: string | null
+          edited_by?: string | null
           entry_id?: string
           id?: string
           installment_number?: number
           installments_total?: number
           paid_at?: string | null
+          previous_status?: string | null
           schedule_type?: Database["public"]["Enums"]["schedule_type"]
           status?: Database["public"]["Enums"]["entry_status"]
           updated_at?: string

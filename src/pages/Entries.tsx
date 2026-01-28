@@ -4,7 +4,7 @@ import AppLayout from '@/components/AppLayout';
 import { useEntries, Entry } from '@/hooks/useEntries';
 import { useEntrySchedules, getScheduleSummary, EntrySchedule } from '@/hooks/useEntrySchedules';
 import { cn } from '@/lib/utils';
-import { Search, Loader2, Receipt, Package, Scissors, CheckCircle, ChevronDown, ChevronUp, Plus, DollarSign } from 'lucide-react';
+import { Search, Loader2, Receipt, Package, Scissors, CheckCircle, ChevronDown, ChevronUp, Plus, DollarSign, RotateCcw } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { format, parseISO } from 'date-fns';
@@ -57,7 +57,14 @@ export default function Entries() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { entries, isLoading, markAsPaid } = useEntries();
-  const { schedulesByEntry, allSchedules, markScheduleAsPaid, isLoading: schedulesLoading } = useEntrySchedules();
+  const { 
+    schedulesByEntry, 
+    allSchedules, 
+    markScheduleAsPaid, 
+    revertScheduleToPending,
+    isLoading: schedulesLoading,
+    isAdmin,
+  } = useEntrySchedules();
   
   // Read initial filter from URL params
   const initialFilter = (searchParams.get('status') as FilterType) || 'todos';
@@ -237,6 +244,10 @@ export default function Entries() {
     markScheduleAsPaid.mutate(scheduleId);
   };
 
+  const handleRevertSchedule = (scheduleId: string) => {
+    revertScheduleToPending.mutate(scheduleId);
+  };
+
   // Get current total and count based on mode
   const { currentTotal, currentCount, totalLabel } = useMemo(() => {
     if (isPaidMode) {
@@ -337,7 +348,13 @@ export default function Entries() {
             ) : (
               <div className="space-y-2">
                 {filteredPaidItems.map((item) => (
-                  <PaidItemCard key={item.id} item={item} />
+                  <PaidItemCard 
+                    key={item.id} 
+                    item={item} 
+                    isAdmin={isAdmin}
+                    onRevert={item.schedule ? () => handleRevertSchedule(item.schedule!.id) : undefined}
+                    isReverting={revertScheduleToPending.isPending}
+                  />
                 ))}
               </div>
             )
@@ -398,8 +415,11 @@ export default function Entries() {
                   schedules={schedulesByEntry[entry.id] || []}
                   onMarkAsPaid={() => handleMarkAsPaid(entry)}
                   onMarkSchedulePaid={handleMarkSchedulePaid}
+                  onRevertSchedule={handleRevertSchedule}
                   isMarkingPaid={markAsPaid.isPending}
                   isMarkingSchedulePaid={markScheduleAsPaid.isPending}
+                  isRevertingSchedule={revertScheduleToPending.isPending}
+                  isAdmin={isAdmin}
                 />
               ))}
             </div>
@@ -413,57 +433,76 @@ export default function Entries() {
 // Card for paid items (entries or schedules)
 interface PaidItemCardProps {
   item: DisplayItem;
+  isAdmin: boolean;
+  onRevert?: () => void;
+  isReverting?: boolean;
 }
 
-function PaidItemCard({ item }: PaidItemCardProps) {
+function PaidItemCard({ item, isAdmin, onRevert, isReverting }: PaidItemCardProps) {
   const isSchedule = item.type === 'paid_schedule';
   const typeLabel = isSchedule 
     ? (item.scheduleType === 'installment' ? 'Parcela' : 'Mês') 
     : null;
 
   return (
-    <div className="bg-card rounded-xl p-4 flex items-center gap-3">
-      <div className={cn(
-        'w-10 h-10 rounded-full flex items-center justify-center',
-        item.itemType === 'servico' ? 'bg-primary/10 text-primary' : 'bg-accent text-accent-foreground'
-      )}>
-        {item.itemType === 'servico' ? <Scissors size={20} /> : <Package size={20} />}
-      </div>
-      <div className="flex-1 min-w-0">
-        <p className="font-medium text-foreground truncate">
-          {item.clientName}
-        </p>
-        <p className="text-sm text-muted-foreground truncate">
-          {item.itemName}
-          {isSchedule && typeLabel && ` • ${typeLabel} ${item.installmentNumber}/${item.installmentsTotal}`}
-          {!isSchedule && item.quantity && item.quantity > 1 && ` (${item.quantity}x)`}
-        </p>
-        <div className="flex items-center gap-2 mt-1">
-          <span className="text-xs text-muted-foreground">
-            {item.paymentDate 
-              ? format(parseISO(item.paymentDate), "dd MMM", { locale: ptBR })
-              : format(parseISO(item.date), "dd MMM", { locale: ptBR })
-            }
+    <div className="bg-card rounded-xl p-4 flex flex-col gap-3">
+      <div className="flex items-center gap-3">
+        <div className={cn(
+          'w-10 h-10 rounded-full flex items-center justify-center',
+          item.itemType === 'servico' ? 'bg-primary/10 text-primary' : 'bg-accent text-accent-foreground'
+        )}>
+          {item.itemType === 'servico' ? <Scissors size={20} /> : <Package size={20} />}
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="font-medium text-foreground truncate">
+            {item.clientName}
+          </p>
+          <p className="text-sm text-muted-foreground truncate">
+            {item.itemName}
+            {isSchedule && typeLabel && ` • ${typeLabel} ${item.installmentNumber}/${item.installmentsTotal}`}
+            {!isSchedule && item.quantity && item.quantity > 1 && ` (${item.quantity}x)`}
+          </p>
+          <div className="flex items-center gap-2 mt-1">
+            <span className="text-xs text-muted-foreground">
+              {item.paymentDate 
+                ? format(parseISO(item.paymentDate), "dd MMM", { locale: ptBR })
+                : format(parseISO(item.date), "dd MMM", { locale: ptBR })
+              }
+            </span>
+            {item.paymentMethod && (
+              <>
+                <span className="text-xs text-muted-foreground">•</span>
+                <span className="text-xs text-muted-foreground">
+                  {formatPaymentMethod(item.paymentMethod)}
+                </span>
+              </>
+            )}
+          </div>
+        </div>
+        <div className="text-right flex flex-col items-end gap-1">
+          <p className="font-semibold text-foreground">
+            R$ {item.value.toFixed(2)}
+          </p>
+          <span className="text-xs font-medium text-success flex items-center gap-1">
+            <CheckCircle size={12} />
+            Pago
           </span>
-          {item.paymentMethod && (
-            <>
-              <span className="text-xs text-muted-foreground">•</span>
-              <span className="text-xs text-muted-foreground">
-                {formatPaymentMethod(item.paymentMethod)}
-              </span>
-            </>
-          )}
         </div>
       </div>
-      <div className="text-right flex flex-col items-end gap-1">
-        <p className="font-semibold text-foreground">
-          R$ {item.value.toFixed(2)}
-        </p>
-        <span className="text-xs font-medium text-success flex items-center gap-1">
-          <CheckCircle size={12} />
-          Pago
-        </span>
-      </div>
+      
+      {/* Admin only: Revert button for schedules */}
+      {isAdmin && isSchedule && onRevert && (
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={onRevert}
+          disabled={isReverting}
+          className="w-full border-muted-foreground/30 text-muted-foreground hover:bg-destructive/10 hover:text-destructive hover:border-destructive"
+        >
+          <RotateCcw className="mr-2 h-4 w-4" />
+          Reverter para pendente
+        </Button>
+      )}
     </div>
   );
 }
@@ -473,8 +512,11 @@ interface EntryListCardProps {
   schedules: EntrySchedule[];
   onMarkAsPaid: () => void;
   onMarkSchedulePaid: (scheduleId: string) => void;
+  onRevertSchedule: (scheduleId: string) => void;
   isMarkingPaid: boolean;
   isMarkingSchedulePaid: boolean;
+  isRevertingSchedule: boolean;
+  isAdmin: boolean;
 }
 
 function EntryListCard({ 
@@ -482,8 +524,11 @@ function EntryListCard({
   schedules,
   onMarkAsPaid, 
   onMarkSchedulePaid,
+  onRevertSchedule,
   isMarkingPaid,
-  isMarkingSchedulePaid 
+  isMarkingSchedulePaid,
+  isRevertingSchedule,
+  isAdmin,
 }: EntryListCardProps) {
   const [expanded, setExpanded] = useState(false);
   const { visualStatus } = getEntryVisualInfo(entry.status, entry.due_date, entry.payment_date);
@@ -553,7 +598,10 @@ function EntryListCard({
               key={schedule.id}
               schedule={schedule}
               onMarkPaid={() => onMarkSchedulePaid(schedule.id)}
+              onRevert={() => onRevertSchedule(schedule.id)}
               isMarking={isMarkingSchedulePaid}
+              isReverting={isRevertingSchedule}
+              isAdmin={isAdmin}
             />
           ))}
         </div>
@@ -578,10 +626,13 @@ function EntryListCard({
 interface ScheduleItemProps {
   schedule: EntrySchedule;
   onMarkPaid: () => void;
+  onRevert: () => void;
   isMarking: boolean;
+  isReverting: boolean;
+  isAdmin: boolean;
 }
 
-function ScheduleItem({ schedule, onMarkPaid, isMarking }: ScheduleItemProps) {
+function ScheduleItem({ schedule, onMarkPaid, onRevert, isMarking, isReverting, isAdmin }: ScheduleItemProps) {
   const { label, variant } = getEntryVisualInfo(
     schedule.status, 
     schedule.due_date, 
@@ -620,8 +671,22 @@ function ScheduleItem({ schedule, onMarkPaid, isMarking }: ScheduleItemProps) {
             onClick={onMarkPaid}
             disabled={isMarking}
             className="h-8 px-2 text-success hover:text-success hover:bg-success/10"
+            title="Marcar como pago"
           >
             <CheckCircle size={18} />
+          </Button>
+        )}
+        {/* Admin only: Revert paid schedule */}
+        {schedule.status === 'pago' && isAdmin && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onRevert}
+            disabled={isReverting}
+            className="h-8 px-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+            title="Reverter para pendente"
+          >
+            <RotateCcw size={16} />
           </Button>
         )}
       </div>
