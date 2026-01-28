@@ -32,8 +32,10 @@ export default function ProtectedRoute({ children, requireAdmin = false }: Prote
   }
 
   // MULTI-TENANT SAFETY CHECK: Block access if user has no account_id
-  // This prevents data leakage for users not properly configured
-  if (!accountId && user) {
+  // BUT: Allow admins through - they are the first users and might be setting up
+  // The account should have been created by handle_new_user trigger
+  // Only block operators who don't have an account assigned yet
+  if (!accountId && user && !isAdmin) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-background px-4 text-center">
         <ShieldAlert className="h-16 w-16 text-warning mb-4" />

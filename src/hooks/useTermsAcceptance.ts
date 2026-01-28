@@ -12,7 +12,7 @@ interface TermsAcceptance {
 }
 
 export function useTermsAcceptance(): TermsAcceptance {
-  const { user, isAdmin } = useAuth();
+  const { user, isAdmin, accountId } = useAuth();
   const [hasAccepted, setHasAccepted] = useState(true); // Default to true to avoid flash
   const [isLoading, setIsLoading] = useState(true);
 
@@ -25,6 +25,7 @@ export function useTermsAcceptance(): TermsAcceptance {
       }
 
       try {
+        // Query by user_id directly - RLS now allows this
         const { data, error } = await supabase
           .from('terms_acceptance')
           .select('id')
@@ -34,7 +35,8 @@ export function useTermsAcceptance(): TermsAcceptance {
 
         if (error) {
           console.error('Error checking terms acceptance:', error);
-          setHasAccepted(true); // Fail open to not block users on error
+          // On error, allow access but log - don't block users
+          setHasAccepted(true);
         } else {
           setHasAccepted(!!data);
         }
@@ -54,35 +56,36 @@ export function useTermsAcceptance(): TermsAcceptance {
       return { success: false, error: 'Usuário não autenticado' };
     }
 
-    // Get account_id from profile
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('account_id')
-      .eq('user_id', user.id)
-      .maybeSingle();
-
     try {
+      // Use the accountId from context, but allow null for first-time users
+      // The RLS policy now allows insert by user_id
       const { error } = await supabase
         .from('terms_acceptance')
         .insert({
           user_id: user.id,
-          account_id: profile?.account_id || null,
+          account_id: accountId || null, // Can be null initially
           terms_version: CURRENT_TERMS_VERSION,
           user_agent: navigator.userAgent,
         });
 
       if (error) {
+        // Check if it's a duplicate key error (user already accepted)
+        if (error.code === '23505') {
+          // Already accepted - this is fine
+          setHasAccepted(true);
+          return { success: true };
+        }
         console.error('Error accepting terms:', error);
-        return { success: false, error: 'Erro ao registrar aceite' };
+        return { success: false, error: 'Erro ao registrar aceite. Tente novamente.' };
       }
 
       setHasAccepted(true);
       return { success: true };
     } catch (err) {
       console.error('Error accepting terms:', err);
-      return { success: false, error: 'Erro ao registrar aceite' };
+      return { success: false, error: 'Erro ao registrar aceite. Tente novamente.' };
     }
-  }, [user]);
+  }, [user, accountId]);
 
   return { hasAccepted, isLoading, acceptTerms };
 }
