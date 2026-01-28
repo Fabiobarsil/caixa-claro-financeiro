@@ -8,6 +8,7 @@ import { SubscriptionProvider } from "@/contexts/SubscriptionContext";
 import { AlertTriangle } from "lucide-react";
 
 import Login from "./pages/Login";
+import FirstAccess from "./pages/FirstAccess";
 import Dashboard from "./pages/Dashboard";
 import Entries from "./pages/Entries";
 import NewEntry from "./pages/NewEntry";
@@ -71,6 +72,7 @@ function AppRoutes() {
         path="/" 
         element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <Login />} 
       />
+      <Route path="/primeiro-acesso" element={<FirstAccess />} />
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/privacidade" element={<PrivacyPolicy />} />
       <Route path="/termos" element={<TermsOfUse />} />
