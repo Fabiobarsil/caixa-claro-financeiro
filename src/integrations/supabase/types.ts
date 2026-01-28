@@ -34,7 +34,7 @@ export type Database = {
       }
       clients: {
         Row: {
-          account_id: string | null
+          account_id: string
           created_at: string
           email: string | null
           id: string
@@ -45,7 +45,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
-          account_id?: string | null
+          account_id: string
           created_at?: string
           email?: string | null
           id?: string
@@ -56,7 +56,7 @@ export type Database = {
           user_id: string
         }
         Update: {
-          account_id?: string | null
+          account_id?: string
           created_at?: string
           email?: string | null
           id?: string
@@ -78,7 +78,7 @@ export type Database = {
       }
       entries: {
         Row: {
-          account_id: string | null
+          account_id: string
           client_id: string | null
           created_at: string
           date: string
@@ -95,7 +95,7 @@ export type Database = {
           value: number
         }
         Insert: {
-          account_id?: string | null
+          account_id: string
           client_id?: string | null
           created_at?: string
           date?: string
@@ -112,7 +112,7 @@ export type Database = {
           value: number
         }
         Update: {
-          account_id?: string | null
+          account_id?: string
           client_id?: string | null
           created_at?: string
           date?: string
@@ -154,7 +154,7 @@ export type Database = {
       }
       entry_schedules: {
         Row: {
-          account_id: string | null
+          account_id: string
           amount: number
           created_at: string
           due_date: string
@@ -172,7 +172,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
-          account_id?: string | null
+          account_id: string
           amount: number
           created_at?: string
           due_date: string
@@ -190,7 +190,7 @@ export type Database = {
           user_id: string
         }
         Update: {
-          account_id?: string | null
+          account_id?: string
           amount?: number
           created_at?: string
           due_date?: string
@@ -226,7 +226,7 @@ export type Database = {
       }
       expenses: {
         Row: {
-          account_id: string | null
+          account_id: string
           category: string
           created_at: string
           date: string
@@ -238,7 +238,7 @@ export type Database = {
           value: number
         }
         Insert: {
-          account_id?: string | null
+          account_id: string
           category: string
           created_at?: string
           date?: string
@@ -250,7 +250,7 @@ export type Database = {
           value: number
         }
         Update: {
-          account_id?: string | null
+          account_id?: string
           category?: string
           created_at?: string
           date?: string
@@ -338,7 +338,7 @@ export type Database = {
       }
       services_products: {
         Row: {
-          account_id: string | null
+          account_id: string
           base_price: number
           cost: number | null
           created_at: string
@@ -351,7 +351,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
-          account_id?: string | null
+          account_id: string
           base_price?: number
           cost?: number | null
           created_at?: string
@@ -364,7 +364,7 @@ export type Database = {
           user_id: string
         }
         Update: {
-          account_id?: string | null
+          account_id?: string
           base_price?: number
           cost?: number | null
           created_at?: string
@@ -388,7 +388,7 @@ export type Database = {
       }
       smart_states: {
         Row: {
-          account_id: string | null
+          account_id: string
           created_at: string
           generated_at: string
           id: string
@@ -398,7 +398,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
-          account_id?: string | null
+          account_id: string
           created_at?: string
           generated_at?: string
           id?: string
@@ -408,7 +408,7 @@ export type Database = {
           user_id: string
         }
         Update: {
-          account_id?: string | null
+          account_id?: string
           created_at?: string
           generated_at?: string
           id?: string
@@ -429,7 +429,7 @@ export type Database = {
       }
       subscriptions: {
         Row: {
-          account_id: string | null
+          account_id: string
           created_at: string
           current_period_end: string | null
           current_period_start: string | null
@@ -444,7 +444,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
-          account_id?: string | null
+          account_id: string
           created_at?: string
           current_period_end?: string | null
           current_period_start?: string | null
@@ -459,7 +459,7 @@ export type Database = {
           user_id: string
         }
         Update: {
-          account_id?: string | null
+          account_id?: string
           created_at?: string
           current_period_end?: string | null
           current_period_start?: string | null
