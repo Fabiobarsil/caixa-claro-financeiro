@@ -18,6 +18,10 @@ export interface EntrySchedule {
   amount: number;
   created_at: string;
   updated_at: string;
+  // Audit fields
+  edited_by?: string | null;
+  edited_at?: string | null;
+  previous_status?: string | null;
 }
 
 export interface CreateSchedulesInput {
@@ -53,7 +57,7 @@ function calculateDueDate(firstDueDate: string, index: number, intervalDays: num
 }
 
 export function useEntrySchedules(entryId?: string) {
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const queryClient = useQueryClient();
 
   const { data: schedules = [], isLoading, error } = useQuery({
@@ -131,6 +135,7 @@ export function useEntrySchedules(entryId?: string) {
     },
   });
 
+  // Mark a pending schedule as paid (allowed for all users)
   const markScheduleAsPaid = useMutation({
     mutationFn: async (scheduleId: string) => {
       const { error } = await supabase
@@ -154,6 +159,86 @@ export function useEntrySchedules(entryId?: string) {
     },
   });
 
+  // Revert a paid schedule back to pending (admin only - with audit)
+  const revertScheduleToPending = useMutation({
+    mutationFn: async (scheduleId: string) => {
+      if (!isAdmin) {
+        throw new Error('Apenas administradores podem reverter status de parcelas');
+      }
+      if (!user) throw new Error('Usuário não autenticado');
+
+      const { error } = await supabase
+        .from('entry_schedules')
+        .update({ 
+          status: 'pendente',
+          paid_at: null,
+          edited_by: user.id,
+          edited_at: new Date().toISOString(),
+          previous_status: 'pago',
+        })
+        .eq('id', scheduleId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['entry_schedules'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      toast.success('Parcela revertida para pendente');
+    },
+    onError: (error: Error) => {
+      console.error('Erro ao reverter parcela:', error);
+      toast.error(error.message || 'Erro ao reverter parcela');
+    },
+  });
+
+  // Admin-only: Update schedule status with full audit trail
+  const updateScheduleStatus = useMutation({
+    mutationFn: async ({ scheduleId, newStatus }: { scheduleId: string; newStatus: 'pago' | 'pendente' }) => {
+      if (!isAdmin) {
+        throw new Error('Apenas administradores podem editar status de parcelas');
+      }
+      if (!user) throw new Error('Usuário não autenticado');
+
+      // Get current status for audit
+      const { data: current, error: fetchError } = await supabase
+        .from('entry_schedules')
+        .select('status')
+        .eq('id', scheduleId)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      const updates: Record<string, unknown> = {
+        status: newStatus,
+        edited_by: user.id,
+        edited_at: new Date().toISOString(),
+        previous_status: current.status,
+      };
+
+      if (newStatus === 'pago') {
+        updates.paid_at = new Date().toISOString();
+      } else {
+        updates.paid_at = null;
+      }
+
+      const { error } = await supabase
+        .from('entry_schedules')
+        .update(updates)
+        .eq('id', scheduleId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['entry_schedules'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      toast.success('Status atualizado!');
+    },
+    onError: (error: Error) => {
+      console.error('Erro ao atualizar status:', error);
+      toast.error(error.message || 'Erro ao atualizar status');
+    },
+  });
+
   // Group schedules by entry for summary display
   const schedulesByEntry = allSchedules.reduce((acc, schedule) => {
     if (!acc[schedule.entry_id]) {
@@ -171,6 +256,9 @@ export function useEntrySchedules(entryId?: string) {
     error,
     createSchedules,
     markScheduleAsPaid,
+    revertScheduleToPending,
+    updateScheduleStatus,
+    isAdmin,
   };
 }
 
