@@ -13,6 +13,7 @@ interface NavItem {
 const navItems: NavItem[] = [
   { to: '/dashboard', icon: Home, label: 'Início' },
   { to: '/lancamentos', icon: Receipt, label: 'Lançamentos' },
+  { to: '/clientes', icon: Users, label: 'Clientes' },
   { to: '/servicos-produtos', icon: Package, label: 'Catálogo' },
   { to: '/despesas', icon: TrendingDown, label: 'Despesas' },
   { to: '/configuracoes', icon: Settings, label: 'Config', adminOnly: true },
