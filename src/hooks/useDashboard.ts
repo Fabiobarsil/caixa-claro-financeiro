@@ -74,15 +74,15 @@ export function useDashboard(selectedMonth?: string) {
       const todayStr = format(today, 'yyyy-MM-dd');
       const next30DaysStr = format(addDays(today, 30), 'yyyy-MM-dd');
 
-      // Fetch entries for the month
-      const { data: entriesData, error: entriesError } = await supabase
-        .from('entries')
+      // Fetch transactions for the month
+      const { data: transactionsData, error: transactionsError } = await supabase
+        .from('transactions')
         .select('*')
         .gte('date', startDate)
         .lte('date', endDate)
         .order('date', { ascending: false });
 
-      if (entriesError) throw entriesError;
+      if (transactionsError) throw transactionsError;
 
       // Fetch expenses for the month
       const { data: expensesData, error: expensesError } = await supabase
@@ -110,16 +110,16 @@ export function useDashboard(selectedMonth?: string) {
 
       if (allPendingError) throw allPendingError;
 
-      // Fetch ALL entry_ids that have any schedules (to know which entries to exclude)
-      const entryIds = (entriesData || []).map(e => e.id);
-      const { data: allSchedulesForEntries } = await supabase
+      // Fetch ALL transaction_ids that have any schedules (to know which transactions to exclude)
+      const transactionIds = (transactionsData || []).map(e => e.id);
+      const { data: allSchedulesForTransactions } = await supabase
         .from('entry_schedules')
         .select('entry_id')
-        .in('entry_id', entryIds.length > 0 ? entryIds : ['']);
+        .in('entry_id', transactionIds.length > 0 ? transactionIds : ['']);
 
-      // Set of entry_ids that have schedules
-      const entryIdsWithSchedules = new Set(
-        (allSchedulesForEntries || []).map(s => s.entry_id)
+      // Set of transaction_ids that have schedules
+      const transactionIdsWithSchedules = new Set(
+        (allSchedulesForTransactions || []).map(s => s.entry_id)
       );
 
       // Fetch clients and items for names
@@ -134,32 +134,32 @@ export function useDashboard(selectedMonth?: string) {
       const clientMap = new Map((clients || []).map(c => [c.id, c.name]));
       const itemMap = new Map((items || []).map(i => [i.id, { name: i.name, type: i.type }]));
 
-      // Map entries with client/item names
-      const entries: DashboardEntry[] = (entriesData || []).map(entry => {
-        const item = entry.service_product_id ? itemMap.get(entry.service_product_id) : null;
+      // Map transactions with client/item names
+      const transactions: DashboardEntry[] = (transactionsData || []).map(transaction => {
+        const item = transaction.service_product_id ? itemMap.get(transaction.service_product_id) : null;
         return {
-          id: entry.id,
-          client_name: entry.client_id ? clientMap.get(entry.client_id) : undefined,
-          item_name: item?.name,
+          id: transaction.id,
+          client_name: transaction.client_id ? clientMap.get(transaction.client_id) : undefined,
+          item_name: item?.name || transaction.description,
           item_type: item?.type as 'servico' | 'produto' | undefined,
-          value: Number(entry.value),
-          status: entry.status as 'pago' | 'pendente',
-          date: entry.date,
-          due_date: entry.due_date || null,
-          payment_date: entry.payment_date || null,
-          payment_method: entry.payment_method,
+          value: Number(transaction.amount),
+          status: transaction.status as 'pago' | 'pendente',
+          date: transaction.date,
+          due_date: transaction.due_date || null,
+          payment_date: transaction.payment_date || null,
+          payment_method: transaction.payment_method,
         };
       });
 
       const schedules = (schedulesInMonth || []) as ScheduleRow[];
       const globalSchedules = (allPendingSchedules || []) as ScheduleRow[];
 
-      // Entries WITHOUT any schedules (use entry values)
-      const entriesWithoutSchedules = entries.filter(e => !entryIdsWithSchedules.has(e.id));
+      // Transactions WITHOUT any schedules (use transaction values)
+      const transactionsWithoutSchedules = transactions.filter(e => !transactionIdsWithSchedules.has(e.id));
 
       // ===== RECEBIDO (Received) =====
-      // Paid entries without schedules
-      const paidEntriesValue = entriesWithoutSchedules
+      // Paid transactions without schedules
+      const paidTransactionsValue = transactionsWithoutSchedules
         .filter(e => e.status === 'pago')
         .reduce((sum, e) => sum + e.value, 0);
 
@@ -168,11 +168,11 @@ export function useDashboard(selectedMonth?: string) {
         .filter(s => s.status === 'pago')
         .reduce((sum, s) => sum + Number(s.amount), 0);
 
-      const received = paidEntriesValue + paidSchedulesValue;
+      const received = paidTransactionsValue + paidSchedulesValue;
 
       // ===== A RECEBER (Pending - Monthly) =====
-      // Pending entries without schedules
-      const pendingEntriesValue = entriesWithoutSchedules
+      // Pending transactions without schedules
+      const pendingTransactionsValue = transactionsWithoutSchedules
         .filter(e => e.status === 'pendente')
         .reduce((sum, e) => sum + e.value, 0);
 
@@ -181,12 +181,12 @@ export function useDashboard(selectedMonth?: string) {
         .filter(s => s.status === 'pendente')
         .reduce((sum, s) => sum + Number(s.amount), 0);
 
-      const pending = pendingEntriesValue + pendingSchedulesValue;
+      const pending = pendingTransactionsValue + pendingSchedulesValue;
 
       const totalExpenses = (expensesData || []).reduce((sum, e) => sum + Number(e.value), 0);
 
       // ===== A VENCER (Upcoming - Global, all pending with due_date >= today) =====
-      const upcomingEntriesData = entriesWithoutSchedules.filter(e => {
+      const upcomingTransactionsData = transactionsWithoutSchedules.filter(e => {
         if (e.status !== 'pendente' || !e.due_date) return false;
         const dueDate = new Date(e.due_date);
         dueDate.setHours(0, 0, 0, 0);
@@ -201,13 +201,13 @@ export function useDashboard(selectedMonth?: string) {
       });
 
       const upcomingValue = 
-        upcomingEntriesData.reduce((sum, e) => sum + e.value, 0) +
+        upcomingTransactionsData.reduce((sum, e) => sum + e.value, 0) +
         upcomingSchedules.reduce((sum, s) => sum + Number(s.amount), 0);
 
-      const upcomingCount = upcomingEntriesData.length + upcomingSchedules.length;
+      const upcomingCount = upcomingTransactionsData.length + upcomingSchedules.length;
 
       // ===== EM ATRASO (Overdue - Global, all pending with due_date < today) =====
-      const overdueEntriesData = entriesWithoutSchedules.filter(e => {
+      const overdueTransactionsData = transactionsWithoutSchedules.filter(e => {
         if (e.status !== 'pendente' || !e.due_date) return false;
         const dueDate = new Date(e.due_date);
         dueDate.setHours(0, 0, 0, 0);
@@ -222,10 +222,10 @@ export function useDashboard(selectedMonth?: string) {
       });
 
       const overdueValue = 
-        overdueEntriesData.reduce((sum, e) => sum + e.value, 0) +
+        overdueTransactionsData.reduce((sum, e) => sum + e.value, 0) +
         overdueSchedules.reduce((sum, s) => sum + Number(s.amount), 0);
 
-      const overdueCount = overdueEntriesData.length + overdueSchedules.length;
+      const overdueCount = overdueTransactionsData.length + overdueSchedules.length;
 
       // ===== GLOBAL RECEIVABLES (from entry_schedules only) =====
       // Total pending globally
@@ -245,7 +245,7 @@ export function useDashboard(selectedMonth?: string) {
         .reduce((sum, s) => sum + Number(s.amount), 0);
 
       // Calculate average ticket (paid items count)
-      const paidCount = entriesWithoutSchedules.filter(e => e.status === 'pago').length + 
+      const paidCount = transactionsWithoutSchedules.filter(e => e.status === 'pago').length + 
                         schedules.filter(s => s.status === 'pago').length;
 
       const metrics: DashboardMetrics = {
@@ -254,7 +254,7 @@ export function useDashboard(selectedMonth?: string) {
         expenses: totalExpenses,
         profit: received - totalExpenses,
         averageTicket: paidCount > 0 ? received / paidCount : 0,
-        totalEntries: entries.length,
+        totalEntries: transactions.length,
         upcomingValue,
         upcomingCount,
         overdueValue,
@@ -275,21 +275,21 @@ export function useDashboard(selectedMonth?: string) {
         chartDataMap.set(dateStr, { date: dateStr, received: 0, pending: 0, overdue: 0 });
       }
 
-      // Aggregate entries without schedules
-      entriesWithoutSchedules.forEach(entry => {
-        if (entry.status === 'pago') {
-          const paymentDate = entry.payment_date || entry.date;
+      // Aggregate transactions without schedules
+      transactionsWithoutSchedules.forEach(transaction => {
+        if (transaction.status === 'pago') {
+          const paymentDate = transaction.payment_date || transaction.date;
           const point = chartDataMap.get(paymentDate);
-          if (point) point.received += entry.value;
-        } else if (entry.due_date) {
-          const dueDate = new Date(entry.due_date);
+          if (point) point.received += transaction.value;
+        } else if (transaction.due_date) {
+          const dueDate = new Date(transaction.due_date);
           dueDate.setHours(0, 0, 0, 0);
-          const point = chartDataMap.get(entry.due_date);
+          const point = chartDataMap.get(transaction.due_date);
           if (point) {
             if (dueDate < today) {
-              point.overdue += entry.value;
+              point.overdue += transaction.value;
             } else {
-              point.pending += entry.value;
+              point.pending += transaction.value;
             }
           }
         }
@@ -319,8 +319,8 @@ export function useDashboard(selectedMonth?: string) {
 
       return {
         metrics,
-        recentEntries: entries.slice(0, 5),
-        pendingEntries: entriesWithoutSchedules.filter(e => e.status === 'pendente').slice(0, 5),
+        recentEntries: transactions.slice(0, 5),
+        pendingEntries: transactionsWithoutSchedules.filter(e => e.status === 'pendente').slice(0, 5),
         chartData,
       };
     },

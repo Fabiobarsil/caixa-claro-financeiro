@@ -76,82 +76,6 @@ export type Database = {
           },
         ]
       }
-      entries: {
-        Row: {
-          account_id: string
-          client_id: string | null
-          created_at: string
-          date: string
-          due_date: string | null
-          id: string
-          notes: string | null
-          payment_date: string | null
-          payment_method: Database["public"]["Enums"]["payment_method"]
-          quantity: number
-          service_product_id: string | null
-          status: Database["public"]["Enums"]["entry_status"]
-          updated_at: string
-          user_id: string
-          value: number
-        }
-        Insert: {
-          account_id: string
-          client_id?: string | null
-          created_at?: string
-          date?: string
-          due_date?: string | null
-          id?: string
-          notes?: string | null
-          payment_date?: string | null
-          payment_method: Database["public"]["Enums"]["payment_method"]
-          quantity?: number
-          service_product_id?: string | null
-          status?: Database["public"]["Enums"]["entry_status"]
-          updated_at?: string
-          user_id: string
-          value: number
-        }
-        Update: {
-          account_id?: string
-          client_id?: string | null
-          created_at?: string
-          date?: string
-          due_date?: string | null
-          id?: string
-          notes?: string | null
-          payment_date?: string | null
-          payment_method?: Database["public"]["Enums"]["payment_method"]
-          quantity?: number
-          service_product_id?: string | null
-          status?: Database["public"]["Enums"]["entry_status"]
-          updated_at?: string
-          user_id?: string
-          value?: number
-        }
-        Relationships: [
-          {
-            foreignKeyName: "entries_account_id_fkey"
-            columns: ["account_id"]
-            isOneToOne: false
-            referencedRelation: "accounts"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "entries_client_id_fkey"
-            columns: ["client_id"]
-            isOneToOne: false
-            referencedRelation: "clients"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "entries_service_product_id_fkey"
-            columns: ["service_product_id"]
-            isOneToOne: false
-            referencedRelation: "services_products"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       entry_schedules: {
         Row: {
           account_id: string
@@ -216,10 +140,10 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "entry_schedules_entry_id_fkey"
+            foreignKeyName: "entry_schedules_transaction_id_fkey"
             columns: ["entry_id"]
             isOneToOne: false
-            referencedRelation: "entries"
+            referencedRelation: "transactions"
             referencedColumns: ["id"]
           },
         ]
@@ -524,6 +448,91 @@ export type Database = {
           },
         ]
       }
+      transactions: {
+        Row: {
+          account_id: string
+          amount: number
+          category: Database["public"]["Enums"]["transaction_category"] | null
+          client_id: string | null
+          created_at: string
+          date: string
+          description: string | null
+          due_date: string | null
+          id: string
+          notes: string | null
+          payment_date: string | null
+          payment_method: Database["public"]["Enums"]["payment_method"]
+          quantity: number
+          service_product_id: string | null
+          status: Database["public"]["Enums"]["entry_status"]
+          type: Database["public"]["Enums"]["transaction_type"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          account_id: string
+          amount: number
+          category?: Database["public"]["Enums"]["transaction_category"] | null
+          client_id?: string | null
+          created_at?: string
+          date?: string
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          notes?: string | null
+          payment_date?: string | null
+          payment_method: Database["public"]["Enums"]["payment_method"]
+          quantity?: number
+          service_product_id?: string | null
+          status?: Database["public"]["Enums"]["entry_status"]
+          type?: Database["public"]["Enums"]["transaction_type"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          account_id?: string
+          amount?: number
+          category?: Database["public"]["Enums"]["transaction_category"] | null
+          client_id?: string | null
+          created_at?: string
+          date?: string
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          notes?: string | null
+          payment_date?: string | null
+          payment_method?: Database["public"]["Enums"]["payment_method"]
+          quantity?: number
+          service_product_id?: string | null
+          status?: Database["public"]["Enums"]["entry_status"]
+          type?: Database["public"]["Enums"]["transaction_type"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transactions_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_service_product_id_fkey"
+            columns: ["service_product_id"]
+            isOneToOne: false
+            referencedRelation: "services_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           id: string
@@ -565,6 +574,8 @@ export type Database = {
       item_type: "servico" | "produto"
       payment_method: "dinheiro" | "pix" | "cartao_credito" | "cartao_debito"
       schedule_type: "single" | "installment" | "monthly_package"
+      transaction_category: "servico" | "produto" | "outro"
+      transaction_type: "entrada" | "saida"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -698,6 +709,8 @@ export const Constants = {
       item_type: ["servico", "produto"],
       payment_method: ["dinheiro", "pix", "cartao_credito", "cartao_debito"],
       schedule_type: ["single", "installment", "monthly_package"],
+      transaction_category: ["servico", "produto", "outro"],
+      transaction_type: ["entrada", "saida"],
     },
   },
 } as const

@@ -24,9 +24,9 @@ export function useUserStats() {
         .maybeSingle();
 
       // RLS handles filtering by account_id
-      // Fetch total entries count
-      const { count: entriesCount } = await supabase
-        .from('entries')
+      // Fetch total transactions count
+      const { count: transactionsCount } = await supabase
+        .from('transactions')
         .select('*', { count: 'exact', head: true });
 
       // Fetch total clients count
@@ -34,23 +34,23 @@ export function useUserStats() {
         .from('clients')
         .select('*', { count: 'exact', head: true });
 
-      // Fetch total movimentado (sum of all entry values)
-      const { data: entriesData } = await supabase
-        .from('entries')
-        .select('value, status');
+      // Fetch total movimentado (sum of all transaction amounts)
+      const { data: transactionsData } = await supabase
+        .from('transactions')
+        .select('amount, status');
 
-      const totalMovimentado = (entriesData || []).reduce(
-        (sum, entry) => sum + Number(entry.value),
+      const totalMovimentado = (transactionsData || []).reduce(
+        (sum, transaction) => sum + Number(transaction.amount),
         0
       );
 
-      const hasFirstPayment = (entriesData || []).some(
-        entry => entry.status === 'pago'
+      const hasFirstPayment = (transactionsData || []).some(
+        transaction => transaction.status === 'pago'
       );
 
       return {
         accountCreatedAt: profile?.created_at || null,
-        totalEntries: entriesCount || 0,
+        totalEntries: transactionsCount || 0,
         totalClients: clientsCount || 0,
         totalMovimentado,
         hasFirstPayment,

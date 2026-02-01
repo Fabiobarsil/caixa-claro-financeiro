@@ -206,16 +206,19 @@ export default function NewEntry() {
       // Calculate effective due date for single payments
       const entryDueDate = billingType === 'single' && finalStatus === 'pendente' ? dueDate : null;
       
-      // Create the base entry with account_id
-      const { data: entryData, error: entryError } = await supabase
-        .from('entries')
+      // Create the base transaction with account_id
+      const { data: transactionData, error: transactionError } = await supabase
+        .from('transactions')
         .insert({
           user_id: user.id,
-          account_id: accountId, // CRITICAL: Include account_id for multi-tenant
+          account_id: accountId,
           client_id: clientId,
           service_product_id: itemId,
           quantity: parseInt(quantity) || 1,
-          value: totalValue,
+          amount: totalValue,
+          type: 'entrada',
+          category: itemType === 'servico' ? 'servico' : 'produto',
+          description: selectedItem?.name || null,
           payment_method: paymentMethod,
           status: finalStatus,
           date: date,
@@ -225,12 +228,12 @@ export default function NewEntry() {
         .select()
         .single();
 
-      if (entryError) throw entryError;
+      if (transactionError) throw transactionError;
 
       // Create schedules if installment or monthly package
       if (billingType === 'installment' && finalStatus === 'pendente') {
         await createSchedules.mutateAsync({
-          entry_id: entryData.id,
+          entry_id: transactionData.id,
           schedule_type: 'installment',
           total_value: totalValue,
           installments_total: parseInt(installmentsTotal) || 1,
@@ -239,7 +242,7 @@ export default function NewEntry() {
         });
       } else if (billingType === 'monthly_package' && finalStatus === 'pendente') {
         await createSchedules.mutateAsync({
-          entry_id: entryData.id,
+          entry_id: transactionData.id,
           schedule_type: 'monthly_package',
           total_value: totalValue,
           installments_total: parseInt(monthsTotal) || 1,

@@ -171,7 +171,7 @@ export function useFinancialSnapshot(timeWindow: TimeWindow): UseFinancialSnapsh
           paid_at,
           status,
           amount,
-          entries!inner (
+          transactions!inner (
             client_id,
             clients (
               id,
@@ -198,7 +198,7 @@ export function useFinancialSnapshot(timeWindow: TimeWindow): UseFinancialSnapsh
           paid_at,
           status,
           amount,
-          entries!inner (
+          transactions!inner (
             client_id,
             clients (
               id,
@@ -211,13 +211,13 @@ export function useFinancialSnapshot(timeWindow: TimeWindow): UseFinancialSnapsh
 
       if (pendingSchedulesError) throw pendingSchedulesError;
 
-      // Entries sem schedules (para compatibilidade)
-      const { data: entriesData, error: entriesError } = await supabase
-        .from('entries')
+      // Transactions sem schedules (para compatibilidade)
+      const { data: transactionsData, error: transactionsError } = await supabase
+        .from('transactions')
         .select(`
           id,
           client_id,
-          value,
+          amount,
           status,
           date,
           due_date,
@@ -230,22 +230,22 @@ export function useFinancialSnapshot(timeWindow: TimeWindow): UseFinancialSnapsh
         .gte('date', startDate)
         .lte('date', endDate);
 
-      if (entriesError) throw entriesError;
+      if (transactionsError) throw transactionsError;
 
-      // Verificar quais entries têm schedules
-      const entryIds = (entriesData || []).map(e => e.id);
-      const { data: schedulesForEntries } = await supabase
+      // Verificar quais transactions têm schedules
+      const transactionIds = (transactionsData || []).map(e => e.id);
+      const { data: schedulesForTransactions } = await supabase
         .from('entry_schedules')
         .select('entry_id')
-        .in('entry_id', entryIds.length > 0 ? entryIds : ['']);
+        .in('entry_id', transactionIds.length > 0 ? transactionIds : ['']);
 
-      const entryIdsWithSchedules = new Set(
-        (schedulesForEntries || []).map(s => s.entry_id)
+      const transactionIdsWithSchedules = new Set(
+        (schedulesForTransactions || []).map(s => s.entry_id)
       );
 
-      // Entries sem schedules
-      const entriesWithoutSchedules = (entriesData || []).filter(
-        e => !entryIdsWithSchedules.has(e.id)
+      // Transactions sem schedules
+      const transactionsWithoutSchedules = (transactionsData || []).filter(
+        e => !transactionIdsWithSchedules.has(e.id)
       );
 
       // Despesas no período
@@ -273,14 +273,14 @@ export function useFinancialSnapshot(timeWindow: TimeWindow): UseFinancialSnapsh
         totalAtendimentos++;
       });
 
-      // De entries sem schedules
-      entriesWithoutSchedules
+      // De transactions sem schedules
+      transactionsWithoutSchedules
         .filter(e => e.status === 'pago')
         .forEach(e => {
           // Verificar se payment_date está no período
           const paymentDate = e.payment_date || e.date;
           if (paymentDate >= startDate && paymentDate <= endDate) {
-            recebido += Number(e.value);
+            recebido += Number(e.amount);
             totalAtendimentos++;
           }
         });
@@ -293,10 +293,10 @@ export function useFinancialSnapshot(timeWindow: TimeWindow): UseFinancialSnapsh
           aReceber += Number(s.amount);
         });
 
-      entriesWithoutSchedules
+      transactionsWithoutSchedules
         .filter(e => e.status === 'pendente' && e.due_date && e.due_date >= todayStr)
         .forEach(e => {
-          aReceber += Number(e.value);
+          aReceber += Number(e.amount);
         });
 
       // EM_ATRASO (pendentes com vencimento < hoje)
@@ -307,10 +307,10 @@ export function useFinancialSnapshot(timeWindow: TimeWindow): UseFinancialSnapsh
           emAtraso += Number(s.amount);
         });
 
-      entriesWithoutSchedules
+      transactionsWithoutSchedules
         .filter(e => e.status === 'pendente' && e.due_date && e.due_date < todayStr)
         .forEach(e => {
-          emAtraso += Number(e.value);
+          emAtraso += Number(e.amount);
         });
 
       // DESPESAS_PAGAS
@@ -390,29 +390,28 @@ export function useFinancialSnapshot(timeWindow: TimeWindow): UseFinancialSnapsh
         }
       });
 
-      // Agregar entries sem schedules pagos
-      entriesWithoutSchedules
+      // Agregar transactions sem schedules pagos
+      transactionsWithoutSchedules
         .filter(e => e.status === 'pago')
         .forEach(e => {
           const paymentDate = e.payment_date || e.date;
           if (paymentDate >= startDate && paymentDate <= endDate) {
             const point = dailyData.get(paymentDate);
             if (point) {
-              point.recebido += Number(e.value);
+              point.recebido += Number(e.amount);
             }
           }
         });
 
-      // Agregar entries sem schedules pendentes por data de vencimento
-      // Se a due_date estiver fora do período, agregar no último dia do período
-      entriesWithoutSchedules
+      // Agregar transactions sem schedules pendentes por data de vencimento
+      transactionsWithoutSchedules
         .filter(e => e.status === 'pendente' && e.due_date)
         .forEach(e => {
           const dueDate = e.due_date!;
           const targetDate = (dueDate >= startDate && dueDate <= endDate) ? dueDate : lastDayStr;
           const point = dailyData.get(targetDate);
           if (point) {
-            point.a_receber += Number(e.value);
+            point.a_receber += Number(e.amount);
           }
         });
 
@@ -464,11 +463,11 @@ export function useFinancialSnapshot(timeWindow: TimeWindow): UseFinancialSnapsh
       (pendingSchedules || [])
         .filter(s => s.due_date < todayStr)
         .forEach(s => {
-          const clientId = (s.entries as any)?.client_id;
+          const clientId = (s.transactions as any)?.client_id;
           if (clientId) clientesInadimplentes.add(clientId);
         });
 
-      entriesWithoutSchedules
+      transactionsWithoutSchedules
         .filter(e => e.status === 'pendente' && e.due_date && e.due_date < todayStr)
         .forEach(e => {
           if (e.client_id) clientesInadimplentes.add(e.client_id);
@@ -513,10 +512,10 @@ export function useFinancialSnapshot(timeWindow: TimeWindow): UseFinancialSnapsh
         dueDate.setHours(0, 0, 0, 0);
         const diffTime = dueDate.getTime() - today.getTime();
         const daysUntilDue = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        const clientData = (s.entries as any)?.clients;
+        const clientData = (s.transactions as any)?.clients;
 
         allPendingItems.push({
-          id: (s.entries as any)?.id || s.entry_id,
+          id: (s.transactions as any)?.id || s.entry_id,
           scheduleId: s.id,
           clientName: clientData?.name || 'Cliente não identificado',
           value: Number(s.amount),
@@ -526,8 +525,8 @@ export function useFinancialSnapshot(timeWindow: TimeWindow): UseFinancialSnapsh
         });
       });
 
-      // De entries sem schedules
-      entriesWithoutSchedules
+      // De transactions sem schedules
+      transactionsWithoutSchedules
         .filter(e => e.status === 'pendente' && e.due_date)
         .forEach(e => {
           const dueDate = new Date(e.due_date!);
@@ -539,7 +538,7 @@ export function useFinancialSnapshot(timeWindow: TimeWindow): UseFinancialSnapsh
           allPendingItems.push({
             id: e.id,
             clientName: clientData?.name || 'Cliente não identificado',
-            value: Number(e.value),
+            value: Number(e.amount),
             dueDate: e.due_date!,
             daysUntilDue,
             isOverdue: daysUntilDue < 0,

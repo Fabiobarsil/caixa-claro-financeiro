@@ -36,19 +36,19 @@ export function useClients() {
 
       if (error) throw error;
 
-      // Fetch entries to calculate stats (also filtered by RLS)
-      const { data: entries } = await supabase
-        .from('entries')
-        .select('client_id, value, status');
+      // Fetch transactions to calculate stats (also filtered by RLS)
+      const { data: transactions } = await supabase
+        .from('transactions')
+        .select('client_id, amount, status');
 
       const clientStats = (clients || []).map(client => {
-        const clientEntries = (entries || []).filter(e => e.client_id === client.id);
-        const paidEntries = clientEntries.filter(e => e.status === 'pago');
+        const clientTransactions = (transactions || []).filter(e => e.client_id === client.id);
+        const paidTransactions = clientTransactions.filter(e => e.status === 'pago');
         
         return {
           ...client,
-          totalPaid: paidEntries.reduce((sum, e) => sum + Number(e.value), 0),
-          totalEntries: clientEntries.length,
+          totalPaid: paidTransactions.reduce((sum, e) => sum + Number(e.amount), 0),
+          totalEntries: clientTransactions.length,
         };
       });
 

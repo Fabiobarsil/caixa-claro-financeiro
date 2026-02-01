@@ -55,15 +55,15 @@ export function useBIData(timeWindow: TimeWindow) {
     queryFn: async () => {
       const todayStr = format(today, 'yyyy-MM-dd');
 
-      // Fetch entries in the time window
-      const { data: entriesData, error: entriesError } = await supabase
-        .from('entries')
+      // Fetch transactions in the time window
+      const { data: transactionsData, error: transactionsError } = await supabase
+        .from('transactions')
         .select('*')
         .gte('date', startDate)
         .lte('date', endDate)
         .order('date', { ascending: false });
 
-      if (entriesError) throw entriesError;
+      if (transactionsError) throw transactionsError;
 
       // Fetch expenses in the time window
       const { data: expensesData, error: expensesError } = await supabase
@@ -97,49 +97,49 @@ export function useBIData(timeWindow: TimeWindow) {
       // Combine both sets of schedules
       const schedulesInWindow = [...(paidSchedulesInWindow || []), ...(pendingSchedules || [])];
 
-      // Fetch all entry_ids that have any schedules
-      const entryIds = (entriesData || []).map(e => e.id);
-      const { data: allSchedulesForEntries } = await supabase
+      // Fetch all transaction_ids that have any schedules
+      const transactionIds = (transactionsData || []).map(e => e.id);
+      const { data: allSchedulesForTransactions } = await supabase
         .from('entry_schedules')
         .select('entry_id')
-        .in('entry_id', entryIds.length > 0 ? entryIds : ['']);
+        .in('entry_id', transactionIds.length > 0 ? transactionIds : ['']);
 
-      // Set of entry_ids that have schedules
-      const entryIdsWithSchedules = new Set(
-        (allSchedulesForEntries || []).map(s => s.entry_id)
+      // Set of transaction_ids that have schedules
+      const transactionIdsWithSchedules = new Set(
+        (allSchedulesForTransactions || []).map(s => s.entry_id)
       );
 
       const schedules = (schedulesInWindow || []) as ScheduleRow[];
 
-      // Entries WITHOUT any schedules (use entry values)
-      const entriesWithoutSchedules = (entriesData || []).filter(e => !entryIdsWithSchedules.has(e.id));
+      // Transactions WITHOUT any schedules (use transaction values)
+      const transactionsWithoutSchedules = (transactionsData || []).filter(e => !transactionIdsWithSchedules.has(e.id));
 
       // ===== RECEBIDO (Received) =====
-      const paidEntriesValue = entriesWithoutSchedules
+      const paidTransactionsValue = transactionsWithoutSchedules
         .filter(e => e.status === 'pago')
-        .reduce((sum, e) => sum + Number(e.value), 0);
+        .reduce((sum, e) => sum + Number(e.amount), 0);
 
       const paidSchedulesValue = schedules
         .filter(s => s.status === 'pago')
         .reduce((sum, s) => sum + Number(s.amount), 0);
 
-      const received = paidEntriesValue + paidSchedulesValue;
+      const received = paidTransactionsValue + paidSchedulesValue;
 
       // ===== A RECEBER (Pending) =====
-      const pendingEntriesValue = entriesWithoutSchedules
+      const pendingTransactionsValue = transactionsWithoutSchedules
         .filter(e => e.status === 'pendente')
-        .reduce((sum, e) => sum + Number(e.value), 0);
+        .reduce((sum, e) => sum + Number(e.amount), 0);
 
       const pendingSchedulesValue = schedules
         .filter(s => s.status === 'pendente')
         .reduce((sum, s) => sum + Number(s.amount), 0);
 
-      const pending = pendingEntriesValue + pendingSchedulesValue;
+      const pending = pendingTransactionsValue + pendingSchedulesValue;
 
       const totalExpenses = (expensesData || []).reduce((sum, e) => sum + Number(e.value), 0);
 
       // Calculate average ticket
-      const paidCount = entriesWithoutSchedules.filter(e => e.status === 'pago').length + 
+      const paidCount = transactionsWithoutSchedules.filter(e => e.status === 'pago').length + 
                         schedules.filter(s => s.status === 'pago').length;
 
       const metrics: BIMetrics = {
@@ -148,7 +148,7 @@ export function useBIData(timeWindow: TimeWindow) {
         expenses: totalExpenses,
         profit: received - totalExpenses,
         averageTicket: paidCount > 0 ? received / paidCount : 0,
-        totalEntries: (entriesData || []).length,
+        totalEntries: (transactionsData || []).length,
       };
 
       // Build chart data for each day in the window
@@ -164,21 +164,21 @@ export function useBIData(timeWindow: TimeWindow) {
         chartDataMap.set(dateStr, { date: dateStr, received: 0, pending: 0, overdue: 0 });
       });
 
-      // Aggregate entries without schedules
-      entriesWithoutSchedules.forEach(entry => {
-        if (entry.status === 'pago') {
-          const paymentDate = entry.payment_date || entry.date;
+      // Aggregate transactions without schedules
+      transactionsWithoutSchedules.forEach(transaction => {
+        if (transaction.status === 'pago') {
+          const paymentDate = transaction.payment_date || transaction.date;
           const point = chartDataMap.get(paymentDate);
-          if (point) point.received += Number(entry.value);
-        } else if (entry.due_date) {
-          const dueDate = new Date(entry.due_date);
+          if (point) point.received += Number(transaction.amount);
+        } else if (transaction.due_date) {
+          const dueDate = new Date(transaction.due_date);
           dueDate.setHours(0, 0, 0, 0);
-          const point = chartDataMap.get(entry.due_date);
+          const point = chartDataMap.get(transaction.due_date);
           if (point) {
             if (dueDate < today) {
-              point.overdue += Number(entry.value);
+              point.overdue += Number(transaction.amount);
             } else {
-              point.pending += Number(entry.value);
+              point.pending += Number(transaction.amount);
             }
           }
         }
