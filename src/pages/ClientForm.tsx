@@ -20,8 +20,9 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { ArrowLeft, Trash2 } from 'lucide-react';
+import { ArrowLeft, Trash2, Plus } from 'lucide-react';
 import { toast } from 'sonner';
+import ClientTransactionsList from '@/components/client/ClientTransactionsList';
 
 export default function ClientForm() {
   const navigate = useNavigate();
@@ -148,140 +149,160 @@ export default function ClientForm() {
     );
   }
 
+  const handleNewEntry = () => {
+    navigate(`/lancamentos/novo?clientId=${editId}`);
+  };
+
   return (
     <AppLayout>
       <div className="flex justify-center pb-8">
-        {/* Form Container */}
-        <div className="w-full max-w-[720px] bg-card rounded-xl border border-border shadow-sm">
-          {/* Header */}
-          <div className="p-5 border-b border-border">
-            <button
-              onClick={handleBack}
-              className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-4"
-            >
-              <ArrowLeft size={16} />
-              Voltar
-            </button>
-            <h1 className="text-xl font-bold text-foreground">
-              {isEditing ? 'Editar Cliente' : 'Novo Cliente'}
-            </h1>
-            <p className="text-sm text-muted-foreground mt-1">
-              {isEditing 
-                ? 'Atualize os dados do cliente.'
-                : 'Cadastre um cliente para organizar seus recebimentos.'}
-            </p>
-          </div>
-
-          {/* Form Body */}
-          <div className="p-5 space-y-5">
-            {/* Name */}
-            <div className="space-y-1.5">
-              <Label htmlFor="name" className="text-sm">Nome *</Label>
-              <Input
-                id="name"
-                value={name}
-                onChange={(e) => setName(capitalizeWords(e.target.value))}
-                placeholder="Nome do cliente"
-                className="h-11 max-w-md"
-              />
+        <div className="w-full max-w-[720px] space-y-4">
+          {/* Form Container */}
+          <div className="bg-card rounded-xl border border-border shadow-sm">
+            {/* Header */}
+            <div className="p-5 border-b border-border">
+              <button
+                onClick={handleBack}
+                className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-4"
+              >
+                <ArrowLeft size={16} />
+                Voltar
+              </button>
+              <h1 className="text-xl font-bold text-foreground">
+                {isEditing ? 'Editar Cliente' : 'Novo Cliente'}
+              </h1>
+              <p className="text-sm text-muted-foreground mt-1">
+                {isEditing 
+                  ? 'Atualize os dados do cliente.'
+                  : 'Cadastre um cliente para organizar seus recebimentos.'}
+              </p>
             </div>
 
-            {/* Phone */}
-            <div className="space-y-1.5">
-              <Label htmlFor="phone" className="text-sm">Telefone / WhatsApp</Label>
-              <Input
-                id="phone"
-                type="tel"
-                value={phone}
-                onChange={(e) => setPhone(formatPhone(e.target.value))}
-                placeholder="(11) 99999-9999"
-                className="h-11 max-w-[240px]"
-              />
-            </div>
-
-            {/* Email */}
-            <div className="space-y-1.5">
-              <Label htmlFor="email" className="text-sm">E-mail</Label>
-              <Input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="email@exemplo.com"
-                className="h-11 max-w-md"
-              />
-            </div>
-
-            {/* Notes */}
-            {isEditing && (
+            {/* Form Body */}
+            <div className="p-5 space-y-5">
+              {/* Name */}
               <div className="space-y-1.5">
-                <Label htmlFor="notes" className="text-sm">Observações</Label>
-                <Textarea
-                  id="notes"
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  placeholder="Anotações sobre o cliente..."
-                  className="resize-none max-w-md min-h-[72px]"
-                  rows={2}
+                <Label htmlFor="name" className="text-sm">Nome *</Label>
+                <Input
+                  id="name"
+                  value={name}
+                  onChange={(e) => setName(capitalizeWords(e.target.value))}
+                  placeholder="Nome do cliente"
+                  className="h-11 max-w-md"
                 />
               </div>
-            )}
-          </div>
 
-          {/* Footer Actions */}
-          <div className="p-5 border-t border-border flex items-center justify-between">
-            {/* Delete button (left side, only for editing) */}
-            <div>
-              {isEditing && isAdmin && (
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                      disabled={isSubmitting}
-                    >
-                      <Trash2 className="mr-1.5 h-4 w-4" />
-                      Excluir
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Excluir cliente?</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        Esta ação não pode ser desfeita. O cliente "{name}" será removido permanentemente.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                      <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">
-                        Excluir
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
+              {/* Phone */}
+              <div className="space-y-1.5">
+                <Label htmlFor="phone" className="text-sm">Telefone / WhatsApp</Label>
+                <Input
+                  id="phone"
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(formatPhone(e.target.value))}
+                  placeholder="(11) 99999-9999"
+                  className="h-11 max-w-[240px]"
+                />
+              </div>
+
+              {/* Email */}
+              <div className="space-y-1.5">
+                <Label htmlFor="email" className="text-sm">E-mail</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="email@exemplo.com"
+                  className="h-11 max-w-md"
+                />
+              </div>
+
+              {/* Notes */}
+              {isEditing && (
+                <div className="space-y-1.5">
+                  <Label htmlFor="notes" className="text-sm">Observações</Label>
+                  <Textarea
+                    id="notes"
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    placeholder="Anotações sobre o cliente..."
+                    className="resize-none max-w-md min-h-[72px]"
+                    rows={2}
+                  />
+                </div>
               )}
             </div>
 
-            {/* Main actions (right side) */}
-            <div className="flex items-center gap-3">
-              <Button
-                variant="ghost"
-                onClick={handleBack}
-                disabled={isSubmitting || isCreating}
-              >
-                Cancelar
-              </Button>
-              <Button
-                onClick={handleSubmit}
-                disabled={!isValid || isSubmitting || isCreating}
-                loading={isSubmitting || isCreating}
-                loadingText="Salvando..."
-              >
-                Salvar
-              </Button>
+            {/* Footer Actions */}
+            <div className="p-5 border-t border-border flex items-center justify-between">
+              {/* Delete button (left side, only for editing) */}
+              <div>
+                {isEditing && isAdmin && (
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                        disabled={isSubmitting}
+                      >
+                        <Trash2 className="mr-1.5 h-4 w-4" />
+                        Excluir
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Excluir cliente?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Esta ação não pode ser desfeita. O cliente "{name}" será removido permanentemente.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">
+                          Excluir
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                )}
+              </div>
+
+              {/* Main actions (right side) */}
+              <div className="flex items-center gap-3">
+                <Button
+                  variant="ghost"
+                  onClick={handleBack}
+                  disabled={isSubmitting || isCreating}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  onClick={handleSubmit}
+                  disabled={!isValid || isSubmitting || isCreating}
+                  loading={isSubmitting || isCreating}
+                  loadingText="Salvando..."
+                >
+                  Salvar
+                </Button>
+              </div>
             </div>
           </div>
+
+          {/* Transactions Section - Only show when editing */}
+          {isEditing && editId && (
+            <div className="bg-card rounded-xl border border-border shadow-sm p-5">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold text-foreground">Lançamentos</h2>
+                <Button size="sm" onClick={handleNewEntry}>
+                  <Plus className="mr-1.5 h-4 w-4" />
+                  Novo Lançamento
+                </Button>
+              </div>
+              <ClientTransactionsList clientId={editId} />
+            </div>
+          )}
         </div>
       </div>
     </AppLayout>
