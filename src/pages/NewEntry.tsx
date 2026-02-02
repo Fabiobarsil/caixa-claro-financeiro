@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useServicesProducts } from '@/hooks/useServicesProducts';
 import { useClients } from '@/hooks/useClients';
 import { useAuth } from '@/contexts/AuthContext';
@@ -26,6 +26,8 @@ import EntrySummary from '@/components/entry/EntrySummary';
 import ItemSelector from '@/components/entry/ItemSelector';
 import InstallmentOptions from '@/components/entry/InstallmentOptions';
 import MonthlyPackageOptions from '@/components/entry/MonthlyPackageOptions';
+import ClientSelector from '@/components/entry/ClientSelector';
+import QuickClientDrawer from '@/components/entry/QuickClientDrawer';
 
 type PaymentMethod = 'pix' | 'cartao_credito' | 'cartao_debito' | 'dinheiro';
 type PaymentStatus = 'pago' | 'pendente';
@@ -33,14 +35,18 @@ type ItemType = 'servico' | 'produto';
 
 export default function NewEntry() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { user, accountId } = useAuth();
   const { requireSubscriptionForCreate } = useSubscriptionContext();
-  const { clients, isLoading: clientsLoading } = useClients();
+  const { clients, isLoading: clientsLoading, refetch: refetchClients } = useClients();
   const { items: servicesProducts, isLoading: itemsLoading } = useServicesProducts();
   const { createSchedules } = useEntrySchedules();
   
+  // Pre-select client from URL if provided
+  const urlClientId = searchParams.get('clientId');
+  
   // Form state
-  const [clientId, setClientId] = useState('');
+  const [clientId, setClientId] = useState(urlClientId || '');
   const [itemType, setItemType] = useState<ItemType>('servico');
   const [itemId, setItemId] = useState('');
   const [quantity, setQuantity] = useState('1');
@@ -61,9 +67,19 @@ export default function NewEntry() {
   // Service/Product drawer state
   const [isServiceProductDrawerOpen, setIsServiceProductDrawerOpen] = useState(false);
   const [pendingItemSelection, setPendingItemSelection] = useState<string | null>(null);
+  
+  // Quick client drawer state
+  const [isQuickClientDrawerOpen, setIsQuickClientDrawerOpen] = useState(false);
 
   // Validation state
   const [showValidation, setShowValidation] = useState(false);
+  
+  // Update clientId from URL when it changes
+  useEffect(() => {
+    if (urlClientId && !clientId) {
+      setClientId(urlClientId);
+    }
+  }, [urlClientId]);
 
   // Update default due date when entry date changes
   useEffect(() => {
@@ -291,24 +307,18 @@ export default function NewEntry() {
             {/* Cliente */}
             <div className="space-y-1.5">
               <Label className="text-sm">Cliente *</Label>
-              <Select value={clientId} onValueChange={setClientId} disabled={isLoading}>
-                <SelectTrigger className={cn(
-                  "h-11 bg-background max-w-md",
-                  showValidation && !clientId && "border-destructive"
-                )}>
-                  <SelectValue placeholder={clientsLoading ? "Carregando..." : "Selecione o cliente"} />
-                </SelectTrigger>
-                <SelectContent>
-                  {clients.map((client) => (
-                    <SelectItem key={client.id} value={client.id}>
-                      {client.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="max-w-md">
+                <ClientSelector
+                  value={clientId}
+                  onChange={setClientId}
+                  onCreateNew={() => setIsQuickClientDrawerOpen(true)}
+                  showValidation={showValidation}
+                  disabled={isLoading}
+                />
+              </div>
               {clients.length === 0 && !clientsLoading && (
                 <p className="text-xs text-muted-foreground">
-                  Nenhum cliente cadastrado. Adicione um cliente primeiro.
+                  Nenhum cliente cadastrado. Clique em "Criar novo cliente" acima.
                 </p>
               )}
             </div>
@@ -551,6 +561,16 @@ export default function NewEntry() {
         onClose={handleServiceProductDrawerClose}
         editingItem={null}
         onItemCreated={(itemName) => setPendingItemSelection(itemName)}
+      />
+      
+      {/* Quick Client Creation Drawer */}
+      <QuickClientDrawer
+        open={isQuickClientDrawerOpen}
+        onOpenChange={setIsQuickClientDrawerOpen}
+        onClientCreated={async (newClientId) => {
+          await refetchClients();
+          setClientId(newClientId);
+        }}
       />
     </div>
   );
