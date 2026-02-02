@@ -91,7 +91,8 @@ export function useClients() {
     clients: clientsQuery.data || [],
     isLoading: clientsQuery.isLoading,
     error: clientsQuery.error,
-    createClient: createClientMutation.mutate,
+    createClient: createClientMutation.mutateAsync,
     isCreating: createClientMutation.isPending,
+    refetch: clientsQuery.refetch,
   };
 }
