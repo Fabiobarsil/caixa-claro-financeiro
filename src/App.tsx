@@ -5,7 +5,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth, isSupabaseConfigured, supabaseConnectionError } from "@/contexts/AuthContext";
 import { SubscriptionProvider } from "@/contexts/SubscriptionContext";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, Loader2 } from "lucide-react";
+import { useAdminExists } from "@/hooks/useAdminExists";
 
 import Login from "./pages/Login";
 import FirstAccess from "./pages/FirstAccess";
@@ -53,26 +54,45 @@ const queryClient = new QueryClient();
 
 function AppRoutes() {
   const { isAuthenticated, isAuthReady, isLoading } = useAuth();
+  const { adminExists, isLoading: isAdminCheckLoading } = useAdminExists();
 
-  // Block all route rendering until auth is fully ready
-  if (!isAuthReady || isLoading) {
+  // Block all route rendering until auth and admin check are ready
+  if (!isAuthReady || isLoading || isAdminCheckLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-2">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
           <span className="text-sm text-muted-foreground">Carregando...</span>
         </div>
       </div>
     );
   }
 
+  // Determine root redirect based on admin existence and auth state
+  const getRootElement = () => {
+    if (isAuthenticated) {
+      return <Navigate to="/dashboard" replace />;
+    }
+    // If no admin exists, redirect to first-access for initial setup
+    if (!adminExists) {
+      return <Navigate to="/primeiro-acesso" replace />;
+    }
+    // Otherwise show login
+    return <Login />;
+  };
+
+  // Block first-access if admin already exists
+  const getFirstAccessElement = () => {
+    if (adminExists) {
+      return <Navigate to="/" replace />;
+    }
+    return <FirstAccess />;
+  };
+
   return (
     <Routes>
-      <Route 
-        path="/" 
-        element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <Login />} 
-      />
-      <Route path="/primeiro-acesso" element={<FirstAccess />} />
+      <Route path="/" element={getRootElement()} />
+      <Route path="/primeiro-acesso" element={getFirstAccessElement()} />
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/privacidade" element={<PrivacyPolicy />} />
       <Route path="/termos" element={<TermsOfUse />} />

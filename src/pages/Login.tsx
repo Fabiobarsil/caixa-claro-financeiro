@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Eye, EyeOff, Loader2, UserPlus } from 'lucide-react';
+import { Eye, EyeOff, Loader2, ExternalLink } from 'lucide-react';
 import { ForgotPasswordDialog } from '@/components/ForgotPasswordDialog';
 import iconCaixacertus from '@/assets/icon-caixacertus.svg';
 
@@ -129,17 +129,21 @@ export default function Login() {
             )}
           </Button>
 
-          {/* Link para primeiro acesso */}
+          {/* Link para página de vendas */}
           <div className="pt-4 border-t mt-6">
             <p className="text-sm text-muted-foreground text-center mb-3">
               Ainda não tem uma conta?
             </p>
-            <Link to="/primeiro-acesso">
+            <a 
+              href="https://certus.innoveservice.com.br/" 
+              target="_blank" 
+              rel="noopener noreferrer"
+            >
               <Button variant="outline" className="w-full">
-                <UserPlus className="mr-2 h-4 w-4" />
-                Criar primeira conta
+                <ExternalLink className="mr-2 h-4 w-4" />
+                Conheça o CaixaCertus
               </Button>
-            </Link>
+            </a>
           </div>
         </form>
       </div>

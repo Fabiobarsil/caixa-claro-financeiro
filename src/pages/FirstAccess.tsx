@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useAdminExists } from '@/hooks/useAdminExists';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -13,6 +14,7 @@ import { Link } from 'react-router-dom';
 export default function FirstAccess() {
   const navigate = useNavigate();
   const { isAuthenticated, accountId, isAuthReady } = useAuth();
+  const { adminExists, isLoading: isAdminCheckLoading } = useAdminExists();
   
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -20,6 +22,13 @@ export default function FirstAccess() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<{ name?: string; email?: string; password?: string; confirmPassword?: string }>({});
+
+  // Redirect if admin already exists (block access to first-access)
+  useEffect(() => {
+    if (!isAdminCheckLoading && adminExists) {
+      navigate('/', { replace: true });
+    }
+  }, [isAdminCheckLoading, adminExists, navigate]);
 
   // Redirect authenticated users with account to dashboard
   useEffect(() => {
@@ -113,8 +122,17 @@ export default function FirstAccess() {
     }
   };
 
-  // Show loading while checking auth state
-  if (!isAuthReady) {
+  // Show loading while checking auth state or admin existence
+  if (!isAuthReady || isAdminCheckLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  // Don't render if admin exists (redirect will happen via useEffect)
+  if (adminExists) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
