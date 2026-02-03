@@ -134,16 +134,16 @@ export default function Login() {
             <p className="text-sm text-muted-foreground text-center mb-3">
               Ainda não tem uma conta?
             </p>
+          <Button variant="outline" className="w-full" asChild>
             <a 
               href="https://certus.innoveservice.com.br/" 
               target="_blank" 
               rel="noopener noreferrer"
             >
-              <Button variant="outline" className="w-full">
-                <ExternalLink className="mr-2 h-4 w-4" />
-                Conheça o CaixaCertus
-              </Button>
+              <ExternalLink className="mr-2 h-4 w-4" />
+              Conheça o CaixaCertus
             </a>
+          </Button>
           </div>
         </form>
       </div>
