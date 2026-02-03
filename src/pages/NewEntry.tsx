@@ -9,7 +9,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import SmartValueInput from '@/components/ui/smart-value-input';
 import {
   Select,
   SelectContent,
@@ -23,7 +22,7 @@ import { toast } from 'sonner';
 import ServiceProductDrawer from '@/components/ServiceProductDrawer';
 import BillingTypeSelector, { BillingType } from '@/components/entry/BillingTypeSelector';
 import EntrySummary from '@/components/entry/EntrySummary';
-import ItemSelector from '@/components/entry/ItemSelector';
+import EntryItemsList, { EntryItem } from '@/components/entry/EntryItemsList';
 import InstallmentOptions from '@/components/entry/InstallmentOptions';
 import MonthlyPackageOptions from '@/components/entry/MonthlyPackageOptions';
 import ClientSelector from '@/components/entry/ClientSelector';
@@ -31,7 +30,6 @@ import QuickClientDrawer from '@/components/entry/QuickClientDrawer';
 
 type PaymentMethod = 'pix' | 'cartao_credito' | 'cartao_debito' | 'dinheiro';
 type PaymentStatus = 'pago' | 'pendente';
-type ItemType = 'servico' | 'produto';
 
 export default function NewEntry() {
   const navigate = useNavigate();
@@ -47,10 +45,7 @@ export default function NewEntry() {
   
   // Form state
   const [clientId, setClientId] = useState(urlClientId || '');
-  const [itemType, setItemType] = useState<ItemType>('servico');
-  const [itemId, setItemId] = useState('');
-  const [quantity, setQuantity] = useState('1');
-  const [unitValue, setUnitValue] = useState('');
+  const [entryItems, setEntryItems] = useState<EntryItem[]>([]);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('pix');
   const [status, setStatus] = useState<PaymentStatus>('pendente');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
@@ -88,22 +83,15 @@ export default function NewEntry() {
     setFirstDueDate(newDueDate);
   }, [date]);
 
-  // Get selected item details
-  const selectedItem = useMemo(() => {
-    return servicesProducts.find(s => s.id === itemId);
-  }, [servicesProducts, itemId]);
-
   // Get selected client name
   const selectedClient = useMemo(() => {
     return clients.find(c => c.id === clientId);
   }, [clients, clientId]);
 
-  // Calculate total
+  // Calculate total from all items
   const totalValue = useMemo(() => {
-    const qty = parseInt(quantity) || 0;
-    const unit = parseFloat(unitValue) || 0;
-    return qty * unit;
-  }, [quantity, unitValue]);
+    return entryItems.reduce((sum, item) => sum + (item.quantity * item.unitValue), 0);
+  }, [entryItems]);
 
   // Calculate installment value
   const installmentValue = useMemo(() => {
@@ -117,35 +105,26 @@ export default function NewEntry() {
     return totalValue / count;
   }, [totalValue, monthsTotal]);
 
-  // Reset item selection when type changes
-  useEffect(() => {
-    setItemId('');
-    setUnitValue('');
-  }, [itemType]);
-
-  // Auto-fill unit value when item is selected
-  const handleItemChange = (id: string) => {
-    setItemId(id);
-    const item = servicesProducts.find(s => s.id === id);
-    if (item) {
-      setUnitValue(item.base_price.toString());
-    }
-  };
-
   // Handle new service/product created from drawer
   const handleServiceProductDrawerClose = () => {
     setIsServiceProductDrawerOpen(false);
   };
 
-  // Watch for new items to auto-select after creation
+  // Watch for new items to auto-add after creation
   useEffect(() => {
     if (pendingItemSelection && servicesProducts.length > 0) {
       const newItem = servicesProducts.find(item => item.name === pendingItemSelection);
       if (newItem) {
-        setItemType(newItem.type);
-        setTimeout(() => {
-          handleItemChange(newItem.id);
-        }, 100);
+        // Auto-add the newly created item to the entry
+        const entryItem: EntryItem = {
+          id: crypto.randomUUID(),
+          serviceProductId: newItem.id,
+          name: newItem.name,
+          type: newItem.type,
+          quantity: 1,
+          unitValue: newItem.base_price,
+        };
+        setEntryItems(prev => [...prev, entryItem]);
         setPendingItemSelection(null);
       }
     }
@@ -155,13 +134,13 @@ export default function NewEntry() {
   const validationErrors = useMemo(() => {
     const errors: string[] = [];
     if (!clientId) errors.push('Selecione um cliente');
-    if (!itemId) errors.push('Selecione um item');
+    if (entryItems.length === 0) errors.push('Adicione ao menos um item');
     if (totalValue <= 0) errors.push('Informe o valor');
     if (status === 'pendente' && billingType === 'single' && !dueDate) {
       errors.push('Vencimento obrigatório para pendente');
     }
     return errors;
-  }, [clientId, itemId, totalValue, status, billingType, dueDate]);
+  }, [clientId, entryItems.length, totalValue, status, billingType, dueDate]);
 
   const isFormValid = validationErrors.length === 0;
 
@@ -222,49 +201,53 @@ export default function NewEntry() {
       // Calculate effective due date for single payments
       const entryDueDate = billingType === 'single' && finalStatus === 'pendente' ? dueDate : null;
       
-      // Create the base transaction with account_id
-      const { data: transactionData, error: transactionError } = await supabase
-        .from('transactions')
-        .insert({
-          user_id: user.id,
-          account_id: accountId,
-          client_id: clientId,
-          service_product_id: itemId,
-          quantity: parseInt(quantity) || 1,
-          amount: totalValue,
-          type: 'entrada',
-          category: itemType === 'servico' ? 'servico' : 'produto',
-          description: selectedItem?.name || null,
-          payment_method: paymentMethod,
-          status: finalStatus,
-          date: date,
-          due_date: entryDueDate,
-          payment_date: finalStatus === 'pago' ? today : null,
-        })
-        .select()
-        .single();
+      // Create one transaction per item
+      for (const item of entryItems) {
+        const itemTotal = item.quantity * item.unitValue;
+        
+        const { data: transactionData, error: transactionError } = await supabase
+          .from('transactions')
+          .insert({
+            user_id: user.id,
+            account_id: accountId,
+            client_id: clientId,
+            service_product_id: item.serviceProductId,
+            quantity: item.quantity,
+            amount: itemTotal,
+            type: 'entrada',
+            category: item.type === 'servico' ? 'servico' : 'produto',
+            description: item.name,
+            payment_method: paymentMethod,
+            status: finalStatus,
+            date: date,
+            due_date: entryDueDate,
+            payment_date: finalStatus === 'pago' ? today : null,
+          })
+          .select()
+          .single();
 
-      if (transactionError) throw transactionError;
+        if (transactionError) throw transactionError;
 
-      // Create schedules if installment or monthly package
-      if (billingType === 'installment' && finalStatus === 'pendente') {
-        await createSchedules.mutateAsync({
-          entry_id: transactionData.id,
-          schedule_type: 'installment',
-          total_value: totalValue,
-          installments_total: parseInt(installmentsTotal) || 1,
-          first_due_date: firstDueDate,
-          interval_days: parseInt(intervalDays) || 30,
-        });
-      } else if (billingType === 'monthly_package' && finalStatus === 'pendente') {
-        await createSchedules.mutateAsync({
-          entry_id: transactionData.id,
-          schedule_type: 'monthly_package',
-          total_value: totalValue,
-          installments_total: parseInt(monthsTotal) || 1,
-          first_due_date: firstDueDate,
-          interval_days: 30,
-        });
+        // Create schedules if installment or monthly package (only for pending)
+        if (billingType === 'installment' && finalStatus === 'pendente') {
+          await createSchedules.mutateAsync({
+            entry_id: transactionData.id,
+            schedule_type: 'installment',
+            total_value: itemTotal,
+            installments_total: parseInt(installmentsTotal) || 1,
+            first_due_date: firstDueDate,
+            interval_days: parseInt(intervalDays) || 30,
+          });
+        } else if (billingType === 'monthly_package' && finalStatus === 'pendente') {
+          await createSchedules.mutateAsync({
+            entry_id: transactionData.id,
+            schedule_type: 'monthly_package',
+            total_value: itemTotal,
+            installments_total: parseInt(monthsTotal) || 1,
+            first_due_date: firstDueDate,
+            interval_days: 30,
+          });
+        }
       }
 
       toast.success('Lançamento criado com sucesso!');
@@ -323,57 +306,15 @@ export default function NewEntry() {
               )}
             </div>
 
-            {/* Item Section */}
-            <ItemSelector
-              itemType={itemType}
-              setItemType={setItemType}
-              itemId={itemId}
-              onItemChange={handleItemChange}
-              items={servicesProducts}
+            {/* Items Section */}
+            <EntryItemsList
+              items={entryItems}
+              onItemsChange={setEntryItems}
+              servicesProducts={servicesProducts}
               isLoading={itemsLoading}
               onCreateNew={() => setIsServiceProductDrawerOpen(true)}
+              showValidation={showValidation}
             />
-
-            {/* Quantidade e Valor */}
-            <div className="bg-muted/30 rounded-lg p-4 space-y-3 max-w-md">
-              <h3 className="text-sm font-semibold text-foreground">Valores</h3>
-              
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label className="text-xs text-muted-foreground">
-                    Quantidade {itemType === 'produto' && '*'}
-                  </Label>
-                  <Input
-                    type="number"
-                    min="1"
-                    value={quantity}
-                    onChange={(e) => setQuantity(e.target.value)}
-                    className="h-11 bg-background"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs text-muted-foreground">Valor unit. (R$) *</Label>
-                  <SmartValueInput
-                    value={unitValue}
-                    onChange={setUnitValue}
-                    placeholder="0,00"
-                    className={cn(
-                      showValidation && !unitValue && "border-destructive"
-                    )}
-                  />
-                </div>
-              </div>
-
-              {/* Total */}
-              <div className="bg-background rounded-lg p-3 border border-border">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-muted-foreground">Total</span>
-                  <span className="text-lg font-bold text-foreground tabular-nums">
-                    R$ {totalValue.toFixed(2)}
-                  </span>
-                </div>
-              </div>
-            </div>
 
             {/* Forma de pagamento */}
             <div className="space-y-1.5">
@@ -489,11 +430,11 @@ export default function NewEntry() {
             )}
 
             {/* Summary - Show when form has minimum data */}
-            {(clientId || itemId) && totalValue > 0 && (
+            {(clientId || entryItems.length > 0) && totalValue > 0 && (
               <EntrySummary
                 clientName={selectedClient?.name}
-                itemName={selectedItem?.name}
-                itemType={selectedItem?.type}
+                itemName={entryItems.length === 1 ? entryItems[0].name : `${entryItems.length} itens`}
+                itemType={entryItems.length === 1 ? entryItems[0].type : undefined}
                 totalValue={totalValue}
                 billingType={billingType}
                 installments={effectiveInstallments}
