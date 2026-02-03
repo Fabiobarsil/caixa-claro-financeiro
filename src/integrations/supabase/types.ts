@@ -453,7 +453,7 @@ export type Database = {
           account_id: string
           amount: number
           category: Database["public"]["Enums"]["transaction_category"] | null
-          client_id: string | null
+          client_id: string
           created_at: string
           date: string
           description: string | null
@@ -473,7 +473,7 @@ export type Database = {
           account_id: string
           amount: number
           category?: Database["public"]["Enums"]["transaction_category"] | null
-          client_id?: string | null
+          client_id: string
           created_at?: string
           date?: string
           description?: string | null
@@ -493,7 +493,7 @@ export type Database = {
           account_id?: string
           amount?: number
           category?: Database["public"]["Enums"]["transaction_category"] | null
-          client_id?: string | null
+          client_id?: string
           created_at?: string
           date?: string
           description?: string | null
