@@ -25,6 +25,7 @@ import ResetPassword from "./pages/ResetPassword";
 import ProtectedRoute from "./components/ProtectedRoute";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsOfUse from "./pages/TermsOfUse";
+import AdminSubscriptions from "./pages/AdminSubscriptions";
 import LGPD from "./pages/LGPD";
 
 // Component to show configuration error
@@ -153,24 +154,32 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
-      <Route
-        path="/configuracoes/equipe"
-        element={
-          <ProtectedRoute requireAdmin>
-            <Team />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/servicos-produtos"
-        element={
-          <ProtectedRoute>
-            <ServicesProducts />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/servicos-produtos/novo"
+        <Route
+          path="/configuracoes/equipe"
+          element={
+            <ProtectedRoute requireAdmin>
+              <Team />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/configuracoes/assinaturas"
+          element={
+            <ProtectedRoute requireAdmin>
+              <AdminSubscriptions />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/servicos-produtos"
+          element={
+            <ProtectedRoute>
+              <ServicesProducts />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/servicos-produtos/novo"
         element={
           <ProtectedRoute>
             <ServiceProductForm />
