@@ -198,6 +198,8 @@ export type Database = {
       profiles: {
         Row: {
           account_id: string | null
+          company_name: string | null
+          cpf: string | null
           created_at: string
           email: string
           first_activity_at: string | null
@@ -206,7 +208,9 @@ export type Database = {
           is_system_admin: boolean
           name: string
           next_billing_date: string | null
+          onboarding_done: boolean
           paid_until: string | null
+          phone: string | null
           plan_type: string
           selected_plan: string | null
           subscription_expiration_date: string | null
@@ -214,6 +218,7 @@ export type Database = {
           subscription_source: string
           subscription_start_date: string | null
           subscription_status: string
+          terms_accepted_at: string | null
           trial_days: number
           trial_end_date: string | null
           trial_start_date: string | null
@@ -224,6 +229,8 @@ export type Database = {
         }
         Insert: {
           account_id?: string | null
+          company_name?: string | null
+          cpf?: string | null
           created_at?: string
           email: string
           first_activity_at?: string | null
@@ -232,7 +239,9 @@ export type Database = {
           is_system_admin?: boolean
           name: string
           next_billing_date?: string | null
+          onboarding_done?: boolean
           paid_until?: string | null
+          phone?: string | null
           plan_type?: string
           selected_plan?: string | null
           subscription_expiration_date?: string | null
@@ -240,6 +249,7 @@ export type Database = {
           subscription_source?: string
           subscription_start_date?: string | null
           subscription_status?: string
+          terms_accepted_at?: string | null
           trial_days?: number
           trial_end_date?: string | null
           trial_start_date?: string | null
@@ -250,6 +260,8 @@ export type Database = {
         }
         Update: {
           account_id?: string | null
+          company_name?: string | null
+          cpf?: string | null
           created_at?: string
           email?: string
           first_activity_at?: string | null
@@ -258,7 +270,9 @@ export type Database = {
           is_system_admin?: boolean
           name?: string
           next_billing_date?: string | null
+          onboarding_done?: boolean
           paid_until?: string | null
+          phone?: string | null
           plan_type?: string
           selected_plan?: string | null
           subscription_expiration_date?: string | null
@@ -266,6 +280,7 @@ export type Database = {
           subscription_source?: string
           subscription_start_date?: string | null
           subscription_status?: string
+          terms_accepted_at?: string | null
           trial_days?: number
           trial_end_date?: string | null
           trial_start_date?: string | null

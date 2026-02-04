@@ -81,15 +81,89 @@ function calculateExpiration(durationDays: number): Date {
   return now;
 }
 
-// Get customer name from payload
-function getCustomerName(payload: Record<string, unknown>): string {
-  return (
-    (payload.Customer as Record<string, string>)?.name ||
-    (payload.customer as Record<string, string>)?.name ||
-    (payload.buyer as Record<string, string>)?.name ||
+// Extract customer data from Kiwify payload (handles both root and order.Customer formats)
+interface CustomerData {
+  email: string;
+  name: string;
+  phone: string;
+  cpf: string;
+}
+
+function extractCustomerData(payload: Record<string, unknown>): CustomerData {
+  // Try payload.order.Customer first (real Kiwify format)
+  const orderObj = payload.order as Record<string, unknown> | undefined;
+  const orderCustomer = orderObj?.Customer as Record<string, string> | undefined;
+  
+  // Fallback to root level Customer/customer/buyer
+  const rootCustomer = (payload.Customer || payload.customer || payload.buyer) as Record<string, string> | undefined;
+  
+  const customer = orderCustomer || rootCustomer;
+  
+  const email = (
+    customer?.email ||
+    (payload.email as string) ||
+    ''
+  ).toLowerCase().trim();
+  
+  const name = (
+    customer?.full_name ||
+    customer?.name ||
     (payload.nome as string) ||
     'Usuário'
   );
+  
+  // Phone: mobile or phone field, clean up
+  const rawPhone = (
+    customer?.mobile ||
+    customer?.phone ||
+    (payload.phone as string) ||
+    ''
+  );
+  
+  // CPF from Customer object
+  const cpf = (
+    customer?.CPF ||
+    customer?.cpf ||
+    (payload.cpf as string) ||
+    ''
+  );
+  
+  return { email, name, phone: rawPhone, cpf };
+}
+
+// Extract event and product info from payload
+function extractEventData(payload: Record<string, unknown>): { rawEvent: string; rawProduct: string } {
+  const orderObj = payload.order as Record<string, unknown> | undefined;
+  const productObj = orderObj?.Product as Record<string, string> | undefined;
+  const subscriptionObj = orderObj?.Subscription as Record<string, unknown> | undefined;
+  const planObj = subscriptionObj?.plan as Record<string, string> | undefined;
+  
+  const rawEvent = (
+    orderObj?.webhook_event_type as string ||
+    (payload.webhook_event_type as string) ||
+    (payload.event as string) || 
+    (payload.evento as string) ||
+    orderObj?.order_status as string ||
+    (payload.order_status as string) ||
+    (payload.status as string) || 
+    ''
+  );
+
+  const rawProduct = (
+    productObj?.product_name ||
+    productObj?.name ||
+    planObj?.name ||
+    (payload.Product as Record<string, string>)?.product_name ||
+    (payload.Product as Record<string, string>)?.name || 
+    (payload.product as Record<string, string>)?.name || 
+    (payload.Subscription as Record<string, Record<string, string>>)?.plan?.name ||
+    (payload.produto as string) ||
+    (payload.plan_name as string) ||
+    (payload.offer_name as string) ||
+    ''
+  );
+  
+  return { rawEvent, rawProduct };
 }
 
 Deno.serve(async (req) => {
@@ -207,8 +281,8 @@ Deno.serve(async (req) => {
       ? authHeader.substring(7).trim() 
       : '';
     
-    // Get first non-empty token (priority: body > headers > query)
-    const tokenReceived = bodyToken || xKiwifyToken || xWebhookToken || bearerToken || queryToken;
+    // Get first non-empty token (priority: query > body > headers - query is most reliable for Kiwify)
+    const tokenReceived = queryToken || bodyToken || xKiwifyToken || xWebhookToken || bearerToken;
     const tokenPresent = !!tokenReceived;
     
     logStep("Token sources", {
@@ -238,24 +312,12 @@ Deno.serve(async (req) => {
       await logRequest(403, 'Invalid token', rawBody);
       
       // Log failed attempt in webhook_events
-      const customerEmail = (
-        (payload.Customer as Record<string, string>)?.email || 
-        (payload.customer as Record<string, string>)?.email || 
-        (payload.buyer as Record<string, string>)?.email ||
-        (payload.email as string) ||
-        'unknown'
-      ).toLowerCase().trim();
-      
-      const rawEvent = (
-        (payload.event as string) || 
-        (payload.evento as string) ||
-        (payload.status as string) || 
-        'unknown'
-      );
+      const { email: customerEmail } = extractCustomerData(payload);
+      const { rawEvent } = extractEventData(payload);
       
       await logWebhookEvent({
-        email: customerEmail,
-        rawEvent: rawEvent,
+        email: customerEmail || 'unknown',
+        rawEvent: rawEvent || 'unknown',
         normalizedEvent: 'auth_failed',
         subscriptionStatusApplied: 'none',
         success: false,
@@ -276,40 +338,20 @@ Deno.serve(async (req) => {
 
     logStep("Token validated");
 
-    // Extract email, event and customer name
-    const customerEmail = (
-      (payload.Customer as Record<string, string>)?.email || 
-      (payload.customer as Record<string, string>)?.email || 
-      (payload.buyer as Record<string, string>)?.email ||
-      (payload.email as string) ||
-      ''
-    ).toLowerCase().trim();
+    // Extract customer data and event info using new helpers
+    const customerData = extractCustomerData(payload);
+    const { rawEvent, rawProduct } = extractEventData(payload);
 
-    const customerName = getCustomerName(payload);
+    logStep("Payload parsed", { 
+      email: customerData.email, 
+      name: customerData.name,
+      phone: customerData.phone,
+      cpf: customerData.cpf ? '***' : '',
+      rawEvent, 
+      rawProduct 
+    });
 
-    const rawEvent = (
-      (payload.webhook_event_type as string) ||
-      (payload.event as string) || 
-      (payload.evento as string) ||
-      (payload.order_status as string) ||
-      (payload.status as string) || 
-      ''
-    );
-
-    const rawProduct = (
-      (payload.Product as Record<string, string>)?.product_name ||
-      (payload.Product as Record<string, string>)?.name || 
-      (payload.product as Record<string, string>)?.name || 
-      (payload.Subscription as Record<string, Record<string, string>>)?.plan?.name ||
-      (payload.produto as string) ||
-      (payload.plan_name as string) ||
-      (payload.offer_name as string) ||
-      ''
-    );
-
-    logStep("Payload parsed", { email: customerEmail, rawEvent, rawProduct, customerName });
-
-    if (!customerEmail) {
+    if (!customerData.email) {
       await logRequest(400, 'Customer email not found', rawBody);
       return new Response(JSON.stringify({ error: "Customer email not found" }), {
         status: 400,
@@ -327,7 +369,7 @@ Deno.serve(async (req) => {
       await logRequest(200, `Unhandled event: ${rawEvent}`, rawBody);
       
       await logWebhookEvent({
-        email: customerEmail,
+        email: customerData.email,
         rawEvent,
         normalizedEvent: 'unknown',
         rawProduct,
@@ -353,7 +395,7 @@ Deno.serve(async (req) => {
       // Handle non-activation events (cancelado, em_atraso, pendente)
       return await handleNonActivationEvent({
         supabaseClient,
-        customerEmail,
+        customerEmail: customerData.email,
         rawEvent,
         normalizedEvent,
         rawProduct,
@@ -375,7 +417,7 @@ Deno.serve(async (req) => {
     }
 
     const existingUser = existingUsers.users.find(
-      u => u.email?.toLowerCase() === customerEmail
+      u => u.email?.toLowerCase() === customerData.email
     );
 
     const expirationDate = calculateExpiration(durationDays);
@@ -383,19 +425,22 @@ Deno.serve(async (req) => {
     let emailType = 'none';
     let profileId: string | null = null;
 
+    // Site URL for redirects
+    const siteUrl = Deno.env.get("SITE_URL") || "https://caixa-claro-simple.lovable.app";
+
     if (!existingUser) {
       // NEW USER: Create via invite (sends email automatically)
-      logStep("Creating new user via invite", { email: customerEmail, name: customerName });
+      logStep("Creating new user via invite", { email: customerData.email, name: customerData.name });
 
       const { data: inviteData, error: inviteError } = await supabaseClient.auth.admin.inviteUserByEmail(
-        customerEmail,
+        customerData.email,
         {
           data: {
-            name: customerName,
+            name: customerData.name,
             role: 'admin',
             subscription_plan: normalizedPlan,
           },
-          redirectTo: `${Deno.env.get("SUPABASE_URL")?.replace('.supabase.co', '.supabase.co')}/auth/v1/callback`,
+          redirectTo: `${siteUrl}/boas-vindas`,
         }
       );
 
@@ -404,7 +449,7 @@ Deno.serve(async (req) => {
         
         await logRequest(500, `Invite error: ${inviteError.message}`, rawBody);
         await logWebhookEvent({
-          email: customerEmail,
+          email: customerData.email,
           rawEvent,
           normalizedEvent,
           rawProduct,
@@ -425,9 +470,9 @@ Deno.serve(async (req) => {
       emailType = 'invite';
 
       // Wait a moment for the trigger to create profile
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise(resolve => setTimeout(resolve, 1500));
 
-      // Update the profile with subscription data
+      // Update the profile with subscription data AND checkout data (phone, cpf)
       if (inviteData.user?.id) {
         const { data: profile } = await supabaseClient
           .from("profiles")
@@ -438,19 +483,36 @@ Deno.serve(async (req) => {
         if (profile) {
           profileId = profile.id;
           
+          const profileUpdateData: Record<string, unknown> = {
+            subscription_status: 'ativo',
+            subscription_plan: normalizedPlan,
+            subscription_start_date: new Date().toISOString(),
+            subscription_expiration_date: expirationDate.toISOString(),
+            plan_type: 'paid',
+            paid_until: expirationDate.toISOString(),
+            onboarding_done: false, // Force onboarding for new users
+          };
+          
+          // Add phone if provided
+          if (customerData.phone) {
+            profileUpdateData.phone = customerData.phone;
+          }
+          
+          // Add CPF if provided
+          if (customerData.cpf) {
+            profileUpdateData.cpf = customerData.cpf;
+          }
+          
           await supabaseClient
             .from("profiles")
-            .update({
-              subscription_status: 'ativo',
-              subscription_plan: normalizedPlan,
-              subscription_start_date: new Date().toISOString(),
-              subscription_expiration_date: expirationDate.toISOString(),
-              plan_type: 'paid',
-              paid_until: expirationDate.toISOString(),
-            })
+            .update(profileUpdateData)
             .eq("user_id", inviteData.user.id);
 
-          logStep("Profile updated with subscription", { profileId });
+          logStep("Profile updated with subscription and checkout data", { 
+            profileId, 
+            hasPhone: !!customerData.phone,
+            hasCpf: !!customerData.cpf 
+          });
         }
       }
 
@@ -460,7 +522,7 @@ Deno.serve(async (req) => {
 
       const { data: profile, error: profileError } = await supabaseClient
         .from("profiles")
-        .select("id, user_id")
+        .select("id, user_id, onboarding_done")
         .eq("user_id", existingUser.id)
         .maybeSingle();
 
@@ -471,29 +533,44 @@ Deno.serve(async (req) => {
       if (profile) {
         profileId = profile.id;
 
+        const profileUpdateData: Record<string, unknown> = {
+          subscription_status: 'ativo',
+          subscription_plan: normalizedPlan,
+          subscription_start_date: new Date().toISOString(),
+          subscription_expiration_date: expirationDate.toISOString(),
+          plan_type: 'paid',
+          paid_until: expirationDate.toISOString(),
+        };
+        
+        // Add phone if provided and not already set
+        if (customerData.phone) {
+          profileUpdateData.phone = customerData.phone;
+        }
+        
+        // Add CPF if provided and not already set
+        if (customerData.cpf) {
+          profileUpdateData.cpf = customerData.cpf;
+        }
+
         const { error: updateError } = await supabaseClient
           .from("profiles")
-          .update({
-            subscription_status: 'ativo',
-            subscription_plan: normalizedPlan,
-            subscription_start_date: new Date().toISOString(),
-            subscription_expiration_date: expirationDate.toISOString(),
-            plan_type: 'paid',
-            paid_until: expirationDate.toISOString(),
-          })
+          .update(profileUpdateData)
           .eq("user_id", existingUser.id);
 
         if (updateError) {
           throw new Error(`Profile update error: ${updateError.message}`);
         }
 
-        logStep("Existing user subscription updated", { profileId });
+        logStep("Existing user subscription updated", { 
+          profileId,
+          hasPhone: !!customerData.phone,
+          hasCpf: !!customerData.cpf 
+        });
       }
 
       // Send password reset email to existing user so they can access the system
-      const siteUrl = Deno.env.get("SITE_URL") || "https://caixaclaro.app";
       const { error: resetError } = await supabaseClient.auth.resetPasswordForEmail(
-        customerEmail,
+        customerData.email,
         {
           redirectTo: `${siteUrl}/reset-password`,
         }
@@ -504,7 +581,7 @@ Deno.serve(async (req) => {
         // Don't fail the whole request, just log it
         emailType = 'reset_failed';
       } else {
-        logStep("Reset email sent to existing user", { email: customerEmail });
+        logStep("Reset email sent to existing user", { email: customerData.email });
         emailSent = true;
         emailType = 'reset';
       }
@@ -513,7 +590,7 @@ Deno.serve(async (req) => {
     // Log success
     await logRequest(200, 'Success', rawBody);
     await logWebhookEvent({
-      email: customerEmail,
+      email: customerData.email,
       rawEvent,
       normalizedEvent,
       rawProduct,
