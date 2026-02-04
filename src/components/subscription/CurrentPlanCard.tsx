@@ -28,6 +28,15 @@ export default function CurrentPlanCard() {
     isPending
   } = useSubscription();
 
+  // Debug log to verify data is being received
+  console.log('[CurrentPlanCard] subscription data:', { 
+    subscriptionPlan, 
+    selectedPlan, 
+    subscribed, 
+    planType,
+    subscriptionStatus 
+  });
+
   // Get the plan name with fallback logic
   const getCurrentPlanName = (): string => {
     // First try subscription_plan
