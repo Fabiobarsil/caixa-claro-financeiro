@@ -204,9 +204,13 @@ export type Database = {
           id: string
           is_active: boolean
           name: string
+          next_billing_date: string | null
           paid_until: string | null
           plan_type: string
+          subscription_expiration_date: string | null
+          subscription_plan: string | null
           subscription_source: string
+          subscription_start_date: string | null
           subscription_status: string
           trial_days: number
           updated_at: string
@@ -222,9 +226,13 @@ export type Database = {
           id?: string
           is_active?: boolean
           name: string
+          next_billing_date?: string | null
           paid_until?: string | null
           plan_type?: string
+          subscription_expiration_date?: string | null
+          subscription_plan?: string | null
           subscription_source?: string
+          subscription_start_date?: string | null
           subscription_status?: string
           trial_days?: number
           updated_at?: string
@@ -240,9 +248,13 @@ export type Database = {
           id?: string
           is_active?: boolean
           name?: string
+          next_billing_date?: string | null
           paid_until?: string | null
           plan_type?: string
+          subscription_expiration_date?: string | null
+          subscription_plan?: string | null
           subscription_source?: string
+          subscription_start_date?: string | null
           subscription_status?: string
           trial_days?: number
           updated_at?: string
@@ -551,6 +563,89 @@ export type Database = {
         }
         Relationships: []
       }
+      webhook_events: {
+        Row: {
+          created_at: string
+          email: string
+          error_message: string | null
+          expiration_date_applied: string | null
+          id: string
+          normalized_event: string
+          normalized_plan: string | null
+          profile_id: string | null
+          raw_event: string
+          raw_product: string | null
+          subscription_status_applied: string
+          success: boolean | null
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          error_message?: string | null
+          expiration_date_applied?: string | null
+          id?: string
+          normalized_event: string
+          normalized_plan?: string | null
+          profile_id?: string | null
+          raw_event: string
+          raw_product?: string | null
+          subscription_status_applied: string
+          success?: boolean | null
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          error_message?: string | null
+          expiration_date_applied?: string | null
+          id?: string
+          normalized_event?: string
+          normalized_plan?: string | null
+          profile_id?: string | null
+          raw_event?: string
+          raw_product?: string | null
+          subscription_status_applied?: string
+          success?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "webhook_events_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      webhook_requests: {
+        Row: {
+          created_at: string
+          headers: Json | null
+          id: string
+          raw_body: string | null
+          reason: string | null
+          source: string | null
+          status_code: number
+        }
+        Insert: {
+          created_at?: string
+          headers?: Json | null
+          id?: string
+          raw_body?: string | null
+          reason?: string | null
+          source?: string | null
+          status_code: number
+        }
+        Update: {
+          created_at?: string
+          headers?: Json | null
+          id?: string
+          raw_body?: string | null
+          reason?: string | null
+          source?: string | null
+          status_code?: number
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -574,6 +669,13 @@ export type Database = {
       item_type: "servico" | "produto"
       payment_method: "dinheiro" | "pix" | "cartao_credito" | "cartao_debito"
       schedule_type: "single" | "installment" | "monthly_package"
+      subscription_plan: "mensal" | "semestral" | "anual"
+      subscription_status:
+        | "ativo"
+        | "pendente"
+        | "em_atraso"
+        | "cancelado"
+        | "expirado"
       transaction_category: "servico" | "produto" | "outro"
       transaction_type: "entrada" | "saida"
     }
@@ -709,6 +811,14 @@ export const Constants = {
       item_type: ["servico", "produto"],
       payment_method: ["dinheiro", "pix", "cartao_credito", "cartao_debito"],
       schedule_type: ["single", "installment", "monthly_package"],
+      subscription_plan: ["mensal", "semestral", "anual"],
+      subscription_status: [
+        "ativo",
+        "pendente",
+        "em_atraso",
+        "cancelado",
+        "expirado",
+      ],
       transaction_category: ["servico", "produto", "outro"],
       transaction_type: ["entrada", "saida"],
     },

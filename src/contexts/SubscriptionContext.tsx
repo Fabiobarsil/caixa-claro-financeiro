@@ -1,43 +1,61 @@
-import { createContext, useContext, ReactNode, useState, useCallback } from 'react';
-import { useSubscription, SubscriptionState } from '@/hooks/useSubscription';
-import UpgradeModal from '@/components/subscription/UpgradeModal';
+import { createContext, useContext, ReactNode, useState, useCallback, useEffect } from 'react';
+import { useSubscriptionStatus, SubscriptionData } from '@/hooks/useSubscriptionStatus';
+import { useAuth } from '@/contexts/AuthContext';
+import PlanSelectionModal from '@/components/subscription/PlanSelectionModal';
 
-interface SubscriptionContextType extends SubscriptionState {
-  canCreateRecords: boolean;
-  shouldShowUpgradePrompt: boolean;
+interface SubscriptionContextType extends SubscriptionData {
+  isLoading: boolean;
+  error: string | null;
   checkSubscription: () => Promise<void>;
-  openKiwifyCheckout: () => void;
-  requireSubscriptionForCreate: () => boolean; // Returns true if blocked, shows modal
+  showPlanModal: boolean;
+  setShowPlanModal: (show: boolean) => void;
+  requireActiveSubscription: () => boolean; // Returns true if blocked
+  requireSubscriptionForCreate: () => boolean; // Alias for compatibility
 }
 
 const SubscriptionContext = createContext<SubscriptionContextType | undefined>(undefined);
 
 export function SubscriptionProvider({ children }: { children: ReactNode }) {
-  const subscription = useSubscription();
-  const [showBlockedModal, setShowBlockedModal] = useState(false);
+  const subscription = useSubscriptionStatus();
+  const { isAdmin } = useAuth();
+  const [showPlanModal, setShowPlanModal] = useState(false);
 
-  const requireSubscriptionForCreate = useCallback(() => {
-    if (subscription.canCreateRecords) {
-      return false; // Not blocked
+  // Auto-show modal when subscription is blocked (but not for admins)
+  useEffect(() => {
+    if (!subscription.isLoading && subscription.isBlocked && !isAdmin) {
+      setShowPlanModal(true);
     }
+  }, [subscription.isLoading, subscription.isBlocked, isAdmin]);
+
+  const requireActiveSubscription = useCallback(() => {
+    // Admins always have access
+    if (isAdmin) return false;
     
-    // Blocked - show upgrade modal
-    setShowBlockedModal(true);
-    return true;
-  }, [subscription.canCreateRecords]);
+    if (subscription.isBlocked) {
+      setShowPlanModal(true);
+      return true;
+    }
+    return false;
+  }, [subscription.isBlocked, isAdmin]);
+
+  // Determine if modal should be blocking (can't dismiss)
+  const isBlockingModal = subscription.isBlocked && !isAdmin;
 
   return (
     <SubscriptionContext.Provider
       value={{
         ...subscription,
-        requireSubscriptionForCreate,
+        showPlanModal,
+        setShowPlanModal,
+        requireActiveSubscription,
+        requireSubscriptionForCreate: requireActiveSubscription, // Alias
       }}
     >
       {children}
-      <UpgradeModal
-        open={showBlockedModal}
-        onOpenChange={setShowBlockedModal}
-        context="create-blocked"
+      <PlanSelectionModal
+        open={showPlanModal}
+        onOpenChange={setShowPlanModal}
+        blocking={isBlockingModal}
       />
     </SubscriptionContext.Provider>
   );
