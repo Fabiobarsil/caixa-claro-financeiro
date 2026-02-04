@@ -83,6 +83,14 @@ export default function PlanSelectionModal({
       return;
     }
 
+    // Check if checkout URL exists
+    if (!plan.checkoutUrl) {
+      const envVarName = `VITE_KIWIFY_CHECKOUT_${plan.id.toUpperCase()}`;
+      console.error(`[Checkout] URL de checkout não configurada. Variável de ambiente ausente: ${envVarName}`);
+      toast.error(`URL de checkout não configurada para o plano ${plan.name}. Entre em contato com o suporte.`);
+      return;
+    }
+
     setIsLoading(plan.id);
 
     try {
@@ -100,12 +108,8 @@ export default function PlanSelectionModal({
       }
 
       // Redirect to Kiwify checkout
-      if (plan.checkoutUrl) {
-        window.open(plan.checkoutUrl, '_blank', 'noopener,noreferrer');
-        toast.success('Redirecionando para o checkout...');
-      } else {
-        toast.error('URL de checkout não configurada. Entre em contato com o suporte.');
-      }
+      window.open(plan.checkoutUrl, '_blank', 'noopener,noreferrer');
+      toast.success('Redirecionando para o checkout...');
     } catch (err) {
       console.error('Error selecting plan:', err);
       toast.error('Erro ao processar seleção');

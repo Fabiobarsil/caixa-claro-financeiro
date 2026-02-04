@@ -7,11 +7,20 @@ import { Button } from '@/components/ui/button';
 import { useSubscription } from '@/hooks/useSubscription';
 import PlanSelectionModal from './PlanSelectionModal';
 
+const PLAN_LABELS: Record<string, string> = {
+  mensal: 'Mensal',
+  semestral: 'Semestral',
+  anual: 'Anual',
+};
+
 export default function CurrentPlanCard() {
   const [showPlanModal, setShowPlanModal] = useState(false);
   const { 
     subscriptionStatus, 
     planType,
+    subscriptionPlan,
+    selectedPlan,
+    subscriptionExpirationDate,
     trialDaysRemaining,
     paidUntil,
     subscribed,
@@ -19,12 +28,27 @@ export default function CurrentPlanCard() {
     isPending
   } = useSubscription();
 
+  // Get the plan name with fallback logic
+  const getCurrentPlanName = (): string => {
+    // First try subscription_plan
+    if (subscriptionPlan && PLAN_LABELS[subscriptionPlan]) {
+      return PLAN_LABELS[subscriptionPlan];
+    }
+    // Fallback to selected_plan
+    if (selectedPlan && PLAN_LABELS[selectedPlan]) {
+      return PLAN_LABELS[selectedPlan];
+    }
+    // Default to Mensal
+    return 'Mensal';
+  };
+
+  const currentPlanName = getCurrentPlanName();
+
   // Determine what to display
   const getPlanDisplay = () => {
     if (subscribed && planType === 'owner') {
       return {
         badge: 'OWNER',
-        badgeVariant: 'default' as const,
         badgeClass: 'bg-amber-500 hover:bg-amber-500',
         title: 'Acesso Permanente',
         subtitle: 'Sem data de expiração',
@@ -34,17 +58,17 @@ export default function CurrentPlanCard() {
     }
 
     if (subscribed) {
-      // Get plan name from subscription
-      const planName = planType === 'paid' ? 'Ativo' : 'Ativo';
-      const expirationText = paidUntil 
-        ? `Válido até ${format(new Date(paidUntil), "dd/MM/yyyy", { locale: ptBR })}`
-        : 'Assinatura ativa';
+      // Format expiration date if available
+      const expirationText = subscriptionExpirationDate 
+        ? `Válido até ${format(new Date(subscriptionExpirationDate), "dd/MM/yyyy", { locale: ptBR })}`
+        : paidUntil
+          ? `Válido até ${format(new Date(paidUntil), "dd/MM/yyyy", { locale: ptBR })}`
+          : 'Assinatura ativa';
       
       return {
         badge: 'ATIVO',
-        badgeVariant: 'default' as const,
         badgeClass: 'bg-emerald-500 hover:bg-emerald-500',
-        title: planName,
+        title: `Plano: ${currentPlanName}`,
         subtitle: expirationText,
         icon: Crown,
         iconClass: 'text-emerald-500'
@@ -55,10 +79,9 @@ export default function CurrentPlanCard() {
       const daysText = trialDaysRemaining === 1 ? '1 dia' : `${trialDaysRemaining} dias`;
       return {
         badge: 'TRIAL',
-        badgeVariant: 'secondary' as const,
         badgeClass: 'bg-blue-500/10 text-blue-600 hover:bg-blue-500/10',
-        title: 'Período de Teste',
-        subtitle: `Termina em ${daysText}`,
+        title: `Plano: ${currentPlanName}`,
+        subtitle: `Teste termina em ${daysText}`,
         icon: Clock,
         iconClass: 'text-blue-500'
       };
@@ -67,10 +90,9 @@ export default function CurrentPlanCard() {
     if (isPending) {
       return {
         badge: 'PENDENTE',
-        badgeVariant: 'secondary' as const,
         badgeClass: 'bg-orange-500/10 text-orange-600 hover:bg-orange-500/10',
-        title: 'Aguardando Pagamento',
-        subtitle: 'Plano padrão: Mensal',
+        title: `Plano: ${currentPlanName}`,
+        subtitle: 'Aguardando confirmação de pagamento',
         icon: AlertCircle,
         iconClass: 'text-orange-500'
       };
@@ -79,8 +101,7 @@ export default function CurrentPlanCard() {
     // Expired or other status
     return {
       badge: subscriptionStatus?.toUpperCase() || 'INATIVO',
-      badgeVariant: 'destructive' as const,
-      badgeClass: '',
+      badgeClass: 'bg-destructive text-destructive-foreground',
       title: 'Sem assinatura ativa',
       subtitle: 'Escolha um plano para continuar',
       icon: AlertCircle,
@@ -121,7 +142,7 @@ export default function CurrentPlanCard() {
             variant={subscribed && planType !== 'owner' ? 'outline' : 'default'}
           >
             <Sparkles className="h-4 w-4 mr-2" />
-            {subscribed ? 'Ver Planos' : 'Fazer Upgrade'}
+            Ver Planos
             <ChevronRight className="h-4 w-4 ml-auto" />
           </Button>
         </div>

@@ -7,6 +7,9 @@ export interface SubscriptionState {
   planType: 'free' | 'paid' | 'owner';
   subscriptionStatus: string;
   subscriptionSource: 'kiwify' | 'stripe';
+  subscriptionPlan: string | null;
+  selectedPlan: string | null;
+  subscriptionExpirationDate: string | null;
   trialDaysUsed: number;
   trialDaysRemaining: number | null;
   trialExpired: boolean;
@@ -25,6 +28,9 @@ const initialState: SubscriptionState = {
   planType: 'free',
   subscriptionStatus: 'trial',
   subscriptionSource: 'kiwify',
+  subscriptionPlan: null,
+  selectedPlan: null,
+  subscriptionExpirationDate: null,
   trialDaysUsed: 0,
   trialDaysRemaining: TRIAL_DAYS,
   trialExpired: false,
@@ -52,7 +58,7 @@ export function useSubscription() {
       // Fetch subscription data directly from profiles table
       const { data: profile, error } = await supabase
         .from('profiles')
-        .select('plan_type, subscription_status, subscription_source, paid_until, first_activity_at, trial_days, trial_start_date, trial_end_date')
+        .select('plan_type, subscription_status, subscription_source, subscription_plan, selected_plan, subscription_expiration_date, paid_until, first_activity_at, trial_days, trial_start_date, trial_end_date')
         .eq('user_id', user.id)
         .maybeSingle();
 
@@ -111,6 +117,9 @@ export function useSubscription() {
         planType: (profile.plan_type as 'free' | 'paid' | 'owner') || 'free',
         subscriptionStatus,
         subscriptionSource: (profile.subscription_source as 'kiwify' | 'stripe') || 'kiwify',
+        subscriptionPlan: profile.subscription_plan || null,
+        selectedPlan: profile.selected_plan || null,
+        subscriptionExpirationDate: profile.subscription_expiration_date || null,
         trialDaysUsed,
         trialDaysRemaining: subscribed ? null : trialDaysRemaining,
         trialExpired: !subscribed && trialExpired && !isTrial && !isPending,
