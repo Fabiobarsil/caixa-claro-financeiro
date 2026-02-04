@@ -74,7 +74,7 @@ Deno.serve(async (req) => {
     // Check if target user exists and is not a system admin
     const { data: targetProfile, error: targetError } = await supabaseAdmin
       .from("profiles")
-      .select("is_system_admin, name, email")
+      .select("id, is_system_admin, name, email, account_id")
       .eq("user_id", user_id)
       .single();
 
@@ -92,18 +92,138 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Delete user from auth (this will cascade to profiles via foreign key or triggers)
-    const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(user_id);
+    console.log(`[DELETE-USER] Starting deletion of user ${user_id} (${targetProfile.email})`);
 
-    if (deleteError) {
-      console.error("Error deleting user:", deleteError);
+    // Step 1: Nullify webhook_events profile_id reference (preserves audit history)
+    const { error: webhookError } = await supabaseAdmin
+      .from("webhook_events")
+      .update({ profile_id: null })
+      .eq("profile_id", targetProfile.id);
+    
+    if (webhookError) {
+      console.error("[DELETE-USER] Error nullifying webhook_events:", webhookError);
+    } else {
+      console.log("[DELETE-USER] Webhook events profile references nullified");
+    }
+
+    // Step 2: Delete smart_states
+    const { error: smartStatesError } = await supabaseAdmin
+      .from("smart_states")
+      .delete()
+      .eq("user_id", user_id);
+    
+    if (smartStatesError) {
+      console.error("[DELETE-USER] Error deleting smart_states:", smartStatesError);
+    }
+
+    // Step 3: Delete entry_schedules
+    const { error: schedulesError } = await supabaseAdmin
+      .from("entry_schedules")
+      .delete()
+      .eq("user_id", user_id);
+    
+    if (schedulesError) {
+      console.error("[DELETE-USER] Error deleting entry_schedules:", schedulesError);
+    }
+
+    // Step 4: Delete transactions
+    const { error: transactionsError } = await supabaseAdmin
+      .from("transactions")
+      .delete()
+      .eq("user_id", user_id);
+    
+    if (transactionsError) {
+      console.error("[DELETE-USER] Error deleting transactions:", transactionsError);
+    }
+
+    // Step 5: Delete expenses
+    const { error: expensesError } = await supabaseAdmin
+      .from("expenses")
+      .delete()
+      .eq("user_id", user_id);
+    
+    if (expensesError) {
+      console.error("[DELETE-USER] Error deleting expenses:", expensesError);
+    }
+
+    // Step 6: Delete clients
+    const { error: clientsError } = await supabaseAdmin
+      .from("clients")
+      .delete()
+      .eq("user_id", user_id);
+    
+    if (clientsError) {
+      console.error("[DELETE-USER] Error deleting clients:", clientsError);
+    }
+
+    // Step 7: Delete services_products
+    const { error: servicesError } = await supabaseAdmin
+      .from("services_products")
+      .delete()
+      .eq("user_id", user_id);
+    
+    if (servicesError) {
+      console.error("[DELETE-USER] Error deleting services_products:", servicesError);
+    }
+
+    // Step 8: Delete terms_acceptance
+    const { error: termsError } = await supabaseAdmin
+      .from("terms_acceptance")
+      .delete()
+      .eq("user_id", user_id);
+    
+    if (termsError) {
+      console.error("[DELETE-USER] Error deleting terms_acceptance:", termsError);
+    }
+
+    // Step 9: Delete subscriptions
+    const { error: subscriptionsError } = await supabaseAdmin
+      .from("subscriptions")
+      .delete()
+      .eq("user_id", user_id);
+    
+    if (subscriptionsError) {
+      console.error("[DELETE-USER] Error deleting subscriptions:", subscriptionsError);
+    }
+
+    // Step 10: Delete user_roles
+    const { error: rolesError } = await supabaseAdmin
+      .from("user_roles")
+      .delete()
+      .eq("user_id", user_id);
+    
+    if (rolesError) {
+      console.error("[DELETE-USER] Error deleting user_roles:", rolesError);
+    }
+
+    // Step 11: Delete profile
+    const { error: profileDeleteError } = await supabaseAdmin
+      .from("profiles")
+      .delete()
+      .eq("user_id", user_id);
+    
+    if (profileDeleteError) {
+      console.error("[DELETE-USER] Error deleting profile:", profileDeleteError);
       return new Response(
-        JSON.stringify({ error: `Erro ao excluir usuário: ${deleteError.message}` }),
+        JSON.stringify({ error: "Erro ao excluir perfil do usuário" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    console.log(`User ${user_id} (${targetProfile.email}) deleted by system admin ${callerUser.id}`);
+    console.log("[DELETE-USER] All related data deleted, now deleting auth user");
+
+    // Step 12: Delete user from auth
+    const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(user_id);
+
+    if (deleteError) {
+      console.error("[DELETE-USER] Error deleting auth user:", deleteError);
+      return new Response(
+        JSON.stringify({ error: "Erro ao excluir usuário da autenticação" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    console.log(`[DELETE-USER] User ${user_id} (${targetProfile.email}) deleted successfully by system admin ${callerUser.id}`);
 
     return new Response(
       JSON.stringify({ 
@@ -114,7 +234,7 @@ Deno.serve(async (req) => {
     );
 
   } catch (error) {
-    console.error("Unexpected error:", error);
+    console.error("[DELETE-USER] Unexpected error:", error);
     return new Response(
       JSON.stringify({ error: "Erro interno do servidor" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
