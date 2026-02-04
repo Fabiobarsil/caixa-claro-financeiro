@@ -192,7 +192,14 @@ Deno.serve(async (req) => {
     }
 
     // Extract token from multiple sources (in priority order)
+    // 1. Query string (easiest for Kiwify URL config)
+    const url = new URL(req.url);
+    const queryToken = (url.searchParams.get("token") || '').trim();
+    
+    // 2. Body token
     const bodyToken = ((payload.token as string) || '').trim();
+    
+    // 3. Headers
     const xKiwifyToken = (req.headers.get("x-kiwify-token") || '').trim();
     const xWebhookToken = (req.headers.get("x-webhook-token") || '').trim();
     const authHeader = req.headers.get("authorization") || '';
@@ -200,11 +207,12 @@ Deno.serve(async (req) => {
       ? authHeader.substring(7).trim() 
       : '';
     
-    // Get first non-empty token
-    const tokenReceived = bodyToken || xKiwifyToken || xWebhookToken || bearerToken;
+    // Get first non-empty token (query > body > headers)
+    const tokenReceived = queryToken || bodyToken || xKiwifyToken || xWebhookToken || bearerToken;
     const tokenPresent = !!tokenReceived;
     
-    logStep("Token sources", { 
+    logStep("Token sources", {
+      queryTokenPresent: !!queryToken,
       bodyTokenPresent: !!bodyToken,
       xKiwifyTokenPresent: !!xKiwifyToken,
       xWebhookTokenPresent: !!xWebhookToken,
