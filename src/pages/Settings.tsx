@@ -19,6 +19,7 @@ import {
   BarChart3
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
+import CurrentPlanCard from '@/components/subscription/CurrentPlanCard';
 
 export default function Settings() {
   const { user, logout, isAdmin, isSystemAdmin, isLoading } = useAuth();
@@ -65,6 +66,11 @@ export default function Settings() {
         {/* Header */}
         <div className="mb-6">
           <h1 className="text-xl font-bold text-foreground">Configurações</h1>
+        </div>
+
+        {/* Current Plan Card */}
+        <div className="mb-6">
+          <CurrentPlanCard />
         </div>
 
         {/* Profile Card */}
