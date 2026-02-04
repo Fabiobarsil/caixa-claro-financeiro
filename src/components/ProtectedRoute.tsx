@@ -1,8 +1,7 @@
 import { ReactNode } from 'react';
-import { Navigate, useLocation } from 'react-router-dom';
+import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Loader2, ShieldAlert } from 'lucide-react';
-import { useOnboardingCheck } from '@/hooks/useOnboardingCheck';
 
 interface ProtectedRouteProps {
   children: ReactNode;
@@ -16,8 +15,6 @@ export default function ProtectedRoute({
   requireSystemAdmin = false 
 }: ProtectedRouteProps) {
   const { isAuthenticated, isAdmin, isSystemAdmin, isLoading, isAuthReady, user, accountId } = useAuth();
-  const { needsOnboarding, isLoading: isOnboardingLoading } = useOnboardingCheck();
-  const location = useLocation();
 
   // Wait for auth to be fully ready before making any decisions
   if (!isAuthReady || isLoading) {
@@ -66,23 +63,6 @@ export default function ProtectedRoute({
     );
   }
 
-  // ONBOARDING GATE: Check if admin needs to complete onboarding
-  // Skip this check if we're already on the welcome page
-  if (isAdmin && location.pathname !== '/boas-vindas') {
-    // Show loading while checking onboarding status
-    if (isOnboardingLoading) {
-      return (
-        <div className="min-h-screen flex items-center justify-center bg-background">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        </div>
-      );
-    }
-
-    // Redirect to welcome page if onboarding not complete
-    if (needsOnboarding) {
-      return <Navigate to="/boas-vindas" replace />;
-    }
-  }
-
+  // No onboarding gate - users go directly to dashboard
   return <>{children}</>;
 }
