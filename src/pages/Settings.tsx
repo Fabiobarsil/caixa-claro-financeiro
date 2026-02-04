@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import CurrentPlanCard from '@/components/subscription/CurrentPlanCard';
+import CompanyDataForm from '@/components/settings/CompanyDataForm';
 
 export default function Settings() {
   const { user, logout, isAdmin, isSystemAdmin, isLoading } = useAuth();
@@ -92,6 +93,9 @@ export default function Settings() {
             <ChevronRight size={20} className="text-muted-foreground" />
           </div>
         </div>
+
+        {/* Company Data Form - Optional */}
+        <CompanyDataForm />
 
         {/* System Usage Section - Invisible prep for monetization */}
         <div className="bg-card rounded-xl border border-border mb-6">
