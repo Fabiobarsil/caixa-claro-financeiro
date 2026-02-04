@@ -388,7 +388,7 @@ Deno.serve(async (req) => {
       }
 
     } else {
-      // EXISTING USER: Just update subscription
+      // EXISTING USER: Update subscription AND send access email
       logStep("Updating existing user subscription", { userId: existingUser.id });
 
       const { data: profile, error: profileError } = await supabaseClient
@@ -423,8 +423,24 @@ Deno.serve(async (req) => {
         logStep("Existing user subscription updated", { profileId });
       }
 
-      // For existing users, we don't send email (they already have access)
-      emailType = 'none_existing_user';
+      // Send password reset email to existing user so they can access the system
+      const siteUrl = Deno.env.get("SITE_URL") || "https://caixaclaro.app";
+      const { error: resetError } = await supabaseClient.auth.resetPasswordForEmail(
+        customerEmail,
+        {
+          redirectTo: `${siteUrl}/reset-password`,
+        }
+      );
+
+      if (resetError) {
+        logStep("Error sending reset email", { error: resetError.message });
+        // Don't fail the whole request, just log it
+        emailType = 'reset_failed';
+      } else {
+        logStep("Reset email sent to existing user", { email: customerEmail });
+        emailSent = true;
+        emailType = 'reset';
+      }
     }
 
     // Log success
