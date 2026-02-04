@@ -27,6 +27,7 @@ import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsOfUse from "./pages/TermsOfUse";
 import AdminSubscriptions from "./pages/AdminSubscriptions";
 import LGPD from "./pages/LGPD";
+import Welcome from "./pages/Welcome";
 
 // Component to show configuration error
 function SupabaseConfigError() {
@@ -98,6 +99,14 @@ function AppRoutes() {
       <Route path="/privacidade" element={<PrivacyPolicy />} />
       <Route path="/termos" element={<TermsOfUse />} />
       <Route path="/lgpd" element={<LGPD />} />
+      <Route
+        path="/boas-vindas"
+        element={
+          <ProtectedRoute>
+            <Welcome />
+          </ProtectedRoute>
+        }
+      />
       <Route
         path="/dashboard"
         element={

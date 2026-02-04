@@ -1,9 +1,8 @@
 import { ReactNode } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Loader2, ShieldAlert } from 'lucide-react';
-import { useTermsAcceptance } from '@/hooks/useTermsAcceptance';
-import { TermsAcceptanceModal } from '@/components/TermsAcceptanceModal';
+import { useOnboardingCheck } from '@/hooks/useOnboardingCheck';
 
 interface ProtectedRouteProps {
   children: ReactNode;
@@ -17,7 +16,8 @@ export default function ProtectedRoute({
   requireSystemAdmin = false 
 }: ProtectedRouteProps) {
   const { isAuthenticated, isAdmin, isSystemAdmin, isLoading, isAuthReady, user, accountId } = useAuth();
-  const { hasAccepted, isLoading: isTermsLoading } = useTermsAcceptance();
+  const { needsOnboarding, isLoading: isOnboardingLoading } = useOnboardingCheck();
+  const location = useLocation();
 
   // Wait for auth to be fully ready before making any decisions
   if (!isAuthReady || isLoading) {
@@ -66,23 +66,22 @@ export default function ProtectedRoute({
     );
   }
 
-  // Show loading while checking terms acceptance for admins
-  if (isAdmin && isTermsLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
+  // ONBOARDING GATE: Check if admin needs to complete onboarding
+  // Skip this check if we're already on the welcome page
+  if (isAdmin && location.pathname !== '/boas-vindas') {
+    // Show loading while checking onboarding status
+    if (isOnboardingLoading) {
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-background">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      );
+    }
 
-  // Show terms acceptance modal for admins who haven't accepted
-  if (isAdmin && !hasAccepted) {
-    return (
-      <>
-        <div className="min-h-screen bg-background" />
-        <TermsAcceptanceModal open={true} />
-      </>
-    );
+    // Redirect to welcome page if onboarding not complete
+    if (needsOnboarding) {
+      return <Navigate to="/boas-vindas" replace />;
+    }
   }
 
   return <>{children}</>;
