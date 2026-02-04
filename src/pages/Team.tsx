@@ -34,7 +34,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { toast } from 'sonner';
-import { ArrowLeft, Plus, UserPlus, Users, Shield, Loader2, MoreVertical, UserX, Palmtree, UserCheck, Calendar } from 'lucide-react';
+import { ArrowLeft, Plus, UserPlus, Users, Shield, Loader2, MoreVertical, UserX, Palmtree, UserCheck, Calendar, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface TeamMember {
@@ -92,7 +92,7 @@ function getStatusBadge(status: MemberStatus, vacationEnd?: string | null) {
 }
 
 export default function Team() {
-  const { isAdmin, isLoading: authLoading, user } = useAuth();
+  const { isAdmin, isSystemAdmin, isLoading: authLoading, user } = useAuth();
   const navigate = useNavigate();
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -101,7 +101,7 @@ export default function Team() {
   const [newMember, setNewMember] = useState({ name: '', email: '' });
   
   // States for actions
-  const [confirmAction, setConfirmAction] = useState<{ type: 'deactivate' | 'activate'; member: TeamMember } | null>(null);
+  const [confirmAction, setConfirmAction] = useState<{ type: 'deactivate' | 'activate' | 'delete'; member: TeamMember } | null>(null);
   const [vacationDialog, setVacationDialog] = useState<TeamMember | null>(null);
   const [vacationDates, setVacationDates] = useState({ start: '', end: '' });
 
@@ -206,7 +206,7 @@ export default function Team() {
   };
 
   const handleToggleActive = async () => {
-    if (!confirmAction) return;
+    if (!confirmAction || confirmAction.type === 'delete') return;
     
     const { type, member } = confirmAction;
     const newStatus = type === 'activate';
@@ -230,6 +230,41 @@ export default function Team() {
     } catch (error) {
       console.error('Error updating member:', error);
       toast.error('Erro ao atualizar status');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDeleteUser = async () => {
+    if (!confirmAction || confirmAction.type !== 'delete') return;
+    
+    const { member } = confirmAction;
+
+    setIsSubmitting(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/delete-user`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token}`,
+        },
+        body: JSON.stringify({ user_id: member.user_id }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Erro ao excluir usuário');
+      }
+
+      toast.success(result.message || 'Usuário excluído com sucesso!');
+      setConfirmAction(null);
+      fetchTeamMembers();
+    } catch (error: any) {
+      console.error('Error deleting user:', error);
+      toast.error(error.message || 'Erro ao excluir usuário');
     } finally {
       setIsSubmitting(false);
     }
@@ -500,6 +535,19 @@ export default function Team() {
                             Reativar usuário
                           </DropdownMenuItem>
                         )}
+                        {/* Delete option - only for system admins */}
+                        {isSystemAdmin && (
+                          <>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem 
+                              onClick={() => setConfirmAction({ type: 'delete', member })}
+                              className="text-destructive focus:text-destructive"
+                            >
+                              <Trash2 size={16} className="mr-2" />
+                              Excluir usuário
+                            </DropdownMenuItem>
+                          </>
+                        )}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   )}
@@ -511,7 +559,7 @@ export default function Team() {
       </div>
 
       {/* Confirm Deactivate/Activate Dialog */}
-      <AlertDialog open={!!confirmAction} onOpenChange={() => setConfirmAction(null)}>
+      <AlertDialog open={!!confirmAction && confirmAction.type !== 'delete'} onOpenChange={() => setConfirmAction(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
@@ -535,6 +583,41 @@ export default function Team() {
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
                 confirmAction?.type === 'deactivate' ? 'Desativar' : 'Reativar'
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Confirm Delete Dialog - System Admin Only */}
+      <AlertDialog open={confirmAction?.type === 'delete'} onOpenChange={() => setConfirmAction(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-destructive">
+              <Trash2 size={20} />
+              Excluir usuário permanentemente?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2">
+              <p>
+                Esta ação é <strong>irreversível</strong>. O usuário <strong>"{confirmAction?.member.name}"</strong> será 
+                permanentemente removido do sistema.
+              </p>
+              <p className="text-destructive font-medium">
+                Todos os dados associados a este usuário serão perdidos.
+              </p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isSubmitting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleDeleteUser} 
+              disabled={isSubmitting}
+              className="bg-destructive hover:bg-destructive/90"
+            >
+              {isSubmitting ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                'Excluir permanentemente'
               )}
             </AlertDialogAction>
           </AlertDialogFooter>
