@@ -150,16 +150,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.debug('[Auth]', `Auth state change: ${event}`);
+        console.debug('[Auth]', `Auth state change: ${event}`, { hasSession: !!session });
         
         if (!mounted) return;
 
         // Never leave the app stuck in loading because of auth events.
         setIsLoading(true);
         try {
-          // Supabase is always configured via integrations client
-
-          if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+          // Handle all session-related events including INITIAL_SESSION
+          if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
             if (session?.user) {
               await safeFetchAndSetUser(session.user, `event:${event}`);
             } else {
