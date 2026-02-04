@@ -2,17 +2,23 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 
-export type SubscriptionStatusType = 'ativo' | 'pendente' | 'em_atraso' | 'cancelado' | 'expirado';
+export type SubscriptionStatusType = 'trial' | 'ativo' | 'pendente' | 'em_atraso' | 'cancelado' | 'expirado';
 export type SubscriptionPlanType = 'mensal' | 'semestral' | 'anual' | null;
 
 export interface SubscriptionData {
   subscriptionStatus: SubscriptionStatusType;
   plan: SubscriptionPlanType;
+  selectedPlan: SubscriptionPlanType;
   startDate: string | null;
   expirationDate: string | null;
   nextBillingDate: string | null;
+  trialStartDate: string | null;
+  trialEndDate: string | null;
+  trialDaysRemaining: number | null;
   isActive: boolean;
   isBlocked: boolean;
+  isTrial: boolean;
+  isPending: boolean;
   daysRemaining: number | null;
 }
 
@@ -25,13 +31,21 @@ export interface UseSubscriptionStatusResult extends SubscriptionData {
 const initialData: SubscriptionData = {
   subscriptionStatus: 'expirado',
   plan: null,
+  selectedPlan: null,
   startDate: null,
   expirationDate: null,
   nextBillingDate: null,
+  trialStartDate: null,
+  trialEndDate: null,
+  trialDaysRemaining: null,
   isActive: false,
   isBlocked: true,
+  isTrial: false,
+  isPending: false,
   daysRemaining: null,
 };
+
+const TRIAL_DAYS = 14;
 
 export function useSubscriptionStatus(): UseSubscriptionStatusResult {
   const { user, isAuthenticated } = useAuth();
@@ -59,7 +73,12 @@ export function useSubscriptionStatus(): UseSubscriptionStatusResult {
           subscription_expiration_date,
           next_billing_date,
           plan_type,
-          paid_until
+          paid_until,
+          trial_start_date,
+          trial_end_date,
+          trial_days,
+          first_activity_at,
+          selected_plan
         `)
         .eq('user_id', user.id)
         .maybeSingle();
@@ -74,32 +93,61 @@ export function useSubscriptionStatus(): UseSubscriptionStatusResult {
         return;
       }
 
-      // Determine subscription status
-      // Priority: new fields > legacy fields
-      let status: SubscriptionStatusType = 'expirado';
-      let expirationDate = profile.subscription_expiration_date || profile.paid_until;
-      
-      // Check if subscription_status is one of the new enum values
-      const validStatuses: SubscriptionStatusType[] = ['ativo', 'pendente', 'em_atraso', 'cancelado', 'expirado'];
-      if (profile.subscription_status && validStatuses.includes(profile.subscription_status as SubscriptionStatusType)) {
-        status = profile.subscription_status as SubscriptionStatusType;
-      } else if (profile.subscription_status === 'active' || profile.plan_type === 'paid') {
-        // Legacy status mapping
-        status = 'ativo';
-      } else if (profile.subscription_status === 'inactive' || profile.plan_type === 'free') {
-        status = 'expirado';
+      // Calculate trial dates
+      let trialStartDate = profile.trial_start_date || profile.first_activity_at;
+      let trialEndDate = profile.trial_end_date;
+      let trialDaysRemaining: number | null = null;
+
+      // If no trial dates but has first_activity_at, calculate trial end
+      if (!trialEndDate && trialStartDate) {
+        const startDate = new Date(trialStartDate);
+        const trialDays = profile.trial_days || TRIAL_DAYS;
+        const endDate = new Date(startDate);
+        endDate.setDate(endDate.getDate() + trialDays);
+        trialEndDate = endDate.toISOString();
       }
 
-      // Check if subscription has expired based on date
-      if (expirationDate) {
-        const expDate = new Date(expirationDate);
+      // Calculate trial days remaining
+      if (trialEndDate) {
+        const endDate = new Date(trialEndDate);
         const now = new Date();
-        if (expDate < now && status === 'ativo') {
+        const diffTime = endDate.getTime() - now.getTime();
+        trialDaysRemaining = Math.max(0, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
+      }
+
+      // Determine subscription status
+      const validStatuses: SubscriptionStatusType[] = ['trial', 'ativo', 'pendente', 'em_atraso', 'cancelado', 'expirado'];
+      let status: SubscriptionStatusType = 'expirado';
+
+      if (profile.subscription_status && validStatuses.includes(profile.subscription_status as SubscriptionStatusType)) {
+        status = profile.subscription_status as SubscriptionStatusType;
+      } else if (profile.subscription_status === 'active' || profile.plan_type === 'paid' || profile.plan_type === 'owner') {
+        status = 'ativo';
+      } else if (profile.subscription_status === 'inactive') {
+        // Check if still in trial period
+        if (trialDaysRemaining !== null && trialDaysRemaining > 0) {
+          status = 'trial';
+        } else {
           status = 'expirado';
         }
       }
 
-      // Calculate days remaining
+      // Special case: owner always has access
+      if (profile.plan_type === 'owner') {
+        status = 'ativo';
+      }
+
+      // Check expiration for active subscriptions
+      const expirationDate = profile.subscription_expiration_date || profile.paid_until;
+      if (expirationDate && status === 'ativo') {
+        const expDate = new Date(expirationDate);
+        const now = new Date();
+        if (expDate < now) {
+          status = 'expirado';
+        }
+      }
+
+      // Calculate days remaining for active subscription
       let daysRemaining: number | null = null;
       if (expirationDate && status === 'ativo') {
         const expDate = new Date(expirationDate);
@@ -109,23 +157,39 @@ export function useSubscriptionStatus(): UseSubscriptionStatusResult {
       }
 
       // Determine plan
-      let plan: SubscriptionPlanType = null;
       const validPlans: SubscriptionPlanType[] = ['mensal', 'semestral', 'anual'];
+      let plan: SubscriptionPlanType = null;
       if (profile.subscription_plan && validPlans.includes(profile.subscription_plan as SubscriptionPlanType)) {
         plan = profile.subscription_plan as SubscriptionPlanType;
       }
 
+      // Determine selected plan (user choice before payment)
+      let selectedPlan: SubscriptionPlanType = null;
+      if (profile.selected_plan && validPlans.includes(profile.selected_plan as SubscriptionPlanType)) {
+        selectedPlan = profile.selected_plan as SubscriptionPlanType;
+      }
+
+      // CRITICAL: Only block access when status is 'expirado'
+      // trial and pendente should have full access
       const isActive = status === 'ativo';
-      const isBlocked = status !== 'ativo';
+      const isTrial = status === 'trial';
+      const isPending = status === 'pendente';
+      const isBlocked = status === 'expirado';
 
       setData({
         subscriptionStatus: status,
         plan,
+        selectedPlan,
         startDate: profile.subscription_start_date,
         expirationDate,
         nextBillingDate: profile.next_billing_date,
+        trialStartDate,
+        trialEndDate,
+        trialDaysRemaining: isTrial ? trialDaysRemaining : null,
         isActive,
         isBlocked,
+        isTrial,
+        isPending,
         daysRemaining,
       });
 

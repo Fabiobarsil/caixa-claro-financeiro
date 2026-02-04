@@ -4,12 +4,14 @@ import { useAuth } from '@/contexts/AuthContext';
 
 export interface SubscriptionState {
   subscribed: boolean;
-  planType: 'free' | 'paid';
-  subscriptionStatus: 'active' | 'inactive';
+  planType: 'free' | 'paid' | 'owner';
+  subscriptionStatus: string;
   subscriptionSource: 'kiwify' | 'stripe';
   trialDaysUsed: number;
   trialDaysRemaining: number | null;
   trialExpired: boolean;
+  isTrial: boolean;
+  isPending: boolean;
   firstActivityAt: string | null;
   paidUntil: string | null;
   isLoading: boolean;
@@ -21,11 +23,13 @@ const TRIAL_DAYS = 14;
 const initialState: SubscriptionState = {
   subscribed: false,
   planType: 'free',
-  subscriptionStatus: 'inactive',
+  subscriptionStatus: 'trial',
   subscriptionSource: 'kiwify',
   trialDaysUsed: 0,
   trialDaysRemaining: TRIAL_DAYS,
   trialExpired: false,
+  isTrial: true,
+  isPending: false,
   firstActivityAt: null,
   paidUntil: null,
   isLoading: true,
@@ -48,7 +52,7 @@ export function useSubscription() {
       // Fetch subscription data directly from profiles table
       const { data: profile, error } = await supabase
         .from('profiles')
-        .select('plan_type, subscription_status, subscription_source, paid_until, first_activity_at, trial_days')
+        .select('plan_type, subscription_status, subscription_source, paid_until, first_activity_at, trial_days, trial_start_date, trial_end_date')
         .eq('user_id', user.id)
         .maybeSingle();
 
@@ -71,7 +75,7 @@ export function useSubscription() {
       // Calculate trial status
       const trialDays = profile.trial_days || TRIAL_DAYS;
       let trialDaysUsed = 0;
-      let firstActivityAt = profile.first_activity_at;
+      let firstActivityAt = profile.first_activity_at || profile.trial_start_date;
 
       if (firstActivityAt) {
         const firstDate = new Date(firstActivityAt);
@@ -90,20 +94,28 @@ export function useSubscription() {
       const trialExpired = trialDaysUsed > trialDays;
       const trialDaysRemaining = Math.max(0, trialDays - trialDaysUsed);
 
+      // Determine status
+      const subscriptionStatus = profile.subscription_status || 'trial';
+      const isTrial = subscriptionStatus === 'trial';
+      const isPending = subscriptionStatus === 'pendente';
+      
       // Check if subscription is active
       const isPaid = profile.plan_type === 'paid';
-      const isActive = profile.subscription_status === 'active';
+      const isOwner = profile.plan_type === 'owner';
+      const isActive = subscriptionStatus === 'ativo' || isOwner;
       const paidUntilValid = !profile.paid_until || new Date(profile.paid_until) > new Date();
-      const subscribed = isPaid && isActive && paidUntilValid;
+      const subscribed = (isPaid || isOwner) && isActive && paidUntilValid;
 
       setState({
         subscribed,
-        planType: (profile.plan_type as 'free' | 'paid') || 'free',
-        subscriptionStatus: (profile.subscription_status as 'active' | 'inactive') || 'inactive',
+        planType: (profile.plan_type as 'free' | 'paid' | 'owner') || 'free',
+        subscriptionStatus,
         subscriptionSource: (profile.subscription_source as 'kiwify' | 'stripe') || 'kiwify',
         trialDaysUsed,
         trialDaysRemaining: subscribed ? null : trialDaysRemaining,
-        trialExpired: !subscribed && trialExpired,
+        trialExpired: !subscribed && trialExpired && !isTrial && !isPending,
+        isTrial,
+        isPending,
         firstActivityAt,
         paidUntil: profile.paid_until,
         isLoading: false,
@@ -132,18 +144,35 @@ export function useSubscription() {
     return () => clearInterval(interval);
   }, [isAuthenticated, checkSubscription]);
 
-  // Open Kiwify checkout (placeholder URL - will be configured)
-  const openKiwifyCheckout = useCallback(() => {
-    // Use environment variable or fallback placeholder
-    const checkoutUrl = import.meta.env.VITE_KIWIFY_CHECKOUT_URL || 'https://kiwify.com.br';
-    window.open(checkoutUrl, '_blank');
+  // Open Kiwify checkout with plan selection
+  const openKiwifyCheckout = useCallback((plan?: 'mensal' | 'semestral' | 'anual') => {
+    let checkoutUrl: string;
+    
+    switch (plan) {
+      case 'mensal':
+        checkoutUrl = import.meta.env.VITE_KIWIFY_CHECKOUT_MENSAL;
+        break;
+      case 'semestral':
+        checkoutUrl = import.meta.env.VITE_KIWIFY_CHECKOUT_SEMESTRAL;
+        break;
+      case 'anual':
+        checkoutUrl = import.meta.env.VITE_KIWIFY_CHECKOUT_ANUAL;
+        break;
+      default:
+        checkoutUrl = import.meta.env.VITE_KIWIFY_CHECKOUT_MENSAL || 'https://kiwify.com.br';
+    }
+    
+    if (checkoutUrl) {
+      window.open(checkoutUrl, '_blank');
+    }
   }, []);
 
-  // Check if user can create new records
-  const canCreateRecords = state.subscribed || !state.trialExpired;
+  // CRITICAL: User can create records during trial and pending states
+  // Only block when expired
+  const canCreateRecords = state.subscribed || state.isTrial || state.isPending || !state.trialExpired;
 
-  // Should show upgrade prompt (after trial expired)
-  const shouldShowUpgradePrompt = state.trialExpired && !state.subscribed;
+  // Should show upgrade prompt only when truly expired
+  const shouldShowUpgradePrompt = state.subscriptionStatus === 'expirado';
 
   return {
     ...state,

@@ -22,8 +22,11 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     
     // Account admins always have access
     if (isAdmin) return false;
-    return subscription.isBlocked;
-  }, [subscription.isBlocked, isAdmin, isSystemAdmin]);
+    
+    // CRITICAL: Only block when status is 'expirado'
+    // 'trial' and 'pendente' should have full access
+    return subscription.subscriptionStatus === 'expirado';
+  }, [subscription.subscriptionStatus, isAdmin, isSystemAdmin]);
 
   return (
     <SubscriptionContext.Provider

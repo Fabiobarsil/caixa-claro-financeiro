@@ -72,8 +72,9 @@ export default function PlanSelectionModal({
   blocking = false 
 }: PlanSelectionModalProps) {
   
-  const handleSelectPlan = (plan: PlanOption) => {
+  const handleSelectPlan = async (plan: PlanOption) => {
     if (plan.checkoutUrl && plan.checkoutUrl !== '#') {
+      // Redirect to Kiwify checkout
       window.open(plan.checkoutUrl, '_blank', 'noopener,noreferrer');
     }
   };
