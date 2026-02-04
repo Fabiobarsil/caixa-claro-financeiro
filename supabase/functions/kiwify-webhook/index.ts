@@ -175,11 +175,7 @@ Deno.serve(async (req) => {
       throw new Error("KIWIFY_WEBHOOK_SECRET is not configured");
     }
 
-    // Get signature from header or body
-    const authHeader = req.headers.get("authorization") || '';
-    const signature = req.headers.get("x-kiwify-signature") || authHeader.replace("Bearer ", "");
-    
-    // Parse payload
+    // Parse payload first to check body.token
     let payload: Record<string, unknown>;
     try {
       payload = JSON.parse(rawBody);
@@ -191,15 +187,62 @@ Deno.serve(async (req) => {
       });
     }
 
-    const bodyToken = (payload.token as string) || '';
+    // Extract token from multiple sources (in priority order)
+    const bodyToken = ((payload.token as string) || '').trim();
+    const xKiwifyToken = (req.headers.get("x-kiwify-token") || '').trim();
+    const xWebhookToken = (req.headers.get("x-webhook-token") || '').trim();
+    const authHeader = req.headers.get("authorization") || '';
+    const bearerToken = authHeader.startsWith("Bearer ") 
+      ? authHeader.substring(7).trim() 
+      : '';
     
+    // Get first non-empty token
+    const tokenReceived = bodyToken || xKiwifyToken || xWebhookToken || bearerToken;
+    const tokenPresent = !!tokenReceived;
+    
+    logStep("Token sources", { 
+      bodyTokenPresent: !!bodyToken,
+      xKiwifyTokenPresent: !!xKiwifyToken,
+      xWebhookTokenPresent: !!xWebhookToken,
+      bearerTokenPresent: !!bearerToken,
+      tokenPresent,
+    });
+
     // Allow simulation from admin panel with special token
     const isAdminSimulation = bodyToken === 'SIMULATION_FROM_ADMIN';
-    const validToken = signature === webhookSecret || bodyToken === webhookSecret || isAdminSimulation;
+    const validToken = isAdminSimulation || (tokenReceived === webhookSecret.trim());
     
     if (!validToken) {
-      logStep("Invalid token", { signatureProvided: !!signature, bodyTokenProvided: !!bodyToken });
+      logStep("Invalid token", { tokenPresent, isAdminSimulation });
       await logRequest(403, 'Invalid token', rawBody);
+      
+      // Log failed attempt in webhook_events
+      const customerEmail = (
+        (payload.Customer as Record<string, string>)?.email || 
+        (payload.customer as Record<string, string>)?.email || 
+        (payload.buyer as Record<string, string>)?.email ||
+        (payload.email as string) ||
+        'unknown'
+      ).toLowerCase().trim();
+      
+      const rawEvent = (
+        (payload.event as string) || 
+        (payload.evento as string) ||
+        (payload.status as string) || 
+        'unknown'
+      );
+      
+      await logWebhookEvent({
+        email: customerEmail,
+        rawEvent: rawEvent,
+        normalizedEvent: 'auth_failed',
+        subscriptionStatusApplied: 'none',
+        success: false,
+        errorMessage: 'invalid_token',
+        emailSent: false,
+        emailType: 'none',
+      });
+      
       return new Response(JSON.stringify({ error: "Forbidden" }), {
         status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
