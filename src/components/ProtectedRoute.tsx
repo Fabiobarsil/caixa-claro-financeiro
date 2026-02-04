@@ -8,10 +8,15 @@ import { TermsAcceptanceModal } from '@/components/TermsAcceptanceModal';
 interface ProtectedRouteProps {
   children: ReactNode;
   requireAdmin?: boolean;
+  requireSystemAdmin?: boolean;
 }
 
-export default function ProtectedRoute({ children, requireAdmin = false }: ProtectedRouteProps) {
-  const { isAuthenticated, isAdmin, isLoading, isAuthReady, user, accountId } = useAuth();
+export default function ProtectedRoute({ 
+  children, 
+  requireAdmin = false,
+  requireSystemAdmin = false 
+}: ProtectedRouteProps) {
+  const { isAuthenticated, isAdmin, isSystemAdmin, isLoading, isAuthReady, user, accountId } = useAuth();
   const { hasAccepted, isLoading: isTermsLoading } = useTermsAcceptance();
 
   // Wait for auth to be fully ready before making any decisions
@@ -25,6 +30,19 @@ export default function ProtectedRoute({ children, requireAdmin = false }: Prote
 
   if (!isAuthenticated) {
     return <Navigate to="/" replace />;
+  }
+
+  // System admin route protection
+  if (requireSystemAdmin && !isSystemAdmin) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-background px-4 text-center">
+        <ShieldAlert className="h-16 w-16 text-destructive mb-4" />
+        <h1 className="text-xl font-bold text-foreground mb-2">Acesso Restrito</h1>
+        <p className="text-muted-foreground max-w-md">
+          Esta página é exclusiva para o Owner do sistema.
+        </p>
+      </div>
+    );
   }
 
   if (requireAdmin && !isAdmin) {
