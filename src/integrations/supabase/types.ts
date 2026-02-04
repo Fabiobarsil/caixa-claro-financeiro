@@ -208,12 +208,15 @@ export type Database = {
           next_billing_date: string | null
           paid_until: string | null
           plan_type: string
+          selected_plan: string | null
           subscription_expiration_date: string | null
           subscription_plan: string | null
           subscription_source: string
           subscription_start_date: string | null
           subscription_status: string
           trial_days: number
+          trial_end_date: string | null
+          trial_start_date: string | null
           updated_at: string
           user_id: string
           vacation_end: string | null
@@ -231,12 +234,15 @@ export type Database = {
           next_billing_date?: string | null
           paid_until?: string | null
           plan_type?: string
+          selected_plan?: string | null
           subscription_expiration_date?: string | null
           subscription_plan?: string | null
           subscription_source?: string
           subscription_start_date?: string | null
           subscription_status?: string
           trial_days?: number
+          trial_end_date?: string | null
+          trial_start_date?: string | null
           updated_at?: string
           user_id: string
           vacation_end?: string | null
@@ -254,12 +260,15 @@ export type Database = {
           next_billing_date?: string | null
           paid_until?: string | null
           plan_type?: string
+          selected_plan?: string | null
           subscription_expiration_date?: string | null
           subscription_plan?: string | null
           subscription_source?: string
           subscription_start_date?: string | null
           subscription_status?: string
           trial_days?: number
+          trial_end_date?: string | null
+          trial_start_date?: string | null
           updated_at?: string
           user_id?: string
           vacation_end?: string | null
@@ -655,6 +664,7 @@ export type Database = {
     }
     Functions: {
       current_account_id: { Args: never; Returns: string }
+      expire_trials: { Args: never; Returns: number }
       get_user_account_id: { Args: never; Returns: string }
       has_role: {
         Args: {

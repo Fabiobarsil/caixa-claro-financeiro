@@ -1,126 +1,167 @@
-import { useState } from 'react';
-import { Clock, Sparkles, ExternalLink, AlertCircle, X } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Clock, AlertCircle, X, Crown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useSubscription } from '@/hooks/useSubscription';
-import UpgradeModal from './UpgradeModal';
+import { useSubscriptionContext } from '@/contexts/SubscriptionContext';
+import PlanSelectionModal from './PlanSelectionModal';
+
+const SNOOZE_KEY = 'subscription_banner_snoozed_until';
 
 export default function SubscriptionBanner() {
   const {
-    subscribed,
-    planType,
+    subscriptionStatus,
+    isTrial,
+    isPending,
+    isActive,
     trialDaysRemaining,
-    trialExpired,
-    trialDaysUsed,
-    openKiwifyCheckout,
+    selectedPlan,
     isLoading,
-  } = useSubscription();
-  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
-  const [dismissed, setDismissed] = useState(false);
+  } = useSubscriptionContext();
+  
+  const [showPlanModal, setShowPlanModal] = useState(false);
+  const [snoozed, setSnoozed] = useState(false);
 
-  // Don't show anything while loading or before day 10
-  if (isLoading || trialDaysUsed < 10 || dismissed) {
+  // Check if banner was snoozed
+  useEffect(() => {
+    const snoozedUntil = localStorage.getItem(SNOOZE_KEY);
+    if (snoozedUntil) {
+      const snoozedDate = new Date(snoozedUntil);
+      if (snoozedDate > new Date()) {
+        setSnoozed(true);
+      } else {
+        localStorage.removeItem(SNOOZE_KEY);
+      }
+    }
+  }, []);
+
+  const handleSnooze = () => {
+    // Snooze for 24 hours
+    const snoozedUntil = new Date();
+    snoozedUntil.setHours(snoozedUntil.getHours() + 24);
+    localStorage.setItem(SNOOZE_KEY, snoozedUntil.toISOString());
+    setSnoozed(true);
+  };
+
+  // Don't show anything while loading
+  if (isLoading) {
     return null;
   }
 
-  // User is subscribed - show active plan status
-  if (subscribed && planType === 'paid') {
-    return (
-      <div className="bg-primary/5 border border-primary/20 rounded-lg p-4 mb-6">
-        <div className="flex items-center justify-between gap-4 flex-wrap">
-          <div className="flex items-center gap-3">
-            <div className="h-10 w-10 bg-primary/10 rounded-full flex items-center justify-center">
-              <Sparkles className="h-5 w-5 text-primary" />
-            </div>
-            <div>
-              <p className="font-medium">Plano Completo Ativo</p>
-              <p className="text-sm text-muted-foreground">
-                Você tem acesso ilimitado ao CaixaCertus
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
+  // User is subscribed and active - show active plan status
+  if (isActive && subscriptionStatus === 'ativo') {
+    return null; // No banner needed for active subscribers
   }
 
-  // Trial expired - show upgrade prompt
-  if (trialExpired) {
+  // If snoozed and in trial, don't show
+  if (snoozed && isTrial) {
+    return null;
+  }
+
+  // Trial state - show countdown banner
+  if (isTrial) {
+    const daysText = trialDaysRemaining === 1 ? 'dia' : 'dias';
+    const isUrgent = trialDaysRemaining !== null && trialDaysRemaining <= 3;
+    
     return (
       <>
-        <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-4 mb-6">
+        <div className={`border rounded-lg p-4 mb-6 ${
+          isUrgent 
+            ? 'bg-warning/10 border-warning/30' 
+            : 'bg-primary/5 border-primary/20'
+        }`}>
           <div className="flex items-start gap-3">
-            <AlertCircle className="h-5 w-5 text-destructive mt-0.5 shrink-0" />
-            <div className="flex-1">
-              <h4 className="font-semibold text-destructive">
-                Período gratuito encerrado
-              </h4>
-              <p className="text-sm text-muted-foreground mt-1">
-                Para continuar criando novos lançamentos, ative seu plano. 
-                Você ainda pode visualizar todo seu histórico.
-              </p>
-              <Button
-                onClick={() => setShowUpgradeModal(true)}
-                size="sm"
-                className="mt-3"
-              >
-                <ExternalLink className="h-4 w-4 mr-2" />
-                Ativar plano
-              </Button>
+            <div className={`h-10 w-10 rounded-full flex items-center justify-center shrink-0 ${
+              isUrgent ? 'bg-warning/20' : 'bg-primary/10'
+            }`}>
+              <Clock className={`h-5 w-5 ${isUrgent ? 'text-warning' : 'text-primary'}`} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <h4 className="font-semibold text-foreground">
+                    Teste grátis: {trialDaysRemaining === 0 
+                      ? 'último dia!' 
+                      : `faltam ${trialDaysRemaining} ${daysText}`
+                    }
+                  </h4>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Aproveite o período de teste para explorar todas as funcionalidades.
+                  </p>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6 shrink-0 -mt-1 -mr-1"
+                  onClick={handleSnooze}
+                  title="Lembrar depois"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+              <div className="flex flex-wrap gap-2 mt-3">
+                <Button
+                  onClick={() => setShowPlanModal(true)}
+                  size="sm"
+                  variant={isUrgent ? 'default' : 'outline'}
+                >
+                  Escolher plano
+                </Button>
+                <Button
+                  onClick={handleSnooze}
+                  variant="ghost"
+                  size="sm"
+                  className="text-muted-foreground"
+                >
+                  Depois
+                </Button>
+              </div>
             </div>
           </div>
         </div>
 
-        <UpgradeModal
-          open={showUpgradeModal}
-          onOpenChange={setShowUpgradeModal}
-          context="dashboard"
+        <PlanSelectionModal
+          open={showPlanModal}
+          onOpenChange={setShowPlanModal}
         />
       </>
     );
   }
 
-  // Trial active with few days remaining - show gentle reminder
-  if (trialDaysRemaining !== null && trialDaysRemaining <= 4) {
+  // Pending state - trial ended, waiting for payment
+  if (isPending) {
+    const planName = selectedPlan === 'semestral' ? 'Semestral' 
+      : selectedPlan === 'anual' ? 'Anual' 
+      : 'Mensal';
+    
     return (
       <>
-        <div className="bg-primary/5 border border-primary/20 rounded-lg p-4 mb-6">
+        <div className="bg-warning/10 border border-warning/30 rounded-lg p-4 mb-6">
           <div className="flex items-start gap-3">
+            <div className="h-10 w-10 bg-warning/20 rounded-full flex items-center justify-center shrink-0">
+              <AlertCircle className="h-5 w-5 text-warning" />
+            </div>
             <div className="flex-1">
-              <div className="flex items-center justify-between">
-                <h4 className="font-semibold text-foreground">
-                  {trialDaysRemaining === 0 
-                    ? 'Último dia do período gratuito'
-                    : `${trialDaysRemaining} dia${trialDaysRemaining > 1 ? 's' : ''} restante${trialDaysRemaining > 1 ? 's' : ''} de teste`
-                  }
-                </h4>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-6 w-6 -mr-2 -mt-2"
-                  onClick={() => setDismissed(true)}
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
+              <h4 className="font-semibold text-foreground">
+                Seu teste terminou
+              </h4>
               <p className="text-sm text-muted-foreground mt-1">
-                Continue controlando seu caixa sem interrupções. Ative seu plano antes do término do período gratuito.
+                Plano padrão selecionado: <strong>{planName}</strong>. 
+                Para continuar com acesso completo, conclua a assinatura.
               </p>
               <Button
-                onClick={() => setShowUpgradeModal(true)}
-                variant="outline"
+                onClick={() => setShowPlanModal(true)}
                 size="sm"
                 className="mt-3"
               >
-                Ver planos
+                <Crown className="h-4 w-4 mr-2" />
+                Assinar plano
               </Button>
             </div>
           </div>
         </div>
 
-        <UpgradeModal
-          open={showUpgradeModal}
-          onOpenChange={setShowUpgradeModal}
-          context="dashboard"
+        <PlanSelectionModal
+          open={showPlanModal}
+          onOpenChange={setShowPlanModal}
         />
       </>
     );
