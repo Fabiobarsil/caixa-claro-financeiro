@@ -146,7 +146,10 @@ Deno.serve(async (req) => {
     }
 
     const bodyToken = (payload.token as string) || '';
-    const validToken = signature === webhookSecret || bodyToken === webhookSecret;
+    
+    // Allow simulation from admin panel with special token
+    const isAdminSimulation = bodyToken === 'SIMULATION_FROM_ADMIN';
+    const validToken = signature === webhookSecret || bodyToken === webhookSecret || isAdminSimulation;
     
     if (!validToken) {
       logStep("Invalid token", { signatureProvided: !!signature, bodyTokenProvided: !!bodyToken });
@@ -155,6 +158,10 @@ Deno.serve(async (req) => {
         status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+    
+    if (isAdminSimulation) {
+      logStep("Admin simulation mode");
     }
 
     logStep("Token validated");
