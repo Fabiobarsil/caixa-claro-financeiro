@@ -16,8 +16,7 @@ import {
   Shield,
   Users,
   Loader2,
-  BarChart3,
-  CreditCard
+  BarChart3
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 
@@ -159,24 +158,6 @@ export default function Settings() {
             <ChevronRight size={20} className="text-muted-foreground" />
           </div>
 
-          {/* Assinaturas - Only visible for System Admin */}
-          {isSystemAdmin && (
-            <div 
-              onClick={() => navigate('/configuracoes/assinaturas')}
-              className="flex items-center justify-between p-4 bg-card rounded-xl border border-border cursor-pointer hover:border-primary/30 transition-colors"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-amber-500/10 flex items-center justify-center text-amber-500">
-                  <CreditCard size={20} />
-                </div>
-                <div>
-                  <p className="font-medium text-foreground">Assinaturas</p>
-                  <p className="text-sm text-muted-foreground">Painel do sistema (Owner)</p>
-                </div>
-              </div>
-              <ChevronRight size={20} className="text-muted-foreground" />
-            </div>
-          )}
 
           {/* Controle de estoque */}
           <div className="flex items-center justify-between p-4 bg-card rounded-xl border border-border">

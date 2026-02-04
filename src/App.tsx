@@ -163,7 +163,7 @@ function AppRoutes() {
           }
         />
         <Route
-          path="/configuracoes/assinaturas"
+          path="/assinaturas"
           element={
             <ProtectedRoute requireSystemAdmin>
               <AdminSubscriptions />

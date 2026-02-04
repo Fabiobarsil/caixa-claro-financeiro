@@ -1,5 +1,5 @@
 import { NavLink, useLocation } from 'react-router-dom';
-import { Home, Receipt, Users, TrendingDown, Settings, Package } from 'lucide-react';
+import { Home, Receipt, Users, TrendingDown, Settings, Package, CreditCard } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -8,6 +8,7 @@ interface NavItem {
   icon: typeof Home;
   label: string;
   adminOnly?: boolean;
+  systemAdminOnly?: boolean;
 }
 
 const navItems: NavItem[] = [
@@ -16,15 +17,20 @@ const navItems: NavItem[] = [
   { to: '/clientes', icon: Users, label: 'Clientes' },
   { to: '/servicos-produtos', icon: Package, label: 'Catálogo' },
   { to: '/despesas', icon: TrendingDown, label: 'Despesas' },
+  { to: '/assinaturas', icon: CreditCard, label: 'Assinaturas', systemAdminOnly: true },
   { to: '/configuracoes', icon: Settings, label: 'Config', adminOnly: true },
 ];
 
 export default function BottomNav() {
   const location = useLocation();
-  const { isAdmin } = useAuth();
+  const { isAdmin, isSystemAdmin } = useAuth();
 
   // Filter items based on user role
-  const visibleItems = navItems.filter(item => !item.adminOnly || isAdmin);
+  const visibleItems = navItems.filter(item => {
+    if (item.systemAdminOnly) return isSystemAdmin;
+    if (item.adminOnly) return isAdmin;
+    return true;
+  });
 
   return (
     <nav className="bottom-nav z-50 lg:hidden">
