@@ -9,7 +9,7 @@ interface UseAdminExistsResult {
 
 /**
  * Hook to check if at least one admin user exists in the system.
- * Used to determine if first-access setup is needed or should be blocked.
+ * Uses a secure server-side Edge Function to avoid exposing user_ids.
  */
 export function useAdminExists(): UseAdminExistsResult {
   const [adminExists, setAdminExists] = useState<boolean | null>(null);
@@ -21,19 +21,15 @@ export function useAdminExists(): UseAdminExistsResult {
 
     const checkAdminExists = async () => {
       try {
-        // Query user_roles table to check if any admin exists
-        // This is a public check - RLS allows anyone to check role existence
-        const { count, error: queryError } = await supabase
-          .from('user_roles')
-          .select('*', { count: 'exact', head: true })
-          .eq('role', 'admin');
+        // Call secure Edge Function that returns only { exists: boolean }
+        const { data, error: fnError } = await supabase.functions.invoke('check-admin-exists');
 
-        if (queryError) {
-          throw queryError;
+        if (fnError) {
+          throw fnError;
         }
 
         if (mounted) {
-          setAdminExists((count ?? 0) > 0);
+          setAdminExists(data?.exists ?? false);
           setError(null);
         }
       } catch (err) {

@@ -2,3 +2,6 @@ project_id = "lfgodijmipfgoyqvzkvk"
 
 [functions.kiwify-webhook]
 verify_jwt = false
+
+[functions.check-admin-exists]
+verify_jwt = false
