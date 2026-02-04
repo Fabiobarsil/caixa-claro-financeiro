@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Users, FileText, Activity, RefreshCw, Send } from 'lucide-react';
+import { ArrowLeft, Users, FileText, Activity, RefreshCw, Send, ShieldAlert, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -13,6 +13,7 @@ import { useToast } from '@/hooks/use-toast';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import AppLayout from '@/components/AppLayout';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface Subscriber {
   id: string;
@@ -22,6 +23,7 @@ interface Subscriber {
   subscription_plan: string | null;
   subscription_start_date: string | null;
   subscription_expiration_date: string | null;
+  is_system_admin: boolean;
 }
 
 interface WebhookRequest {
@@ -47,6 +49,7 @@ interface WebhookEvent {
 export default function AdminSubscriptions() {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { isSystemAdmin, isLoading: authLoading } = useAuth();
   const [subscribers, setSubscribers] = useState<Subscriber[]>([]);
   const [webhookRequests, setWebhookRequests] = useState<WebhookRequest[]>([]);
   const [webhookEvents, setWebhookEvents] = useState<WebhookEvent[]>([]);
@@ -58,14 +61,21 @@ export default function AdminSubscriptions() {
   const [simProduct, setSimProduct] = useState('');
   const [isSimulating, setIsSimulating] = useState(false);
 
+  // Redirect non-system-admins
+  useEffect(() => {
+    if (!authLoading && !isSystemAdmin) {
+      navigate('/configuracoes');
+    }
+  }, [authLoading, isSystemAdmin, navigate]);
+
   const fetchData = async () => {
     setIsLoading(true);
     try {
       // Fetch subscribers
       const { data: subs, error: subsError } = await supabase
         .from('profiles')
-        .select('id, email, name, subscription_status, subscription_plan, subscription_start_date, subscription_expiration_date')
-        .order('subscription_start_date', { ascending: false, nullsFirst: false });
+        .select('id, email, name, subscription_status, subscription_plan, subscription_start_date, subscription_expiration_date, is_system_admin')
+        .order('created_at', { ascending: false });
 
       if (subsError) throw subsError;
       setSubscribers(subs || []);
@@ -102,9 +112,37 @@ export default function AdminSubscriptions() {
     }
   };
 
+  // Only fetch when system admin
   useEffect(() => {
-    fetchData();
-  }, []);
+    if (!authLoading && isSystemAdmin) {
+      fetchData();
+    }
+  }, [authLoading, isSystemAdmin]);
+
+  // Show loading while checking auth
+  if (authLoading) {
+    return (
+      <AppLayout>
+        <div className="flex items-center justify-center min-h-[50vh]">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </AppLayout>
+    );
+  }
+
+  // Show access denied for non-system-admins
+  if (!isSystemAdmin) {
+    return (
+      <AppLayout>
+        <div className="flex flex-col items-center justify-center min-h-[50vh] gap-4">
+          <ShieldAlert className="h-16 w-16 text-destructive" />
+          <h1 className="text-xl font-bold">Acesso Restrito</h1>
+          <p className="text-muted-foreground">Esta página é exclusiva para o Owner do sistema.</p>
+          <Button onClick={() => navigate('/configuracoes')}>Voltar</Button>
+        </div>
+      </AppLayout>
+    );
+  }
 
   const simulateWebhook = async () => {
     if (!simEmail || !simEvent || !simProduct) {
@@ -224,6 +262,7 @@ export default function AdminSubscriptions() {
                     <TableRow>
                       <TableHead>Email</TableHead>
                       <TableHead>Nome</TableHead>
+                      <TableHead>Tipo</TableHead>
                       <TableHead>Plano</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Início</TableHead>
@@ -236,6 +275,13 @@ export default function AdminSubscriptions() {
                         <TableCell className="font-mono text-sm">{sub.email}</TableCell>
                         <TableCell>{sub.name}</TableCell>
                         <TableCell>
+                          {sub.is_system_admin ? (
+                            <Badge className="bg-amber-500/10 text-amber-600 border-amber-500/20">Owner</Badge>
+                          ) : (
+                            <Badge variant="outline">Usuário</Badge>
+                          )}
+                        </TableCell>
+                        <TableCell>
                           {sub.subscription_plan ? (
                             <Badge variant="secondary">{sub.subscription_plan}</Badge>
                           ) : '-'}
@@ -247,7 +293,7 @@ export default function AdminSubscriptions() {
                     ))}
                     {subscribers.length === 0 && (
                       <TableRow>
-                        <TableCell colSpan={6} className="text-center text-muted-foreground">
+                        <TableCell colSpan={7} className="text-center text-muted-foreground">
                           Nenhum assinante encontrado
                         </TableCell>
                       </TableRow>

@@ -14,12 +14,14 @@ interface User {
   name: string;
   role: AppRole;
   accountId: string | null;
+  isSystemAdmin: boolean;
 }
 
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
   isAdmin: boolean;
+  isSystemAdmin: boolean;
   isLoading: boolean;
   isAuthReady: boolean;
   accountId: string | null;
@@ -39,10 +41,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const fetchUserData = useCallback(async (supabaseUser: SupabaseUser): Promise<User | null> => {
     try {
-      // Fetch profile including account_id
+      // Fetch profile including account_id and is_system_admin
       const { data: profile } = await supabase
         .from('profiles')
-        .select('name, email, account_id')
+        .select('name, email, account_id, is_system_admin')
         .eq('user_id', supabaseUser.id)
         .maybeSingle();
 
@@ -59,6 +61,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         name: profile?.name || 'Usuário',
         role: (roleData?.role as AppRole) || 'operador',
         accountId: profile?.account_id || null,
+        isSystemAdmin: profile?.is_system_admin || false,
       };
     } catch (error) {
       console.error('Error fetching user data:', error);
@@ -241,6 +244,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     user,
     isAuthenticated: !!user,
     isAdmin: user?.role === 'admin',
+    isSystemAdmin: user?.isSystemAdmin || false,
     isLoading,
     isAuthReady,
     accountId: user?.accountId || null,

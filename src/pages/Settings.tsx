@@ -22,7 +22,7 @@ import {
 import { Switch } from '@/components/ui/switch';
 
 export default function Settings() {
-  const { user, logout, isAdmin, isLoading } = useAuth();
+  const { user, logout, isAdmin, isSystemAdmin, isLoading } = useAuth();
   const { stats, isLoading: statsLoading } = useUserStats();
   const navigate = useNavigate();
   const [stockEnabled, setStockEnabled] = useState(false);
@@ -78,9 +78,9 @@ export default function Settings() {
               <p className="font-semibold text-foreground">{user?.name}</p>
               <p className="text-sm text-muted-foreground">{user?.email}</p>
               <div className="flex items-center gap-1 mt-1">
-                <Shield size={12} className="text-primary" />
-                <span className="text-xs text-primary font-medium capitalize">
-                  {user?.role}
+                <Shield size={12} className={isSystemAdmin ? "text-amber-500" : "text-primary"} />
+                <span className={`text-xs font-medium capitalize ${isSystemAdmin ? "text-amber-500" : "text-primary"}`}>
+                  {isSystemAdmin ? 'System Owner' : user?.role}
                 </span>
               </div>
             </div>
@@ -159,22 +159,24 @@ export default function Settings() {
             <ChevronRight size={20} className="text-muted-foreground" />
           </div>
 
-          {/* Assinaturas */}
-          <div 
-            onClick={() => navigate('/configuracoes/assinaturas')}
-            className="flex items-center justify-between p-4 bg-card rounded-xl border border-border cursor-pointer hover:border-primary/30 transition-colors"
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-secondary flex items-center justify-center text-muted-foreground">
-                <CreditCard size={20} />
+          {/* Assinaturas - Only visible for System Admin */}
+          {isSystemAdmin && (
+            <div 
+              onClick={() => navigate('/configuracoes/assinaturas')}
+              className="flex items-center justify-between p-4 bg-card rounded-xl border border-border cursor-pointer hover:border-primary/30 transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-amber-500/10 flex items-center justify-center text-amber-500">
+                  <CreditCard size={20} />
+                </div>
+                <div>
+                  <p className="font-medium text-foreground">Assinaturas</p>
+                  <p className="text-sm text-muted-foreground">Painel do sistema (Owner)</p>
+                </div>
               </div>
-              <div>
-                <p className="font-medium text-foreground">Assinaturas</p>
-                <p className="text-sm text-muted-foreground">Gerenciar planos e webhooks</p>
-              </div>
+              <ChevronRight size={20} className="text-muted-foreground" />
             </div>
-            <ChevronRight size={20} className="text-muted-foreground" />
-          </div>
+          )}
 
           {/* Controle de estoque */}
           <div className="flex items-center justify-between p-4 bg-card rounded-xl border border-border">

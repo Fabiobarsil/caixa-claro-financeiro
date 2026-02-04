@@ -17,18 +17,24 @@ const SubscriptionContext = createContext<SubscriptionContextType | undefined>(u
 
 export function SubscriptionProvider({ children }: { children: ReactNode }) {
   const subscription = useSubscriptionStatus();
-  const { isAdmin } = useAuth();
+  const { isAdmin, isSystemAdmin } = useAuth();
   const [showPlanModal, setShowPlanModal] = useState(false);
 
-  // Auto-show modal when subscription is blocked (but not for admins)
+  // Auto-show modal when subscription is blocked (but not for admins or system admins)
   useEffect(() => {
+    // System admins are NEVER blocked by subscription
+    if (isSystemAdmin) return;
+    
     if (!subscription.isLoading && subscription.isBlocked && !isAdmin) {
       setShowPlanModal(true);
     }
-  }, [subscription.isLoading, subscription.isBlocked, isAdmin]);
+  }, [subscription.isLoading, subscription.isBlocked, isAdmin, isSystemAdmin]);
 
   const requireActiveSubscription = useCallback(() => {
-    // Admins always have access
+    // System admins always have access (owner of the SaaS)
+    if (isSystemAdmin) return false;
+    
+    // Account admins always have access
     if (isAdmin) return false;
     
     if (subscription.isBlocked) {
@@ -36,10 +42,11 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
       return true;
     }
     return false;
-  }, [subscription.isBlocked, isAdmin]);
+  }, [subscription.isBlocked, isAdmin, isSystemAdmin]);
 
   // Determine if modal should be blocking (can't dismiss)
-  const isBlockingModal = subscription.isBlocked && !isAdmin;
+  // System admins and account admins are never blocked
+  const isBlockingModal = subscription.isBlocked && !isAdmin && !isSystemAdmin;
 
   return (
     <SubscriptionContext.Provider

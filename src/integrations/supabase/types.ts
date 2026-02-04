@@ -203,6 +203,7 @@ export type Database = {
           first_activity_at: string | null
           id: string
           is_active: boolean
+          is_system_admin: boolean
           name: string
           next_billing_date: string | null
           paid_until: string | null
@@ -225,6 +226,7 @@ export type Database = {
           first_activity_at?: string | null
           id?: string
           is_active?: boolean
+          is_system_admin?: boolean
           name: string
           next_billing_date?: string | null
           paid_until?: string | null
@@ -247,6 +249,7 @@ export type Database = {
           first_activity_at?: string | null
           id?: string
           is_active?: boolean
+          is_system_admin?: boolean
           name?: string
           next_billing_date?: string | null
           paid_until?: string | null
@@ -661,6 +664,7 @@ export type Database = {
         Returns: boolean
       }
       is_admin: { Args: never; Returns: boolean }
+      is_system_admin: { Args: never; Returns: boolean }
     }
     Enums: {
       app_role: "admin" | "operador"
