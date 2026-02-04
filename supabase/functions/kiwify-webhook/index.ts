@@ -207,8 +207,8 @@ Deno.serve(async (req) => {
       ? authHeader.substring(7).trim() 
       : '';
     
-    // Get first non-empty token (query > body > headers)
-    const tokenReceived = queryToken || bodyToken || xKiwifyToken || xWebhookToken || bearerToken;
+    // Get first non-empty token (priority: body > headers > query)
+    const tokenReceived = bodyToken || xKiwifyToken || xWebhookToken || bearerToken || queryToken;
     const tokenPresent = !!tokenReceived;
     
     logStep("Token sources", {
