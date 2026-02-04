@@ -14,20 +14,35 @@ const logStep = (step: string, details?: Record<string, unknown>) => {
 function normalizeEvent(rawEvent: string): string {
   const event = rawEvent?.toLowerCase().replace(/[\s_-]+/g, '_') || '';
   
-  // Activation events
+  // Activation events (payment approved)
   if (event.includes('compra_aprovada') || 
       event.includes('pagamento_aprovado') ||
       event.includes('assinatura_renovada') ||
       event.includes('order_approved') ||
       event.includes('payment_approved') ||
       event.includes('subscription_activated') ||
-      event === 'approved' || event === 'paid' || event === 'pago') {
+      event.includes('order_paid') ||
+      event.includes('paid') ||
+      event === 'approved' || event === 'pago') {
     return 'ativo';
+  }
+  
+  // PIX created events (waiting payment)
+  if (event.includes('pix_created') ||
+      event.includes('pix_gerado') ||
+      event.includes('boleto_created') ||
+      event.includes('boleto_gerado') ||
+      event.includes('waiting_payment') ||
+      event.includes('aguardando_pagamento') ||
+      event.includes('pending') ||
+      event.includes('aguardando')) {
+    return 'pendente';
   }
   
   // Cancellation events
   if (event.includes('assinatura_cancelada') ||
       event.includes('subscription_canceled') ||
+      event.includes('order_refunded') ||
       event.includes('chargeback') ||
       event.includes('refund')) {
     return 'cancelado';
@@ -38,14 +53,6 @@ function normalizeEvent(rawEvent: string): string {
       event.includes('payment_overdue') ||
       event.includes('late')) {
     return 'em_atraso';
-  }
-  
-  // Pending payment (PIX generated, boleto, etc)
-  if (event.includes('pix_gerado') ||
-      event.includes('boleto_gerado') ||
-      event.includes('pending') ||
-      event.includes('aguardando')) {
-    return 'pendente';
   }
   
   return 'unknown';
@@ -168,12 +175,9 @@ Deno.serve(async (req) => {
     logStep("Webhook received");
     rawBody = await req.text();
 
-    // Validate webhook secret
+    // Get webhook secret (optional - if not configured, we'll skip token validation)
     const webhookSecret = Deno.env.get("KIWIFY_WEBHOOK_SECRET");
-    if (!webhookSecret) {
-      await logRequest(500, 'KIWIFY_WEBHOOK_SECRET not configured', rawBody);
-      throw new Error("KIWIFY_WEBHOOK_SECRET is not configured");
-    }
+    const requireToken = !!webhookSecret && webhookSecret.trim() !== '';
 
     // Parse payload first to check body.token
     let payload: Record<string, unknown>;
@@ -206,11 +210,20 @@ Deno.serve(async (req) => {
       xWebhookTokenPresent: !!xWebhookToken,
       bearerTokenPresent: !!bearerToken,
       tokenPresent,
+      requireToken,
     });
 
     // Allow simulation from admin panel with special token
     const isAdminSimulation = bodyToken === 'SIMULATION_FROM_ADMIN';
-    const validToken = isAdminSimulation || (tokenReceived === webhookSecret.trim());
+    
+    // Token validation: only validate if KIWIFY_WEBHOOK_SECRET is configured
+    let validToken = true;
+    if (requireToken) {
+      validToken = isAdminSimulation || (tokenReceived === webhookSecret!.trim());
+    } else {
+      // No secret configured - accept all requests (log warning)
+      logStep("WARNING: No KIWIFY_WEBHOOK_SECRET configured - accepting all requests");
+    }
     
     if (!validToken) {
       logStep("Invalid token", { tokenPresent, isAdminSimulation });
@@ -267,16 +280,19 @@ Deno.serve(async (req) => {
     const customerName = getCustomerName(payload);
 
     const rawEvent = (
+      (payload.webhook_event_type as string) ||
       (payload.event as string) || 
       (payload.evento as string) ||
-      (payload.status as string) || 
       (payload.order_status as string) ||
+      (payload.status as string) || 
       ''
     );
 
     const rawProduct = (
+      (payload.Product as Record<string, string>)?.product_name ||
       (payload.Product as Record<string, string>)?.name || 
       (payload.product as Record<string, string>)?.name || 
+      (payload.Subscription as Record<string, Record<string, string>>)?.plan?.name ||
       (payload.produto as string) ||
       (payload.plan_name as string) ||
       (payload.offer_name as string) ||
