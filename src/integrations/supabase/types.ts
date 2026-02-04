@@ -579,6 +579,8 @@ export type Database = {
         Row: {
           created_at: string
           email: string
+          email_sent: boolean | null
+          email_type: string | null
           error_message: string | null
           expiration_date_applied: string | null
           id: string
@@ -593,6 +595,8 @@ export type Database = {
         Insert: {
           created_at?: string
           email: string
+          email_sent?: boolean | null
+          email_type?: string | null
           error_message?: string | null
           expiration_date_applied?: string | null
           id?: string
@@ -607,6 +611,8 @@ export type Database = {
         Update: {
           created_at?: string
           email?: string
+          email_sent?: boolean | null
+          email_type?: string | null
           error_message?: string | null
           expiration_date_applied?: string | null
           id?: string
