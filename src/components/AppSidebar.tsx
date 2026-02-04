@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import { Home, Receipt, Users, TrendingDown, Settings, ChevronLeft, ChevronRight, Package } from 'lucide-react';
+import { Home, Receipt, Users, TrendingDown, Settings, ChevronLeft, ChevronRight, Package, CreditCard } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import iconCaixacertus from '@/assets/icon-caixacertus.svg';
@@ -10,6 +10,7 @@ interface NavItem {
   icon: typeof Home;
   label: string;
   adminOnly?: boolean;
+  systemAdminOnly?: boolean;
 }
 
 const navItems: NavItem[] = [
@@ -18,16 +19,21 @@ const navItems: NavItem[] = [
   { to: '/clientes', icon: Users, label: 'Clientes' },
   { to: '/servicos-produtos', icon: Package, label: 'Serviços & Produtos' },
   { to: '/despesas', icon: TrendingDown, label: 'Despesas' },
+  { to: '/assinaturas', icon: CreditCard, label: 'Assinaturas', systemAdminOnly: true },
   { to: '/configuracoes', icon: Settings, label: 'Configurações', adminOnly: true },
 ];
 
 export default function AppSidebar() {
   const location = useLocation();
-  const { isAdmin } = useAuth();
+  const { isAdmin, isSystemAdmin } = useAuth();
   const [isCollapsed, setIsCollapsed] = useState(false);
 
   // Filter items based on user role
-  const visibleItems = navItems.filter(item => !item.adminOnly || isAdmin);
+  const visibleItems = navItems.filter(item => {
+    if (item.systemAdminOnly) return isSystemAdmin;
+    if (item.adminOnly) return isAdmin;
+    return true;
+  });
 
   return (
     <aside className={cn(
