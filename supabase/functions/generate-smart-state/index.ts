@@ -49,6 +49,7 @@ Deno.serve(async (req) => {
     }
 
     console.log("Authenticated user:", claimsData.claims.sub);
+    console.log("[SMART-STATE] Using transactions table");
     
     // Use service role for database operations after authentication is validated
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
@@ -84,12 +85,13 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      // Fetch user's paid entries (income)
-      const { data: paidEntries } = await supabase
-        .from("entries")
-        .select("value")
+      // Fetch user's paid transactions (income)
+      const { data: paidTransactions } = await supabase
+        .from("transactions")
+        .select("amount")
         .eq("user_id", userId)
-        .eq("status", "pago");
+        .eq("status", "pago")
+        .eq("type", "entrada");
 
       // Fetch user's expenses
       const { data: allExpenses } = await supabase
@@ -98,8 +100,8 @@ Deno.serve(async (req) => {
         .eq("user_id", userId);
 
       // Calculate current balance
-      const totalReceived = (paidEntries || []).reduce(
-        (sum, e) => sum + Number(e.value),
+      const totalReceived = (paidTransactions || []).reduce(
+        (sum, t) => sum + Number(t.amount),
         0
       );
       const totalExpenses = (allExpenses || []).reduce(
@@ -153,9 +155,9 @@ Deno.serve(async (req) => {
 
         // INSIGHT: Inactivity (check if no movement today)
         if (!smartState) {
-          // Check for any entry or expense today
-          const { count: todayEntriesCount } = await supabase
-            .from("entries")
+          // Check for any transaction or expense today
+          const { count: todayTransactionsCount } = await supabase
+            .from("transactions")
             .select("*", { count: "exact", head: true })
             .eq("user_id", userId)
             .eq("date", today);
@@ -164,10 +166,10 @@ Deno.serve(async (req) => {
             (e) => e.date === today
           ).length;
 
-          if ((todayEntriesCount || 0) === 0 && todayExpenseCount === 0) {
+          if ((todayTransactionsCount || 0) === 0 && todayExpenseCount === 0) {
             // Check if there was any previous activity
             const { count: totalActivityCount } = await supabase
-              .from("entries")
+              .from("transactions")
               .select("*", { count: "exact", head: true })
               .eq("user_id", userId);
 
