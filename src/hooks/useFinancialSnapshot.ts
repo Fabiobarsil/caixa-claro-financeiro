@@ -11,7 +11,9 @@ import { subDays, format, eachDayOfInterval, parseISO } from 'date-fns';
 // Todo valor financeiro exibido deve ser derivado EXCLUSIVAMENTE deste snapshot.
 // ============================================
 
-export type TimeWindow = 30 | 60 | 90;
+// Janelas temporais disponíveis: 15, 30, 90 dias (default: 30)
+// Preparado para futuro: 'ytd' | 'year' (não ativado)
+export type TimeWindow = 15 | 30 | 90;
 
 /**
  * Objeto canônico de consolidação financeira.

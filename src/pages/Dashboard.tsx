@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AppLayout from '@/components/AppLayout';
 import KPICard from '@/components/dashboard/KPICard';
@@ -18,6 +18,7 @@ import OnboardingChecklist from '@/components/dashboard/OnboardingChecklist';
 import DataTimestamp from '@/components/dashboard/DataTimestamp';
 import MilestoneToast from '@/components/dashboard/MilestoneToast';
 import SubscriptionBanner from '@/components/subscription/SubscriptionBanner';
+import TimeWindowSelector from '@/components/dashboard/TimeWindowSelector';
 import { useFinancialSnapshot, TimeWindow } from '@/hooks/useFinancialSnapshot';
 import { useChartContext } from '@/hooks/useChartContext';
 import { useDashboard } from '@/hooks/useDashboard';
@@ -27,7 +28,6 @@ import { useSmartState } from '@/hooks/useSmartState';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatCurrency } from '@/lib/formatters';
 import { Button } from '@/components/ui/button';
-import TimeWindowSelector from '@/components/dashboard/TimeWindowSelector';
 import { 
   ArrowDownCircle, 
   Wallet,
@@ -40,10 +40,40 @@ import {
   X,
 } from 'lucide-react';
 
+// Constantes para persistência
+const STORAGE_KEY = 'dashboard_period_days';
+const DEFAULT_WINDOW: TimeWindow = 30;
+const VALID_WINDOWS: TimeWindow[] = [15, 30, 90];
+
+// Função para recuperar período do localStorage
+function getStoredTimeWindow(): TimeWindow {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored) {
+      const parsed = parseInt(stored, 10);
+      if (VALID_WINDOWS.includes(parsed as TimeWindow)) {
+        return parsed as TimeWindow;
+      }
+    }
+  } catch (e) {
+    // Ignore localStorage errors
+  }
+  return DEFAULT_WINDOW;
+}
+
 export default function Dashboard() {
   const navigate = useNavigate();
   const { isAdmin } = useAuth();
-  const [timeWindow, setTimeWindow] = useState<TimeWindow>(90);
+  const [timeWindow, setTimeWindow] = useState<TimeWindow>(getStoredTimeWindow);
+  
+  // Persistir período no localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, String(timeWindow));
+    } catch (e) {
+      // Ignore localStorage errors
+    }
+  }, [timeWindow]);
   
   // ============================================
   // FONTE ÚNICA DA VERDADE: useFinancialSnapshot
@@ -107,12 +137,17 @@ export default function Dashboard() {
           hasFirstPayment={stats.hasFirstPayment}
         />
 
-        {/* Support Text + Data Timestamp */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-6">
-          <p className="text-sm text-muted-foreground">
-            Tenha clareza sobre seu dinheiro hoje e previsibilidade para os próximos dias.
-          </p>
-          <DataTimestamp />
+        {/* Header: Suporte + Período + Timestamp */}
+        <div className="flex flex-col gap-3 mb-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <p className="text-sm text-muted-foreground">
+              Tenha clareza sobre seu dinheiro hoje e previsibilidade para os próximos dias.
+            </p>
+            <div className="flex items-center gap-3">
+              <TimeWindowSelector value={timeWindow} onChange={setTimeWindow} />
+              <DataTimestamp />
+            </div>
+          </div>
         </div>
 
         {isFullyLoading ? (
@@ -162,7 +197,7 @@ export default function Dashboard() {
                   icon={ArrowDownCircle}
                   variant="success"
                   tooltip={`Total de entradas pagas nos últimos ${timeWindow} dias.`}
-                  subtitle={hasActiveContext ? `Filtrado: ${activeContextLabel}` : `Últimos ${timeWindow} dias`}
+                  subtitle={hasActiveContext ? `Filtrado: ${activeContextLabel}` : `${timeWindow}d`}
                 />
                 <KPICard
                   title="A Receber"
@@ -170,8 +205,8 @@ export default function Dashboard() {
                   icon={Wallet}
                   variant="info"
                   onClick={!hasActiveContext ? () => navigate('/lancamentos?status=pendente_geral') : undefined}
-                  tooltip={`Entradas pendentes com vencimento futuro.`}
-                  subtitle={hasActiveContext ? `Filtrado: ${activeContextLabel}` : `Últimos ${timeWindow} dias`}
+                  tooltip="Entradas pendentes com vencimento futuro no período."
+                  subtitle={hasActiveContext ? `Filtrado: ${activeContextLabel}` : `${timeWindow}d`}
                 />
                 <KPICard
                   title="Despesas"
@@ -179,7 +214,7 @@ export default function Dashboard() {
                   icon={TrendingDown}
                   variant="expense"
                   tooltip={`Total de despesas pagas nos últimos ${timeWindow} dias.`}
-                  subtitle={hasActiveContext ? `Filtrado: ${activeContextLabel}` : `Últimos ${timeWindow} dias`}
+                  subtitle={hasActiveContext ? `Filtrado: ${activeContextLabel}` : `${timeWindow}d`}
                 />
                 <KPICard
                   title="Lucro Real"
@@ -187,7 +222,7 @@ export default function Dashboard() {
                   icon={TrendingUp}
                   variant="neutral"
                   tooltip="Recebido menos Despesas Pagas (sem valores futuros)."
-                  subtitle={hasActiveContext ? `Filtrado: ${activeContextLabel}` : `Últimos ${timeWindow} dias`}
+                  subtitle={hasActiveContext ? `Filtrado: ${activeContextLabel}` : `${timeWindow}d`}
                 />
               </div>
             </section>
@@ -276,7 +311,7 @@ export default function Dashboard() {
             {/* Section 7: Summary & Calendar - derivados do snapshot */}
             <section className="mb-6">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <SectionCard title={`Resumo | últimos ${timeWindow} dias`}>
+                <SectionCard title={`Resumo | ${timeWindow}d`}>
                   <div className="space-y-4">
                     <div className="flex items-center justify-between py-3 border-b border-border">
                       <span className="text-sm text-muted-foreground">Total de atendimentos</span>
