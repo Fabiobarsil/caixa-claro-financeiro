@@ -137,24 +137,12 @@ export default function Dashboard() {
           hasFirstPayment={stats.hasFirstPayment}
         />
 
-        {/* Header: Seletor de Período em destaque */}
-        <div className="flex flex-col gap-4 mb-6">
-          {/* Period Selector - Prominent */}
-          <div className="flex items-center justify-between bg-card border border-border rounded-lg px-4 py-3 shadow-sm">
-            <div className="flex flex-col">
-              <span className="text-sm font-medium text-foreground">Período de análise</span>
-              <span className="text-xs text-muted-foreground">Selecione a janela de tempo para seu diagnóstico</span>
-            </div>
-            <TimeWindowSelector value={timeWindow} onChange={setTimeWindow} />
-          </div>
-          
-          {/* Subtitle + Timestamp */}
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-            <p className="text-sm text-muted-foreground">
-              Tenha clareza sobre seu dinheiro hoje e previsibilidade para os próximos dias.
-            </p>
-            <DataTimestamp />
-          </div>
+        {/* Header: Subtitle + Timestamp */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-6">
+          <p className="text-sm text-muted-foreground">
+            Tenha clareza sobre seu dinheiro hoje e previsibilidade para os próximos dias.
+          </p>
+          <DataTimestamp />
         </div>
 
         {isFullyLoading ? (
@@ -174,6 +162,15 @@ export default function Dashboard() {
 
             {/* Onboarding Banner - shows only for new users without entries */}
             <OnboardingBanner hasEntries={hasEntries} />
+
+            {/* Period Selector - Between onboarding and KPIs */}
+            <div className="mb-6 flex items-center justify-between bg-card border border-border rounded-lg px-4 py-3 shadow-sm">
+              <div className="flex flex-col">
+                <span className="text-sm font-medium text-foreground">Período de análise</span>
+                <span className="text-xs text-muted-foreground">Selecione a janela de tempo para seu diagnóstico</span>
+              </div>
+              <TimeWindowSelector value={timeWindow} onChange={setTimeWindow} />
+            </div>
 
             {/* Context Active Banner */}
             {hasActiveContext && (
