@@ -16,16 +16,16 @@ const windows: { value: TimeWindow; label: string }[] = [
 
 export default function TimeWindowSelector({ value, onChange, className }: TimeWindowSelectorProps) {
   return (
-    <div className={cn('flex gap-1.5', className)}>
+    <div className={cn('flex gap-1 bg-secondary/50 p-1 rounded-lg', className)}>
       {windows.map((window) => (
         <button
           key={window.value}
           onClick={() => onChange(window.value)}
           className={cn(
-            'px-3 py-1.5 text-xs font-medium rounded-md transition-all duration-150',
+            'px-4 py-2 text-sm font-semibold rounded-md transition-all duration-200',
             value === window.value
-              ? 'bg-primary text-primary-foreground shadow-sm'
-              : 'bg-secondary text-muted-foreground hover:bg-secondary/80 hover:text-foreground'
+              ? 'bg-primary text-primary-foreground shadow-md scale-105'
+              : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
           )}
         >
           {window.label}
