@@ -4,7 +4,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { subDays, format, eachDayOfInterval, parseISO } from 'date-fns';
 
-export type TimeWindow = 30 | 60 | 90;
+// Janelas temporais disponíveis: 15, 30, 90 dias (default: 30)
+export type TimeWindow = 15 | 30 | 90;
 
 export interface BIMetrics {
   received: number;
