@@ -159,11 +159,12 @@ export function useFinancialSnapshot(timeWindow: TimeWindow): UseFinancialSnapsh
   const { data, isLoading, error } = useQuery({
     queryKey: ['financial-snapshot', timeWindow, startDate, endDate, accountId],
     queryFn: async () => {
+      try {
       // ============================================
       // 1. BUSCAR DADOS BRUTOS
       // ============================================
       
-      console.debug('[FinancialSnapshot] Query params:', { startDate, endDate, todayStr, timeWindow, accountId });
+      console.log('[FinancialSnapshot] Query params:', { startDate, endDate, todayStr, timeWindow, accountId });
 
       // Parcelas/schedules pagos no período (por data_pagamento)
       const { data: paidSchedules, error: paidSchedulesError } = await supabase
@@ -183,7 +184,7 @@ export function useFinancialSnapshot(timeWindow: TimeWindow): UseFinancialSnapsh
         .gte('paid_at', startDate)
         .lte('paid_at', endDate + 'T23:59:59.999Z');
 
-      console.debug('[FinancialSnapshot] paidSchedules:', { count: paidSchedules?.length, error: paidSchedulesError, data: paidSchedules });
+      console.log('[FinancialSnapshot] paidSchedules:', { count: paidSchedules?.length, error: paidSchedulesError, data: paidSchedules });
       if (paidSchedulesError) throw paidSchedulesError;
 
       // Parcelas pendentes com vencimento a partir do início do período
@@ -210,7 +211,7 @@ export function useFinancialSnapshot(timeWindow: TimeWindow): UseFinancialSnapsh
         .eq('status', 'pendente')
         .gte('due_date', startDate);
 
-      console.debug('[FinancialSnapshot] pendingSchedules:', { count: pendingSchedules?.length, error: pendingSchedulesError });
+      console.log('[FinancialSnapshot] pendingSchedules:', { count: pendingSchedules?.length, error: pendingSchedulesError });
       if (pendingSchedulesError) throw pendingSchedulesError;
 
       // Transactions sem schedules (para compatibilidade)
@@ -232,7 +233,7 @@ export function useFinancialSnapshot(timeWindow: TimeWindow): UseFinancialSnapsh
         .gte('date', startDate)
         .lte('date', endDate);
 
-      console.debug('[FinancialSnapshot] transactions:', { count: transactionsData?.length, error: transactionsError });
+      console.log('[FinancialSnapshot] transactions:', { count: transactionsData?.length, error: transactionsError });
       if (transactionsError) throw transactionsError;
 
       // Verificar quais transactions têm schedules
@@ -251,7 +252,7 @@ export function useFinancialSnapshot(timeWindow: TimeWindow): UseFinancialSnapsh
         e => !transactionIdsWithSchedules.has(e.id)
       );
 
-      console.debug('[FinancialSnapshot] transactionsWithoutSchedules:', { 
+      console.log('[FinancialSnapshot] transactionsWithoutSchedules:', { 
         total: transactionsWithoutSchedules.length,
         paid: transactionsWithoutSchedules.filter(e => e.status === 'pago').length,
       });
@@ -263,7 +264,7 @@ export function useFinancialSnapshot(timeWindow: TimeWindow): UseFinancialSnapsh
         .gte('date', startDate)
         .lte('date', endDate);
 
-      console.debug('[FinancialSnapshot] expenses:', { count: expensesData?.length, error: expensesError });
+      console.log('[FinancialSnapshot] expenses:', { count: expensesData?.length, error: expensesError });
       if (expensesError) throw expensesError;
 
       const expenses = (expensesData || []) as ExpenseRow[];
@@ -343,7 +344,7 @@ export function useFinancialSnapshot(timeWindow: TimeWindow): UseFinancialSnapsh
       const totalSaidas = despesasPagas + despesasAVencer + despesasEmAtraso;
       const ticketMedio = totalAtendimentos > 0 ? recebido / totalAtendimentos : 0;
 
-      console.debug('[FinancialSnapshot] Calculated values:', { recebido, aReceber, emAtraso, despesasPagas, lucroReal, totalAtendimentos });
+      console.log('[FinancialSnapshot] Calculated values:', { recebido, aReceber, emAtraso, despesasPagas, lucroReal, totalAtendimentos });
 
       const snapshot: FinancialSnapshot = {
         recebido,
@@ -565,6 +566,8 @@ export function useFinancialSnapshot(timeWindow: TimeWindow): UseFinancialSnapsh
         })
         .slice(0, 5);
 
+      console.log('[FinancialSnapshot] Final snapshot:', { recebido: snapshot.recebido, a_receber: snapshot.a_receber, despesas_pagas: snapshot.despesas_pagas, lucro_real: snapshot.lucro_real });
+
       return {
         snapshot,
         chartData,
@@ -573,6 +576,10 @@ export function useFinancialSnapshot(timeWindow: TimeWindow): UseFinancialSnapsh
         projection,
         criticalDueDates,
       };
+      } catch (err) {
+        console.error('[FinancialSnapshot] ERRO na queryFn:', err);
+        throw err;
+      }
     },
     enabled: !!user && !!accountId,
     staleTime: 1000 * 60 * 5, // 5 minutos
