@@ -195,6 +195,39 @@ export type Database = {
           },
         ]
       }
+      ledger_events: {
+        Row: {
+          created_at: string | null
+          event_date: string
+          event_type: string
+          id: number
+          source_id: string
+          source_table: string
+          user_id: string
+          value: number
+        }
+        Insert: {
+          created_at?: string | null
+          event_date: string
+          event_type: string
+          id?: never
+          source_id: string
+          source_table: string
+          user_id: string
+          value: number
+        }
+        Update: {
+          created_at?: string | null
+          event_date?: string
+          event_type?: string
+          id?: never
+          source_id?: string
+          source_table?: string
+          user_id?: string
+          value?: number
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           account_id: string | null
@@ -647,6 +680,13 @@ export type Database = {
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "webhook_events_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "v_profiles_admin_masked"
+            referencedColumns: ["id"]
+          },
         ]
       }
       webhook_requests: {
@@ -681,9 +721,118 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      v_dashboard_recebido: {
+        Row: {
+          event_date: string | null
+          user_id: string | null
+          value: number | null
+        }
+        Insert: {
+          event_date?: string | null
+          user_id?: string | null
+          value?: number | null
+        }
+        Update: {
+          event_date?: string | null
+          user_id?: string | null
+          value?: number | null
+        }
+        Relationships: []
+      }
+      v_dashboard_resultado_caixa_90d: {
+        Row: {
+          resultado_caixa_90d: number | null
+        }
+        Relationships: []
+      }
+      v_profiles_admin_masked: {
+        Row: {
+          account_id: string | null
+          company_name: string | null
+          cpf_masked: string | null
+          created_at: string | null
+          email_masked: string | null
+          id: string | null
+          phone_masked: string | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          account_id?: string | null
+          company_name?: string | null
+          cpf_masked?: never
+          created_at?: string | null
+          email_masked?: never
+          id?: string | null
+          phone_masked?: never
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          account_id?: string | null
+          company_name?: string | null
+          cpf_masked?: never
+          created_at?: string | null
+          email_masked?: never
+          id?: string | null
+          phone_masked?: never
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profiles_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
+      admin_list_profiles_masked: {
+        Args: never
+        Returns: {
+          account_id: string
+          company_name: string
+          cpf_masked: string
+          created_at: string
+          email_masked: string
+          id: string
+          phone_masked: string
+          updated_at: string
+          user_id: string
+        }[]
+      }
+      admin_list_profiles_masked_for_account: {
+        Args: { p_account_id: string }
+        Returns: {
+          account_id: string
+          company_name: string
+          cpf_masked: string
+          created_at: string
+          email_masked: string
+          id: string
+          phone_masked: string
+          updated_at: string
+          user_id: string
+        }[]
+      }
+      admin_list_profiles_masked_v2: {
+        Args: never
+        Returns: {
+          account_id: string
+          company_name: string
+          cpf_masked: string
+          created_at: string
+          email_masked: string
+          id: string
+          phone_masked: string
+          updated_at: string
+          user_id: string
+        }[]
+      }
       current_account_id: { Args: never; Returns: string }
       expire_trials: { Args: never; Returns: number }
       get_user_account_id: { Args: never; Returns: string }
@@ -696,6 +845,7 @@ export type Database = {
       }
       is_admin: { Args: never; Returns: boolean }
       is_system_admin: { Args: never; Returns: boolean }
+      my_account_id: { Args: never; Returns: string }
     }
     Enums: {
       app_role: "admin" | "operador"

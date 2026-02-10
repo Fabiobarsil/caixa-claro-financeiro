@@ -85,8 +85,14 @@ export default function Dashboard() {
     risk, 
     projection, 
     criticalDueDates,
-    isLoading: snapshotLoading 
+    isLoading: snapshotLoading,
+    error: snapshotError,
   } = useFinancialSnapshot(timeWindow);
+  
+  // Log snapshot error if any
+  if (snapshotError) {
+    console.error('[Dashboard] Snapshot error:', snapshotError);
+  }
   
   // Dados auxiliares (não financeiros)
   const { recentEntries, pendingEntries, isLoading: dashboardLoading } = useDashboard();
