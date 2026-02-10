@@ -139,17 +139,18 @@ interface ExpenseRow {
 export function useFinancialSnapshot(timeWindow: TimeWindow): UseFinancialSnapshotReturn {
   const { user, accountId } = useAuth();
 
-  // Calcular intervalo de datas
+  // Calcular intervalo de datas (SEMPRE em UTC para consistência com o banco)
   const { startDate, endDate, today, todayStr } = useMemo(() => {
     const now = new Date();
-    now.setHours(0, 0, 0, 0);
-    const start = subDays(now, timeWindow);
+    // Usar data UTC para evitar desalinhamento de fuso horário
+    const utcToday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+    const start = subDays(utcToday, timeWindow);
     
     return {
       startDate: format(start, 'yyyy-MM-dd'),
-      endDate: format(now, 'yyyy-MM-dd'),
-      today: now,
-      todayStr: format(now, 'yyyy-MM-dd'),
+      endDate: format(utcToday, 'yyyy-MM-dd'),
+      today: utcToday,
+      todayStr: format(utcToday, 'yyyy-MM-dd'),
     };
   }, [timeWindow]);
 
