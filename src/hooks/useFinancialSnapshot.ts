@@ -142,15 +142,17 @@ export function useFinancialSnapshot(timeWindow: TimeWindow): UseFinancialSnapsh
   // Calcular intervalo de datas (SEMPRE em UTC para consistência com o banco)
   const { startDate, endDate, today, todayStr } = useMemo(() => {
     const now = new Date();
-    // Usar data UTC para evitar desalinhamento de fuso horário
-    const utcToday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-    const start = subDays(utcToday, timeWindow);
+    // Usar toISOString para garantir UTC puro (format() do date-fns usa timezone local!)
+    const todayUtc = now.toISOString().slice(0, 10); // '2026-02-10' em UTC
+    const startUtc = subDays(now, timeWindow).toISOString().slice(0, 10);
+    // today usado para cálculo de daysUntilDue - meia-noite UTC
+    const todayMidnight = new Date(todayUtc + 'T00:00:00Z');
     
     return {
-      startDate: format(start, 'yyyy-MM-dd'),
-      endDate: format(utcToday, 'yyyy-MM-dd'),
-      today: utcToday,
-      todayStr: format(utcToday, 'yyyy-MM-dd'),
+      startDate: startUtc,
+      endDate: todayUtc,
+      today: todayMidnight,
+      todayStr: todayUtc,
     };
   }, [timeWindow]);
 
@@ -161,6 +163,8 @@ export function useFinancialSnapshot(timeWindow: TimeWindow): UseFinancialSnapsh
       // 1. BUSCAR DADOS BRUTOS
       // ============================================
       
+      console.debug('[FinancialSnapshot] Query params:', { startDate, endDate, todayStr, timeWindow, accountId });
+
       // Parcelas/schedules pagos no período (por data_pagamento)
       const { data: paidSchedules, error: paidSchedulesError } = await supabase
         .from('entry_schedules')
@@ -173,19 +177,13 @@ export function useFinancialSnapshot(timeWindow: TimeWindow): UseFinancialSnapsh
           due_date,
           paid_at,
           status,
-          amount,
-          transactions!inner (
-            client_id,
-            clients (
-              id,
-              name
-            )
-          )
+          amount
         `)
         .eq('status', 'pago')
         .gte('paid_at', startDate)
-        .lte('paid_at', endDate + 'T23:59:59');
+        .lte('paid_at', endDate + 'T23:59:59.999Z');
 
+      console.debug('[FinancialSnapshot] paidSchedules:', { count: paidSchedules?.length, error: paidSchedulesError, data: paidSchedules });
       if (paidSchedulesError) throw paidSchedulesError;
 
       // Parcelas pendentes com vencimento a partir do início do período
@@ -212,6 +210,7 @@ export function useFinancialSnapshot(timeWindow: TimeWindow): UseFinancialSnapsh
         .eq('status', 'pendente')
         .gte('due_date', startDate);
 
+      console.debug('[FinancialSnapshot] pendingSchedules:', { count: pendingSchedules?.length, error: pendingSchedulesError });
       if (pendingSchedulesError) throw pendingSchedulesError;
 
       // Transactions sem schedules (para compatibilidade)
@@ -233,6 +232,7 @@ export function useFinancialSnapshot(timeWindow: TimeWindow): UseFinancialSnapsh
         .gte('date', startDate)
         .lte('date', endDate);
 
+      console.debug('[FinancialSnapshot] transactions:', { count: transactionsData?.length, error: transactionsError });
       if (transactionsError) throw transactionsError;
 
       // Verificar quais transactions têm schedules
@@ -251,6 +251,11 @@ export function useFinancialSnapshot(timeWindow: TimeWindow): UseFinancialSnapsh
         e => !transactionIdsWithSchedules.has(e.id)
       );
 
+      console.debug('[FinancialSnapshot] transactionsWithoutSchedules:', { 
+        total: transactionsWithoutSchedules.length,
+        paid: transactionsWithoutSchedules.filter(e => e.status === 'pago').length,
+      });
+
       // Despesas no período
       const { data: expensesData, error: expensesError } = await supabase
         .from('expenses')
@@ -258,6 +263,7 @@ export function useFinancialSnapshot(timeWindow: TimeWindow): UseFinancialSnapsh
         .gte('date', startDate)
         .lte('date', endDate);
 
+      console.debug('[FinancialSnapshot] expenses:', { count: expensesData?.length, error: expensesError });
       if (expensesError) throw expensesError;
 
       const expenses = (expensesData || []) as ExpenseRow[];
@@ -336,6 +342,8 @@ export function useFinancialSnapshot(timeWindow: TimeWindow): UseFinancialSnapsh
       const totalEntradas = recebido + aReceber + emAtraso;
       const totalSaidas = despesasPagas + despesasAVencer + despesasEmAtraso;
       const ticketMedio = totalAtendimentos > 0 ? recebido / totalAtendimentos : 0;
+
+      console.debug('[FinancialSnapshot] Calculated values:', { recebido, aReceber, emAtraso, despesasPagas, lucroReal, totalAtendimentos });
 
       const snapshot: FinancialSnapshot = {
         recebido,
