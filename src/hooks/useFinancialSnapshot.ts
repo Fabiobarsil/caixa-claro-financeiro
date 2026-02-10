@@ -161,12 +161,26 @@ export function useFinancialSnapshot(timeWindow: TimeWindow): UseFinancialSnapsh
     queryFn: async () => {
       try {
       // ============================================
-      // 1. BUSCAR DADOS BRUTOS
+      // 1. BUSCAR TOTAIS VIA RPC (fonte única de verdade)
       // ============================================
       
       console.log('[FinancialSnapshot] Query params:', { startDate, endDate, todayStr, timeWindow, accountId });
 
-      // Parcelas/schedules pagos no período (por data_pagamento)
+      // RPC backend-side: cálculo correto sem paginação
+      const { data: rpcTotals, error: rpcError } = await supabase
+        .rpc('get_dashboard_totals', { start_date: startDate, end_date: endDate });
+
+      console.log('[FinancialSnapshot] rpcTotals:', { data: rpcTotals, error: rpcError });
+      if (rpcError) throw rpcError;
+
+      const rpcRecebido = Number((rpcTotals as any)?.recebido ?? 0);
+      const rpcAReceber = Number((rpcTotals as any)?.a_receber ?? 0);
+
+      // ============================================
+      // 1b. BUSCAR DADOS BRUTOS para gráficos e métricas auxiliares
+      // ============================================
+
+      // Parcelas/schedules pagos no período (por data_pagamento) - para gráficos
       const { data: paidSchedules, error: paidSchedulesError } = await supabase
         .from('entry_schedules')
         .select(`
@@ -184,7 +198,7 @@ export function useFinancialSnapshot(timeWindow: TimeWindow): UseFinancialSnapsh
         .gte('paid_at', startDate)
         .lte('paid_at', endDate + 'T23:59:59.999Z');
 
-      console.log('[FinancialSnapshot] paidSchedules:', { count: paidSchedules?.length, error: paidSchedulesError, data: paidSchedules });
+      console.log('[FinancialSnapshot] paidSchedules:', { count: paidSchedules?.length, error: paidSchedulesError });
       if (paidSchedulesError) throw paidSchedulesError;
 
       // Parcelas pendentes com vencimento a partir do início do período
@@ -270,43 +284,22 @@ export function useFinancialSnapshot(timeWindow: TimeWindow): UseFinancialSnapsh
       const expenses = (expensesData || []) as ExpenseRow[];
 
       // ============================================
-      // 2. CLASSIFICAR CONFORME REGRAS CANÔNICAS
+      // 2. USAR VALORES DA RPC (backend-side calc)
       // ============================================
       
-      // RECEBIDO (entradas pagas, por data_pagamento)
-      let recebido = 0;
-      let totalAtendimentos = 0;
+      // RECEBIDO e A_RECEBER vêm da RPC (sem limite de paginação)
+      const recebido = rpcRecebido;
+      const aReceber = rpcAReceber;
 
-      // De schedules pagos
-      (paidSchedules || []).forEach(s => {
-        recebido += Number(s.amount);
-        totalAtendimentos++;
-      });
-
-      // De transactions sem schedules
+      // totalAtendimentos: contagem local de schedules pagos + transactions pagas sem schedules
+      let totalAtendimentos = (paidSchedules || []).length;
       transactionsWithoutSchedules
         .filter(e => e.status === 'pago')
         .forEach(e => {
-          // Verificar se payment_date está no período
           const paymentDate = e.payment_date || e.date;
           if (paymentDate >= startDate && paymentDate <= endDate) {
-            recebido += Number(e.amount);
             totalAtendimentos++;
           }
-        });
-
-      // A_RECEBER (pendentes com vencimento >= hoje)
-      let aReceber = 0;
-      (pendingSchedules || [])
-        .filter(s => s.due_date >= todayStr)
-        .forEach(s => {
-          aReceber += Number(s.amount);
-        });
-
-      transactionsWithoutSchedules
-        .filter(e => e.status === 'pendente' && e.due_date && e.due_date >= todayStr)
-        .forEach(e => {
-          aReceber += Number(e.amount);
         });
 
       // EM_ATRASO (pendentes com vencimento < hoje)
@@ -324,12 +317,9 @@ export function useFinancialSnapshot(timeWindow: TimeWindow): UseFinancialSnapsh
         });
 
       // DESPESAS_PAGAS
-      // Para despesas, consideramos que se estão no período, são "pagas"
-      // (não temos status de despesa separado no schema atual)
       const despesasPagas = expenses.reduce((sum, e) => sum + Number(e.value), 0);
 
       // DESPESAS_A_VENCER e DESPESAS_EM_ATRASO
-      // Como não temos despesas futuras no modelo atual, esses valores são 0
       const despesasAVencer = 0;
       const despesasEmAtraso = 0;
 
@@ -337,14 +327,13 @@ export function useFinancialSnapshot(timeWindow: TimeWindow): UseFinancialSnapsh
       // 3. CALCULAR DERIVADOS
       // ============================================
       
-      // LUCRO_REAL = RECEBIDO - DESPESAS_PAGAS (nunca valores futuros)
       const lucroReal = recebido - despesasPagas;
-
       const totalEntradas = recebido + aReceber + emAtraso;
       const totalSaidas = despesasPagas + despesasAVencer + despesasEmAtraso;
       const ticketMedio = totalAtendimentos > 0 ? recebido / totalAtendimentos : 0;
 
-      console.log('[FinancialSnapshot] Calculated values:', { recebido, aReceber, emAtraso, despesasPagas, lucroReal, totalAtendimentos });
+      console.log('[FinancialSnapshot] RPC values:', { recebido, aReceber });
+      console.log('[FinancialSnapshot] Calculated values:', { emAtraso, despesasPagas, lucroReal, totalAtendimentos });
 
       const snapshot: FinancialSnapshot = {
         recebido,

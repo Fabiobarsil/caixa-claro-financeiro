@@ -680,13 +680,6 @@ export type Database = {
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "webhook_events_profile_id_fkey"
-            columns: ["profile_id"]
-            isOneToOne: false
-            referencedRelation: "v_profiles_admin_masked"
-            referencedColumns: ["id"]
-          },
         ]
       }
       webhook_requests: {
@@ -721,74 +714,7 @@ export type Database = {
       }
     }
     Views: {
-      v_dashboard_recebido: {
-        Row: {
-          event_date: string | null
-          user_id: string | null
-          value: number | null
-        }
-        Insert: {
-          event_date?: string | null
-          user_id?: string | null
-          value?: number | null
-        }
-        Update: {
-          event_date?: string | null
-          user_id?: string | null
-          value?: number | null
-        }
-        Relationships: []
-      }
-      v_dashboard_resultado_caixa_90d: {
-        Row: {
-          resultado_caixa_90d: number | null
-        }
-        Relationships: []
-      }
-      v_profiles_admin_masked: {
-        Row: {
-          account_id: string | null
-          company_name: string | null
-          cpf_masked: string | null
-          created_at: string | null
-          email_masked: string | null
-          id: string | null
-          phone_masked: string | null
-          updated_at: string | null
-          user_id: string | null
-        }
-        Insert: {
-          account_id?: string | null
-          company_name?: string | null
-          cpf_masked?: never
-          created_at?: string | null
-          email_masked?: never
-          id?: string | null
-          phone_masked?: never
-          updated_at?: string | null
-          user_id?: string | null
-        }
-        Update: {
-          account_id?: string | null
-          company_name?: string | null
-          cpf_masked?: never
-          created_at?: string | null
-          email_masked?: never
-          id?: string | null
-          phone_masked?: never
-          updated_at?: string | null
-          user_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "profiles_account_id_fkey"
-            columns: ["account_id"]
-            isOneToOne: false
-            referencedRelation: "accounts"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
+      [_ in never]: never
     }
     Functions: {
       admin_list_profiles_masked: {
@@ -835,6 +761,10 @@ export type Database = {
       }
       current_account_id: { Args: never; Returns: string }
       expire_trials: { Args: never; Returns: number }
+      get_dashboard_totals: {
+        Args: { end_date: string; start_date: string }
+        Returns: Json
+      }
       get_user_account_id: { Args: never; Returns: string }
       has_role: {
         Args: {
