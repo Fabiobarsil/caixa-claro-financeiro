@@ -59,7 +59,7 @@ interface DisplayItem {
 export default function Entries() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { entries, isLoading, markAsPaid } = useEntries();
+  const { entries, isLoading, markAsPaid, updateEntryStatus } = useEntries();
   const { 
     schedulesByEntry, 
     allSchedules, 
@@ -241,6 +241,10 @@ export default function Entries() {
     markAsPaid.mutate(entry.id);
   };
 
+  const handleRevertEntryToPending = (entryId: string) => {
+    updateEntryStatus.mutate({ id: entryId, status: 'pendente' });
+  };
+
   const handleMarkSchedulePaid = (scheduleId: string) => {
     markScheduleAsPaid.mutate(scheduleId);
   };
@@ -365,8 +369,12 @@ export default function Entries() {
                     key={item.id} 
                     item={item} 
                     isAdmin={isAdmin}
-                    onRevert={item.schedule ? () => handleRevertSchedule(item.schedule!.id) : undefined}
-                    isReverting={revertScheduleToPending.isPending}
+                    onRevert={
+                      item.schedule 
+                        ? () => handleRevertSchedule(item.schedule!.id) 
+                        : () => handleRevertEntryToPending(item.id)
+                    }
+                    isReverting={revertScheduleToPending.isPending || updateEntryStatus.isPending}
                   />
                 ))}
               </div>
@@ -427,9 +435,11 @@ export default function Entries() {
                   entry={entry}
                   schedules={schedulesByEntry[entry.id] || []}
                   onMarkAsPaid={() => handleMarkAsPaid(entry)}
+                  onRevertToPending={() => handleRevertEntryToPending(entry.id)}
                   onMarkSchedulePaid={handleMarkSchedulePaid}
                   onRevertSchedule={handleRevertSchedule}
                   isMarkingPaid={markAsPaid.isPending}
+                  isRevertingEntry={updateEntryStatus.isPending}
                   isMarkingSchedulePaid={markScheduleAsPaid.isPending}
                   isRevertingSchedule={revertScheduleToPending.isPending}
                   isAdmin={isAdmin}
@@ -503,8 +513,8 @@ function PaidItemCard({ item, isAdmin, onRevert, isReverting }: PaidItemCardProp
         </div>
       </div>
       
-      {/* Admin only: Revert button for schedules */}
-      {isAdmin && isSchedule && onRevert && (
+      {/* Admin only: Revert button */}
+      {isAdmin && onRevert && (
         <Button
           variant="outline"
           size="sm"
@@ -524,9 +534,11 @@ interface EntryListCardProps {
   entry: Entry;
   schedules: EntrySchedule[];
   onMarkAsPaid: () => void;
+  onRevertToPending: () => void;
   onMarkSchedulePaid: (scheduleId: string) => void;
   onRevertSchedule: (scheduleId: string) => void;
   isMarkingPaid: boolean;
+  isRevertingEntry: boolean;
   isMarkingSchedulePaid: boolean;
   isRevertingSchedule: boolean;
   isAdmin: boolean;
@@ -536,9 +548,11 @@ function EntryListCard({
   entry, 
   schedules,
   onMarkAsPaid, 
+  onRevertToPending,
   onMarkSchedulePaid,
   onRevertSchedule,
   isMarkingPaid,
+  isRevertingEntry,
   isMarkingSchedulePaid,
   isRevertingSchedule,
   isAdmin,
@@ -630,6 +644,20 @@ function EntryListCard({
         >
           <CheckCircle className="mr-2 h-4 w-4" />
           Marcar como pago
+        </Button>
+      )}
+
+      {/* Admin only: Revert paid entry without schedules */}
+      {entry.status === 'pago' && !hasSchedules && isAdmin && (
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={onRevertToPending}
+          disabled={isRevertingEntry}
+          className="w-full border-muted-foreground/30 text-muted-foreground hover:bg-destructive/10 hover:text-destructive hover:border-destructive"
+        >
+          <RotateCcw className="mr-2 h-4 w-4" />
+          Reverter para pendente
         </Button>
       )}
     </div>
