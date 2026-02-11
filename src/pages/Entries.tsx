@@ -1,19 +1,19 @@
 import { useState, useMemo } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
 import AppLayout from '@/components/AppLayout';
 import { useEntries, Entry } from '@/hooks/useEntries';
 import { useEntrySchedules, getScheduleSummary, EntrySchedule } from '@/hooks/useEntrySchedules';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
+import { useFinancialSnapshot, TimeWindow } from '@/hooks/useFinancialSnapshot';
+import TimeWindowSelector from '@/components/dashboard/TimeWindowSelector';
 import { cn } from '@/lib/utils';
-import { Search, Loader2, Receipt, Package, Scissors, CheckCircle, ChevronDown, ChevronUp, Plus, DollarSign, RotateCcw } from 'lucide-react';
+import { Search, Loader2, Receipt, Package, Scissors, CheckCircle, ChevronDown, ChevronUp, Plus, DollarSign, RotateCcw, TrendingUp, TrendingDown, Clock } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import EntryStatusBadge from '@/components/EntryStatusBadge';
 import { getEntryVisualInfo } from '@/lib/entryStatus';
+import { formatCurrency } from '@/lib/formatters';
 
 type FilterType = 'todos' | 'pago' | 'a_vencer' | 'vencido' | 'pendente_geral';
 
@@ -68,7 +68,20 @@ export default function Entries() {
     isLoading: schedulesLoading,
     isAdmin,
   } = useEntrySchedules();
-  const { accountId } = useAuth();
+  
+  // Time window for financial KPIs (persisted in localStorage)
+  const [timeWindow, setTimeWindow] = useState<TimeWindow>(() => {
+    const saved = localStorage.getItem('entries_time_window');
+    return (saved ? Number(saved) : 30) as TimeWindow;
+  });
+  
+  const handleTimeWindowChange = (tw: TimeWindow) => {
+    setTimeWindow(tw);
+    localStorage.setItem('entries_time_window', String(tw));
+  };
+  
+  // Financial snapshot from backend RPC (same source as Dashboard)
+  const { snapshot, isLoading: snapshotLoading } = useFinancialSnapshot(timeWindow);
   
   // Read initial filter from URL params
   const initialFilter = (searchParams.get('status') as FilterType) || 'todos';
@@ -186,79 +199,6 @@ export default function Entries() {
     });
   }, [paidDisplayItems, search, isPaidMode]);
 
-  // Server-side aggregation for paid total
-  const { data: serverPaidTotal } = useQuery({
-    queryKey: ['entries-total-paid', accountId],
-    queryFn: async () => {
-      // Get entry IDs that have schedules
-      const { data: scheduledEntryIds } = await supabase
-        .from('entry_schedules')
-        .select('entry_id');
-      const scheduledSet = new Set((scheduledEntryIds || []).map(s => s.entry_id));
-
-      // Sum paid schedules
-      const { data: paidSchedulesData } = await supabase
-        .from('entry_schedules')
-        .select('amount')
-        .eq('status', 'pago');
-      const schedulesTotal = (paidSchedulesData || []).reduce((sum, s) => sum + Number(s.amount), 0);
-
-      // Sum paid transactions without schedules
-      const { data: allTx } = await supabase
-        .from('transactions')
-        .select('id, amount')
-        .eq('status', 'pago');
-      const txWithoutSchedules = (allTx || []).filter(t => !scheduledSet.has(t.id));
-      const txTotal = txWithoutSchedules.reduce((sum, t) => sum + Number(t.amount), 0);
-
-      return { total: schedulesTotal + txTotal, count: (paidSchedulesData || []).length + txWithoutSchedules.length };
-    },
-    enabled: isPaidMode && !!accountId,
-  });
-
-  // Server-side aggregation for pending schedules total
-  const { data: serverPendingTotal } = useQuery({
-    queryKey: ['entries-total-pending', accountId],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from('entry_schedules')
-        .select('amount')
-        .eq('status', 'pendente');
-      const total = (data || []).reduce((sum, s) => sum + Number(s.amount), 0);
-      return { total, count: (data || []).length };
-    },
-    enabled: isGlobalPendingMode && !!accountId,
-  });
-
-  // Server-side aggregation for entries (todos / a_vencer / vencido)
-  const { data: serverEntriesTotal } = useQuery({
-    queryKey: ['entries-total-entries', accountId, activeFilter],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from('transactions')
-        .select('amount, status, due_date, payment_date');
-
-      if (activeFilter === 'todos') {
-        const total = (data || []).reduce((sum, t) => sum + Number(t.amount), 0);
-        return { total, count: (data || []).length };
-      }
-
-      const filtered = (data || []).filter(t => {
-        const { visualStatus } = getEntryVisualInfo(t.status, t.due_date, t.payment_date);
-        const effectiveStatus = visualStatus === 'vence_hoje' ? 'a_vencer' : visualStatus;
-        return effectiveStatus === activeFilter;
-      });
-      const total = filtered.reduce((sum, t) => sum + Number(t.amount), 0);
-      return { total, count: filtered.length };
-    },
-    enabled: !isPaidMode && !isGlobalPendingMode && !!accountId,
-  });
-
-  // Calculate total for paid items (client-side fallback for list display)
-  const paidTotal = useMemo(() => {
-    return filteredPaidItems.reduce((sum, item) => sum + item.value, 0);
-  }, [filteredPaidItems]);
-
   const filteredEntries = useMemo(() => {
     if (isGlobalPendingMode || isPaidMode) return [];
 
@@ -277,10 +217,6 @@ export default function Entries() {
     });
   }, [entries, activeFilter, search, isGlobalPendingMode, isPaidMode]);
 
-  const entriesTotal = useMemo(() => {
-    return filteredEntries.reduce((sum, entry) => sum + entry.value, 0);
-  }, [filteredEntries]);
-
   const globalPendingSchedules = useMemo(() => {
     if (!isGlobalPendingMode) return [];
 
@@ -297,10 +233,6 @@ export default function Entries() {
       .sort((a, b) => a.due_date.localeCompare(b.due_date));
   }, [allSchedules, isGlobalPendingMode, search, entryInfoMap]);
 
-  const pendingTotal = useMemo(() => {
-    return globalPendingSchedules.reduce((sum, s) => sum + s.amount, 0);
-  }, [globalPendingSchedules]);
-
   const handleMarkAsPaid = (entry: Entry) => {
     markAsPaid.mutate(entry.id);
   };
@@ -313,33 +245,10 @@ export default function Entries() {
     revertScheduleToPending.mutate(scheduleId);
   };
 
-  // Use server-side totals for banner, fallback to client-side
-  const { currentTotal, currentCount, totalLabel } = useMemo(() => {
-    if (isPaidMode) {
-      return { 
-        currentTotal: serverPaidTotal?.total ?? paidTotal, 
-        currentCount: serverPaidTotal?.count ?? filteredPaidItems.length, 
-        totalLabel: 'Total recebido' 
-      };
-    }
-    if (isGlobalPendingMode) {
-      return { 
-        currentTotal: serverPendingTotal?.total ?? pendingTotal, 
-        currentCount: serverPendingTotal?.count ?? globalPendingSchedules.length, 
-        totalLabel: 'Total pendente' 
-      };
-    }
-    return { 
-      currentTotal: serverEntriesTotal?.total ?? entriesTotal, 
-      currentCount: serverEntriesTotal?.count ?? filteredEntries.length, 
-      totalLabel: 'Total' 
-    };
-  }, [isPaidMode, isGlobalPendingMode, serverPaidTotal, serverPendingTotal, serverEntriesTotal, paidTotal, pendingTotal, entriesTotal, filteredPaidItems.length, globalPendingSchedules.length, filteredEntries.length]);
-
   return (
     <AppLayout>
       <div className="flex flex-col h-full">
-        {/* Header */}
+        {/* Header with time window selector */}
         <div className="flex items-start justify-between mb-4">
           <div>
             <h1 className="text-xl font-bold text-foreground">Lançamentos</h1>
@@ -347,13 +256,59 @@ export default function Entries() {
               {isGlobalPendingMode ? 'Todas as parcelas pendentes' : isPaidMode ? 'Pagamentos recebidos' : 'Vendas e atendimentos'}
             </p>
           </div>
-          <Button 
-            onClick={() => navigate('/lancamentos/novo')}
-            className="hidden lg:flex"
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            Novo
-          </Button>
+          <div className="flex items-center gap-2">
+            <TimeWindowSelector value={timeWindow} onChange={handleTimeWindowChange} />
+            <Button 
+              onClick={() => navigate('/lancamentos/novo')}
+              className="hidden lg:flex"
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Novo
+            </Button>
+          </div>
+        </div>
+
+        {/* Financial KPI Cards - same data source as Dashboard */}
+        <div className="grid grid-cols-2 gap-3 mb-4">
+          <div className="bg-success/10 rounded-xl p-3">
+            <div className="flex items-center gap-2 mb-1">
+              <TrendingUp className="h-4 w-4 text-success" />
+              <p className="text-xs text-muted-foreground">Recebido</p>
+            </div>
+            <p className="text-lg font-bold text-success">
+              {snapshotLoading ? '...' : formatCurrency(snapshot.recebido)}
+            </p>
+          </div>
+          <div className="bg-warning/10 rounded-xl p-3">
+            <div className="flex items-center gap-2 mb-1">
+              <Clock className="h-4 w-4 text-warning" />
+              <p className="text-xs text-muted-foreground">A Receber</p>
+            </div>
+            <p className="text-lg font-bold text-warning">
+              {snapshotLoading ? '...' : formatCurrency(snapshot.a_receber)}
+            </p>
+          </div>
+          <div className="bg-destructive/10 rounded-xl p-3">
+            <div className="flex items-center gap-2 mb-1">
+              <TrendingDown className="h-4 w-4 text-destructive" />
+              <p className="text-xs text-muted-foreground">Despesas</p>
+            </div>
+            <p className="text-lg font-bold text-destructive">
+              {snapshotLoading ? '...' : formatCurrency(snapshot.despesas_pagas)}
+            </p>
+          </div>
+          <div className="bg-primary/10 rounded-xl p-3">
+            <div className="flex items-center gap-2 mb-1">
+              <DollarSign className="h-4 w-4 text-primary" />
+              <p className="text-xs text-muted-foreground">Lucro</p>
+            </div>
+            <p className={cn(
+              "text-lg font-bold",
+              snapshot.lucro_real >= 0 ? "text-success" : "text-destructive"
+            )}>
+              {snapshotLoading ? '...' : formatCurrency(snapshot.lucro_real)}
+            </p>
+          </div>
         </div>
 
         {/* Search */}
@@ -368,7 +323,7 @@ export default function Entries() {
           />
         </div>
 
-        {/* Filters */}
+        {/* Status Filters */}
         <div className="flex gap-2 mb-4 overflow-x-auto pb-2">
           {filters.map((filter) => (
             <button
@@ -385,29 +340,6 @@ export default function Entries() {
             </button>
           ))}
         </div>
-
-        {/* Total Summary */}
-        {currentCount > 0 && (
-          <div className="bg-primary/10 rounded-xl p-4 mb-4 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
-                <DollarSign className="h-5 w-5 text-primary" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">{totalLabel}</p>
-                <p className="text-lg font-bold text-foreground">
-                  R$ {currentTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                </p>
-              </div>
-            </div>
-            <div className="text-right">
-              <p className="text-2xl font-bold text-primary">{currentCount}</p>
-              <p className="text-xs text-muted-foreground">
-                {isPaidMode ? 'pagamentos' : isGlobalPendingMode ? 'parcelas' : 'lançamentos'}
-              </p>
-            </div>
-          </div>
-        )}
 
         {/* Entries List */}
         <div className="flex-1 overflow-auto -mx-4 px-4 pb-36">
