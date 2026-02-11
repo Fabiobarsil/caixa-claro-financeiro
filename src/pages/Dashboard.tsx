@@ -20,6 +20,7 @@ import MilestoneToast from '@/components/dashboard/MilestoneToast';
 import SubscriptionBanner from '@/components/subscription/SubscriptionBanner';
 import MonthSelector from '@/components/dashboard/TimeWindowSelector';
 import { useFinancialSnapshot, type MonthPeriod } from '@/hooks/useFinancialSnapshot';
+import { useSemesterProjection } from '@/hooks/useSemesterProjection';
 import { useChartContext } from '@/hooks/useChartContext';
 import { useDashboard } from '@/hooks/useDashboard';
 import { useEntries } from '@/hooks/useEntries';
@@ -88,6 +89,7 @@ export default function Dashboard() {
   const { entries } = useEntries();
   const { stats } = useUserStats();
   const { smartState } = useSmartState();
+  const { data: semesterData, isLoading: semesterLoading } = useSemesterProjection(monthPeriod);
 
   // Chart context for interactive filtering
   const {
@@ -276,6 +278,8 @@ export default function Dashboard() {
                   activeContext={evolutionContext}
                   onContextChange={setEvolutionContext}
                   monthLabel={monthLabel}
+                  semesterData={semesterData || []}
+                  semesterLoading={semesterLoading}
                 />
               </div>
             </section>
