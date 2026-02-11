@@ -18,8 +18,8 @@ import OnboardingChecklist from '@/components/dashboard/OnboardingChecklist';
 import DataTimestamp from '@/components/dashboard/DataTimestamp';
 import MilestoneToast from '@/components/dashboard/MilestoneToast';
 import SubscriptionBanner from '@/components/subscription/SubscriptionBanner';
-import TimeWindowSelector from '@/components/dashboard/TimeWindowSelector';
-import { useFinancialSnapshot, TimeWindow } from '@/hooks/useFinancialSnapshot';
+import MonthSelector from '@/components/dashboard/TimeWindowSelector';
+import { useFinancialSnapshot, type MonthPeriod } from '@/hooks/useFinancialSnapshot';
 import { useChartContext } from '@/hooks/useChartContext';
 import { useDashboard } from '@/hooks/useDashboard';
 import { useEntries } from '@/hooks/useEntries';
@@ -41,39 +41,28 @@ import {
 } from 'lucide-react';
 
 // Constantes para persistência
-const STORAGE_KEY = 'dashboard_period_days';
-const DEFAULT_WINDOW: TimeWindow = 30;
-const VALID_WINDOWS: TimeWindow[] = [15, 30, 90];
+const STORAGE_KEY = 'dashboard_month_period';
 
-// Função para recuperar período do localStorage
-function getStoredTimeWindow(): TimeWindow {
+function getStoredMonthPeriod(): MonthPeriod {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      const parsed = parseInt(stored, 10);
-      if (VALID_WINDOWS.includes(parsed as TimeWindow)) {
-        return parsed as TimeWindow;
-      }
-    }
-  } catch (e) {
-    // Ignore localStorage errors
-  }
-  return DEFAULT_WINDOW;
+    if (stored) return JSON.parse(stored);
+  } catch {}
+  const now = new Date();
+  return { year: now.getFullYear(), month: now.getMonth() };
 }
 
 export default function Dashboard() {
   const navigate = useNavigate();
   const { isAdmin } = useAuth();
-  const [timeWindow, setTimeWindow] = useState<TimeWindow>(getStoredTimeWindow);
+  const [monthPeriod, setMonthPeriod] = useState<MonthPeriod>(getStoredMonthPeriod);
   
   // Persistir período no localStorage
   useEffect(() => {
     try {
-      localStorage.setItem(STORAGE_KEY, String(timeWindow));
-    } catch (e) {
-      // Ignore localStorage errors
-    }
-  }, [timeWindow]);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(monthPeriod));
+    } catch {}
+  }, [monthPeriod]);
   
   // ============================================
   // FONTE ÚNICA DA VERDADE: useFinancialSnapshot
@@ -87,9 +76,9 @@ export default function Dashboard() {
     criticalDueDates,
     isLoading: snapshotLoading,
     error: snapshotError,
-  } = useFinancialSnapshot(timeWindow);
+    monthLabel,
+  } = useFinancialSnapshot(monthPeriod);
   
-  // Log snapshot error if any
   if (snapshotError) {
     console.error('[Dashboard] Snapshot error:', snapshotError);
   }
@@ -100,7 +89,7 @@ export default function Dashboard() {
   const { stats } = useUserStats();
   const { smartState } = useSmartState();
 
-  // Chart context for interactive filtering (usa snapshot canônico)
+  // Chart context for interactive filtering
   const {
     distributionContext,
     setDistributionContext,
@@ -110,15 +99,10 @@ export default function Dashboard() {
     resetContext,
     hasActiveContext,
     filteredSnapshot,
-  } = useChartContext({ 
-    snapshot, 
-    chartData 
-  });
+  } = useChartContext({ snapshot, chartData });
 
-  // Check if user has any entries (for onboarding)
   const hasEntries = entries.length > 0;
 
-  // Get due dates for calendar highlighting
   const dueDates = useMemo(() => {
     return pendingEntries
       .filter(e => e.due_date)
@@ -126,24 +110,19 @@ export default function Dashboard() {
   }, [pendingEntries]);
 
   const isFullyLoading = dashboardLoading || snapshotLoading;
-
-  // Check if Status Rápido has all zero values
   const statusAllZero = snapshot.a_receber === 0 && snapshot.em_atraso === 0 && snapshot.recebido === 0;
 
   return (
     <AppLayout>
       <div className="flex flex-col h-full">
-        {/* Onboarding Welcome Modal - non-blocking, dismissable */}
         <OnboardingWelcome isAdmin={isAdmin} />
-
-        {/* Milestone Toast - invisible, shows toasts when milestones are reached */}
         <MilestoneToast 
           totalEntries={stats.totalEntries}
           accountCreatedAt={stats.accountCreatedAt || undefined}
           hasFirstPayment={stats.hasFirstPayment}
         />
 
-        {/* Header: Subtitle + Timestamp */}
+        {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-6">
           <p className="text-sm text-muted-foreground">
             Tenha clareza sobre seu dinheiro hoje e previsibilidade para os próximos dias.
@@ -157,25 +136,18 @@ export default function Dashboard() {
           </div>
         ) : (
           <div className="flex-1 overflow-auto -mx-4 px-4 pb-6">
-            {/* Subscription Banner - shows trial status or upgrade prompt */}
             <SubscriptionBanner />
-
-            {/* Smart State Banner - daily intelligence (only renders if smart_state exists) */}
             <SmartStateBanner smartState={smartState} />
-
-            {/* Onboarding Checklist - shows progress for admins */}
             <OnboardingChecklist isAdmin={isAdmin} />
-
-            {/* Onboarding Banner - shows only for new users without entries */}
             <OnboardingBanner hasEntries={hasEntries} />
 
-            {/* Period Selector - Between onboarding and KPIs */}
+            {/* Month Selector */}
             <div className="mb-6 flex items-center justify-between bg-card border border-border rounded-lg px-4 py-3 shadow-sm">
               <div className="flex flex-col">
-                <span className="text-sm font-medium text-foreground">Período de análise</span>
-                <span className="text-xs text-muted-foreground">Selecione a janela de tempo para seu diagnóstico</span>
+                <span className="text-sm font-medium text-foreground">Competência</span>
+                <span className="text-xs text-muted-foreground">Selecione o mês para seu diagnóstico</span>
               </div>
-              <TimeWindowSelector value={timeWindow} onChange={setTimeWindow} />
+              <MonthSelector value={monthPeriod} onChange={setMonthPeriod} />
             </div>
 
             {/* Context Active Banner */}
@@ -186,19 +158,14 @@ export default function Dashboard() {
                     Filtro ativo: <strong>{activeContextLabel}</strong>
                   </span>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={resetContext}
-                  className="h-7 px-2 text-xs hover:bg-primary/20"
-                >
+                <Button variant="ghost" size="sm" onClick={resetContext} className="h-7 px-2 text-xs hover:bg-primary/20">
                   <X className="h-3 w-3 mr-1" />
                   Limpar
                 </Button>
               </div>
             )}
 
-            {/* Section 1: KPI Cards - TODOS derivados do snapshot */}
+            {/* KPI Cards */}
             <section className="mb-6">
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 <KPICard
@@ -206,8 +173,8 @@ export default function Dashboard() {
                   value={hasActiveContext ? filteredSnapshot.recebido : snapshot.recebido}
                   icon={ArrowDownCircle}
                   variant="success"
-                  tooltip={`Total de entradas pagas nos últimos ${timeWindow} dias.`}
-                  subtitle={hasActiveContext ? `Filtrado: ${activeContextLabel}` : `${timeWindow}d`}
+                  tooltip="Total de entradas pagas no mês."
+                  subtitle={hasActiveContext ? `Filtrado: ${activeContextLabel}` : monthLabel}
                 />
                 <KPICard
                   title="A Receber"
@@ -215,34 +182,31 @@ export default function Dashboard() {
                   icon={Wallet}
                   variant="info"
                   onClick={!hasActiveContext ? () => navigate('/lancamentos?status=pendente_geral') : undefined}
-                  tooltip="Entradas pendentes com vencimento futuro no período."
-                  subtitle={hasActiveContext ? `Filtrado: ${activeContextLabel}` : `${timeWindow}d`}
+                  tooltip="Entradas pendentes com vencimento futuro no mês."
+                  subtitle={hasActiveContext ? `Filtrado: ${activeContextLabel}` : monthLabel}
                 />
                 <KPICard
                   title="Despesas"
                   value={hasActiveContext ? filteredSnapshot.despesas_pagas : snapshot.despesas_pagas}
                   icon={TrendingDown}
                   variant="expense"
-                  tooltip={`Total de despesas pagas nos últimos ${timeWindow} dias.`}
-                  subtitle={hasActiveContext ? `Filtrado: ${activeContextLabel}` : `${timeWindow}d`}
+                  tooltip="Total de despesas do mês."
+                  subtitle={hasActiveContext ? `Filtrado: ${activeContextLabel}` : monthLabel}
                 />
                 <KPICard
                   title="Lucro Real"
                   value={hasActiveContext ? filteredSnapshot.lucro_real : snapshot.lucro_real}
                   icon={TrendingUp}
                   variant="neutral"
-                  tooltip="Recebido menos Despesas Pagas (sem valores futuros)."
-                  subtitle={hasActiveContext ? `Filtrado: ${activeContextLabel}` : `${timeWindow}d`}
+                  tooltip="Recebido menos Despesas Pagas do mês."
+                  subtitle={hasActiveContext ? `Filtrado: ${activeContextLabel}` : monthLabel}
                 />
               </div>
             </section>
 
-            {/* Section 2: Status Rápido - derivado do snapshot */}
+            {/* Status Rápido */}
             <section className="mb-6">
-              <SectionCard 
-                title="Status Rápido" 
-                subtitle="Situação atual dos seus recebíveis"
-              >
+              <SectionCard title="Status Rápido" subtitle="Situação atual dos seus recebíveis">
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                   <StatusIndicator
                     label="A vencer"
@@ -265,7 +229,7 @@ export default function Dashboard() {
                     value={formatCurrency(snapshot.recebido)}
                     icon={CheckCircle}
                     variant="success"
-                    tooltip={`Total recebido nos últimos ${timeWindow} dias.`}
+                    tooltip="Total recebido no mês."
                   />
                 </div>
                 {statusAllZero && (
@@ -276,52 +240,50 @@ export default function Dashboard() {
               </SectionCard>
             </section>
 
-            {/* Section 3: Projeção e Risco - derivados do snapshot */}
+            {/* Projeção e Risco */}
             <section className="mb-6">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <FinancialProjection
                   projection={projection}
-                  timeWindow={timeWindow}
+                  monthLabel={monthLabel}
                   hasData={hasEntries}
                 />
                 <FinancialRisk risk={risk} />
               </div>
             </section>
 
-            {/* Section 4: Vencimentos Críticos - derivados do snapshot */}
+            {/* Vencimentos Críticos */}
             <section className="mb-6">
               <CriticalDueDates items={criticalDueDates} />
             </section>
 
-            {/* Section 5: Próximos Prazos */}
+            {/* Próximos Prazos */}
             <section className="mb-6">
               <UpcomingDeadlines entries={[...pendingEntries, ...recentEntries]} />
             </section>
 
-            {/* Section 6: Charts - Distribution & Evolution (BI Guiado) */}
+            {/* Charts */}
             <section className="mb-6">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <DistributionChart 
                   distribution={distribution}
                   activeContext={distributionContext}
                   onContextChange={setDistributionContext}
-                  timeWindow={timeWindow}
-                  onTimeWindowChange={setTimeWindow}
+                  monthLabel={monthLabel}
                 />
                 <FinancialEvolutionChart 
                   data={chartData}
                   activeContext={evolutionContext}
                   onContextChange={setEvolutionContext}
-                  timeWindow={timeWindow}
-                  onTimeWindowChange={setTimeWindow}
+                  monthLabel={monthLabel}
                 />
               </div>
             </section>
 
-            {/* Section 7: Summary & Calendar - derivados do snapshot */}
+            {/* Resumo & Calendar */}
             <section className="mb-6">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <SectionCard title={`Resumo | ${timeWindow}d`}>
+                <SectionCard title={`Resumo | ${monthLabel}`}>
                   <div className="space-y-4">
                     <div className="flex items-center justify-between py-3 border-b border-border">
                       <span className="text-sm text-muted-foreground">Total de atendimentos</span>

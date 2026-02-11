@@ -1,36 +1,60 @@
+import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
-import type { TimeWindow } from '@/hooks/useFinancialSnapshot';
+import { Button } from '@/components/ui/button';
 
-interface TimeWindowSelectorProps {
-  value: TimeWindow;
-  onChange: (value: TimeWindow) => void;
+export interface MonthPeriod {
+  year: number;
+  month: number; // 0-indexed (Jan=0)
+}
+
+interface MonthSelectorProps {
+  value: MonthPeriod;
+  onChange: (value: MonthPeriod) => void;
   className?: string;
 }
 
-// Janelas: 15, 30, 90 dias (default: 30)
-const windows: { value: TimeWindow; label: string }[] = [
-  { value: 15, label: '15d' },
-  { value: 30, label: '30d' },
-  { value: 90, label: '90d' },
-];
+export default function MonthSelector({ value, onChange, className }: MonthSelectorProps) {
+  const currentDate = new Date(value.year, value.month, 1);
+  const label = format(currentDate, "MMMM 'de' yyyy", { locale: ptBR });
 
-export default function TimeWindowSelector({ value, onChange, className }: TimeWindowSelectorProps) {
+  const goToPrevMonth = () => {
+    const prev = new Date(value.year, value.month - 1, 1);
+    onChange({ year: prev.getFullYear(), month: prev.getMonth() });
+  };
+
+  const goToNextMonth = () => {
+    const next = new Date(value.year, value.month + 1, 1);
+    onChange({ year: next.getFullYear(), month: next.getMonth() });
+  };
+
+  // Don't allow navigating beyond current month
+  const now = new Date();
+  const isCurrentMonth = value.year === now.getFullYear() && value.month === now.getMonth();
+
   return (
-    <div className={cn('flex gap-1 bg-secondary/50 p-1 rounded-lg', className)}>
-      {windows.map((window) => (
-        <button
-          key={window.value}
-          onClick={() => onChange(window.value)}
-          className={cn(
-            'px-4 py-2 text-sm font-semibold rounded-md transition-all duration-200',
-            value === window.value
-              ? 'bg-primary text-primary-foreground shadow-md scale-105'
-              : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
-          )}
-        >
-          {window.label}
-        </button>
-      ))}
+    <div className={cn('flex items-center gap-1', className)}>
+      <Button
+        variant="ghost"
+        size="icon"
+        className="h-8 w-8"
+        onClick={goToPrevMonth}
+      >
+        <ChevronLeft className="h-4 w-4" />
+      </Button>
+      <span className="text-sm font-semibold capitalize min-w-[160px] text-center">
+        {label}
+      </span>
+      <Button
+        variant="ghost"
+        size="icon"
+        className="h-8 w-8"
+        onClick={goToNextMonth}
+        disabled={isCurrentMonth}
+      >
+        <ChevronRight className="h-4 w-4" />
+      </Button>
     </div>
   );
 }

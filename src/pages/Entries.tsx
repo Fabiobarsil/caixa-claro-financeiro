@@ -3,8 +3,8 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import AppLayout from '@/components/AppLayout';
 import { useEntries, Entry } from '@/hooks/useEntries';
 import { useEntrySchedules, getScheduleSummary, EntrySchedule } from '@/hooks/useEntrySchedules';
-import { useFinancialSnapshot, TimeWindow } from '@/hooks/useFinancialSnapshot';
-import TimeWindowSelector from '@/components/dashboard/TimeWindowSelector';
+import { useFinancialSnapshot, type MonthPeriod } from '@/hooks/useFinancialSnapshot';
+import MonthSelector from '@/components/dashboard/TimeWindowSelector';
 import { cn } from '@/lib/utils';
 import { Search, Loader2, Receipt, Package, Scissors, CheckCircle, ChevronDown, ChevronUp, Plus, DollarSign, RotateCcw, TrendingUp, TrendingDown, Clock } from 'lucide-react';
 import { Input } from '@/components/ui/input';
@@ -69,19 +69,23 @@ export default function Entries() {
     isAdmin,
   } = useEntrySchedules();
   
-  // Time window for financial KPIs (persisted in localStorage)
-  const [timeWindow, setTimeWindow] = useState<TimeWindow>(() => {
-    const saved = localStorage.getItem('entries_time_window');
-    return (saved ? Number(saved) : 30) as TimeWindow;
+  // Month period for financial KPIs (persisted in localStorage)
+  const [monthPeriod, setMonthPeriod] = useState<MonthPeriod>(() => {
+    try {
+      const saved = localStorage.getItem('entries_month_period');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    const now = new Date();
+    return { year: now.getFullYear(), month: now.getMonth() };
   });
   
-  const handleTimeWindowChange = (tw: TimeWindow) => {
-    setTimeWindow(tw);
-    localStorage.setItem('entries_time_window', String(tw));
+  const handleMonthChange = (mp: MonthPeriod) => {
+    setMonthPeriod(mp);
+    localStorage.setItem('entries_month_period', JSON.stringify(mp));
   };
   
-  // Financial snapshot from backend RPC (same source as Dashboard)
-  const { snapshot, isLoading: snapshotLoading } = useFinancialSnapshot(timeWindow);
+  // Financial snapshot from backend (same source as Dashboard)
+  const { snapshot, isLoading: snapshotLoading } = useFinancialSnapshot(monthPeriod);
   
   // Read initial filter from URL params
   const initialFilter = (searchParams.get('status') as FilterType) || 'todos';
@@ -257,7 +261,7 @@ export default function Entries() {
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <TimeWindowSelector value={timeWindow} onChange={handleTimeWindowChange} />
+            <MonthSelector value={monthPeriod} onChange={handleMonthChange} />
             <Button 
               onClick={() => navigate('/lancamentos/novo')}
               className="hidden lg:flex"

@@ -9,11 +9,10 @@ import {
   Sector
 } from 'recharts';
 import SectionCard from './SectionCard';
-import TimeWindowSelector from './TimeWindowSelector';
 import { formatCurrency } from '@/lib/formatters';
 import { Button } from '@/components/ui/button';
 import { X } from 'lucide-react';
-import type { TimeWindow, DistributionData } from '@/hooks/useFinancialSnapshot';
+import type { DistributionData } from '@/hooks/useFinancialSnapshot';
 
 // Context types for filtering
 export type DistributionContextType = 'recebido' | 'a_receber' | 'em_atraso' | null;
@@ -22,8 +21,7 @@ interface DistributionChartProps {
   distribution: DistributionData;
   activeContext?: DistributionContextType;
   onContextChange?: (context: DistributionContextType) => void;
-  timeWindow: TimeWindow;
-  onTimeWindowChange: (window: TimeWindow) => void;
+  monthLabel: string;
 }
 
 // Map segment names to context types
@@ -69,8 +67,7 @@ export default function DistributionChart({
   distribution,
   activeContext,
   onContextChange,
-  timeWindow,
-  onTimeWindowChange
+  monthLabel,
 }: DistributionChartProps) {
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
 
@@ -137,16 +134,13 @@ export default function DistributionChart({
       const contextLabel = data.find(d => nameToContext[d.name] === activeContext)?.name || '';
       title = `Distribuição — ${contextLabel}`;
     }
-    return `${title} | últimos ${timeWindow} dias`;
+    return `${title} | ${monthLabel}`;
   };
 
   if (total === 0) {
     return (
       <SectionCard 
-        title={`Distribuição | últimos ${timeWindow} dias`}
-        headerContent={
-          <TimeWindowSelector value={timeWindow} onChange={onTimeWindowChange} />
-        }
+        title={`Distribuição | ${monthLabel}`}
       >
         <div className="flex items-center justify-center h-48 text-muted-foreground text-sm">
           Sem dados para exibir
@@ -158,9 +152,6 @@ export default function DistributionChart({
   return (
     <SectionCard 
       title={getTitle()}
-      headerContent={
-        <TimeWindowSelector value={timeWindow} onChange={onTimeWindowChange} />
-      }
       action={activeContext && (
         <Button
           variant="ghost"
