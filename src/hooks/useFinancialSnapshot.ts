@@ -288,14 +288,39 @@ export function useFinancialSnapshot(timeWindow: TimeWindow): UseFinancialSnapsh
       const expenses = (expensesData || []) as ExpenseRow[];
 
       // ============================================
-      // 2. USAR VALORES DA RPC (backend-side calc)
+      // 2. CALCULAR VALORES LOCALMENTE (entry_schedules + transactions)
       // ============================================
+      // A RPC get_dashboard_totals não inclui entry_schedules, então
+      // calculamos localmente a partir dos dados já buscados com filtros corretos.
       
-      // RECEBIDO e A_RECEBER vêm da RPC (sem limite de paginação)
-      const recebido = rpcRecebido;
-      const aReceber = rpcAReceber;
+      // RECEBIDO: schedules pagos no período + transactions pagas sem schedules
+      let recebido = 0;
+      (paidSchedules || []).forEach(s => {
+        recebido += Number(s.amount);
+      });
+      transactionsWithoutSchedules
+        .filter(e => e.status === 'pago')
+        .forEach(e => {
+          const paymentDate = e.payment_date || e.date;
+          if (paymentDate >= startDate && paymentDate <= endDate) {
+            recebido += Number(e.amount);
+          }
+        });
 
-      // totalAtendimentos: contagem local de schedules pagos + transactions pagas sem schedules
+      // A_RECEBER: schedules pendentes com vencimento >= hoje + transactions pendentes
+      let aReceber = 0;
+      (pendingSchedules || [])
+        .filter(s => s.due_date >= todayStr)
+        .forEach(s => {
+          aReceber += Number(s.amount);
+        });
+      transactionsWithoutSchedules
+        .filter(e => e.status === 'pendente' && e.due_date && e.due_date >= todayStr)
+        .forEach(e => {
+          aReceber += Number(e.amount);
+        });
+
+      // totalAtendimentos: contagem de schedules pagos + transactions pagas sem schedules
       let totalAtendimentos = (paidSchedules || []).length;
       transactionsWithoutSchedules
         .filter(e => e.status === 'pago')
@@ -336,8 +361,7 @@ export function useFinancialSnapshot(timeWindow: TimeWindow): UseFinancialSnapsh
       const totalSaidas = despesasPagas + despesasAVencer + despesasEmAtraso;
       const ticketMedio = totalAtendimentos > 0 ? recebido / totalAtendimentos : 0;
 
-      console.log('[FinancialSnapshot] RPC values:', { recebido, aReceber });
-      console.log('[FinancialSnapshot] Calculated values:', { emAtraso, despesasPagas, lucroReal, totalAtendimentos });
+      console.log('[FinancialSnapshot] Local calc values:', { recebido, aReceber, emAtraso, despesasPagas, lucroReal, totalAtendimentos });
 
       const snapshot: FinancialSnapshot = {
         recebido,
