@@ -1,51 +1,52 @@
-import { TrendingUp, Calendar, ArrowUpRight, ArrowDownRight } from 'lucide-react';
+import { TrendingUp, ArrowDownRight, ArrowUpRight, DollarSign } from 'lucide-react';
 import SectionCard from './SectionCard';
 import { formatCurrency } from '@/lib/formatters';
 import { cn } from '@/lib/utils';
-import type { ProjectionMetrics } from '@/hooks/useFinancialSnapshot';
+import type { FinancialSnapshot } from '@/hooks/useFinancialSnapshot';
 
 interface FinancialProjectionProps {
-  projection: ProjectionMetrics;
+  snapshot: FinancialSnapshot;
   monthLabel: string;
   hasData?: boolean;
 }
 
 export default function FinancialProjection({
-  projection,
+  snapshot,
   monthLabel,
   hasData = true,
 }: FinancialProjectionProps) {
-  const isPositiveBalance = projection.saldo_projetado >= 0;
+  // Previsão de Fechamento = (Recebido + A Receber) - (Despesas Pagas + Despesas A Pagar)
+  const totalReceitas = snapshot.recebido + snapshot.a_receber;
+  const totalDespesas = snapshot.despesas_pagas + snapshot.despesas_a_vencer;
+  const previsaoFechamento = totalReceitas - totalDespesas;
+  const isPositive = previsaoFechamento >= 0;
 
-  // Check if there's no data to show projection
-  const noDataAvailable = !hasData && projection.recebiveis_futuros === 0 && projection.despesas_futuras === 0;
+  const noDataAvailable = !hasData && totalReceitas === 0 && totalDespesas === 0;
 
   return (
     <SectionCard 
-      title={`Projeção Financeira | ${monthLabel}`}
+      title={`Previsão de Fechamento | ${monthLabel}`}
       icon={<TrendingUp size={18} className="text-primary" />}
-      tooltip="Projeção = (Recebido + A Receber) - (Despesas Pagas + Despesas a Vencer)"
-      footer="Esta projeção ajuda você a se planejar com antecedência e evitar surpresas no caixa."
+      tooltip="Previsão = (Recebido + A Receber) − (Despesas Pagas + Despesas A Pagar). Mostra quanto sobrará se tudo for quitado."
+      footer="Estimativa de saldo ao final do mês selecionado."
     >
       <div className="space-y-4">
-        {/* No data message */}
         {noDataAvailable && (
           <div className="text-center py-4 bg-secondary/30 rounded-lg">
             <p className="text-sm text-muted-foreground">
-              A projeção aparecerá automaticamente conforme você registrar vencimentos.
+              A previsão aparecerá conforme você registrar lançamentos e despesas.
             </p>
           </div>
         )}
 
-        {/* Projection Details */}
         <div className="space-y-3">
           <div className="flex items-center justify-between py-2 border-b border-border">
             <div className="flex items-center gap-2">
               <ArrowDownRight size={16} className="text-success" />
-              <span className="text-sm text-muted-foreground">A receber (futuro)</span>
+              <span className="text-sm text-muted-foreground">Receitas previstas</span>
             </div>
             <span className="text-base font-semibold text-success">
-              {formatCurrency(projection.recebiveis_futuros)}
+              {formatCurrency(totalReceitas)}
             </span>
           </div>
 
@@ -55,27 +56,26 @@ export default function FinancialProjection({
               <span className="text-sm text-muted-foreground">Despesas previstas</span>
             </div>
             <span className="text-base font-semibold text-expense">
-              {formatCurrency(projection.despesas_futuras)}
+              {formatCurrency(totalDespesas)}
             </span>
           </div>
 
           <div className="flex items-center justify-between py-3 bg-secondary/50 rounded-lg px-3 -mx-1">
             <div className="flex items-center gap-2">
-              <Calendar size={16} className={isPositiveBalance ? 'text-success' : 'text-expense'} />
-              <span className="text-sm font-medium text-foreground">Saldo projetado</span>
+              <DollarSign size={16} className={isPositive ? 'text-success' : 'text-expense'} />
+              <span className="text-sm font-medium text-foreground">Saldo previsto</span>
             </div>
             <span className={cn(
               'text-lg font-bold',
-              isPositiveBalance ? 'text-success' : 'text-expense'
+              isPositive ? 'text-success' : 'text-expense'
             )}>
-              {formatCurrency(projection.saldo_projetado)}
+              {formatCurrency(previsaoFechamento)}
             </span>
           </div>
         </div>
 
-        {/* Clarification note */}
         <p className="text-xs text-muted-foreground/70 text-center">
-          Projeção ≠ Lucro. Inclui valores futuros.
+          Inclui valores já pagos e pendentes do mês.
         </p>
       </div>
     </SectionCard>

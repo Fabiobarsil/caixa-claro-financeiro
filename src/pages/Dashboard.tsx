@@ -72,6 +72,7 @@ export default function Dashboard() {
     snapshot, 
     chartData, 
     distribution,
+    expensesByCategory,
     risk, 
     projection, 
     criticalDueDates,
@@ -93,8 +94,6 @@ export default function Dashboard() {
 
   // Chart context for interactive filtering
   const {
-    distributionContext,
-    setDistributionContext,
     evolutionContext,
     setEvolutionContext,
     activeContextLabel,
@@ -246,7 +245,7 @@ export default function Dashboard() {
             <section className="mb-6">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <FinancialProjection
-                  projection={projection}
+                  snapshot={snapshot}
                   monthLabel={monthLabel}
                   hasData={hasEntries}
                 />
@@ -268,9 +267,7 @@ export default function Dashboard() {
             <section className="mb-6">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <DistributionChart 
-                  distribution={distribution}
-                  activeContext={distributionContext}
-                  onContextChange={setDistributionContext}
+                  expensesByCategory={expensesByCategory}
                   monthLabel={monthLabel}
                 />
                 <FinancialEvolutionChart 

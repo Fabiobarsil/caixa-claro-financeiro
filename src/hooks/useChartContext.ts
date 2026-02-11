@@ -2,9 +2,9 @@ import { useState, useCallback, useMemo } from 'react';
 import type { 
   FinancialSnapshot, 
   ChartDataPoint,
-  DistributionData 
 } from './useFinancialSnapshot';
-import type { DistributionContextType } from '@/components/dashboard/DistributionChart';
+
+export type DistributionContextType = 'recebido' | 'a_receber' | 'em_atraso' | null;
 import type { EvolutionContextType } from '@/components/dashboard/FinancialEvolutionChart';
 
 export interface ChartContext {
