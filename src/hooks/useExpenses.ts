@@ -10,6 +10,7 @@ export interface Expense {
   category: string;
   value: number;
   date: string;
+  status: 'pendente' | 'pago';
   notes: string | null;
   created_at: string;
   updated_at: string;
@@ -20,6 +21,7 @@ export interface CreateExpenseData {
   category: string;
   value: number;
   date: string;
+  status?: 'pendente' | 'pago';
   notes?: string;
 }
 
@@ -31,7 +33,6 @@ export function useExpenses() {
   const { user, accountId } = useAuth();
   const queryClient = useQueryClient();
 
-  // Get current month's start and end dates
   const now = new Date();
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
   const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
@@ -51,7 +52,6 @@ export function useExpenses() {
         throw new Error('Usuário não autenticado');
       }
 
-      // RLS handles filtering by account_id
       const { data, error } = await supabase
         .from('expenses')
         .select('*')
@@ -79,11 +79,12 @@ export function useExpenses() {
         .from('expenses')
         .insert({
           user_id: user.id,
-          account_id: accountId, // CRITICAL: Include account_id for multi-tenant
+          account_id: accountId,
           type: expenseData.type,
           category: expenseData.category,
           value: expenseData.value,
           date: expenseData.date,
+          status: expenseData.status || 'pago',
           notes: expenseData.notes || null,
         })
         .select()
@@ -118,7 +119,6 @@ export function useExpenses() {
         .from('expenses')
         .update(updateData)
         .eq('id', id)
-        .eq('user_id', user.id)
         .select()
         .single();
 
@@ -136,6 +136,34 @@ export function useExpenses() {
     onError: (error: Error) => {
       console.error('Erro ao atualizar despesa:', error);
       toast.error(`Erro ao atualizar despesa: ${error.message}`);
+    },
+  });
+
+  const toggleStatus = useMutation({
+    mutationFn: async ({ id, currentStatus }: { id: string; currentStatus: 'pago' | 'pendente' }) => {
+      const newStatus = currentStatus === 'pago' ? 'pendente' : 'pago';
+
+      const { data, error } = await supabase
+        .from('expenses')
+        .update({ status: newStatus })
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Erro ao alternar status:', error);
+        throw error;
+      }
+
+      return data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['expenses'] });
+      const label = data.status === 'pago' ? 'paga' : 'pendente';
+      toast.success(`Despesa marcada como ${label}`);
+    },
+    onError: (error: Error) => {
+      toast.error(`Erro ao alterar status: ${error.message}`);
     },
   });
 
@@ -169,17 +197,21 @@ export function useExpenses() {
     },
   });
 
-  // Calculate total for current month
   const totalExpenses = expenses.reduce((sum, e) => sum + Number(e.value), 0);
+  const totalPaid = expenses.filter(e => e.status === 'pago').reduce((sum, e) => sum + Number(e.value), 0);
+  const totalPending = expenses.filter(e => e.status === 'pendente').reduce((sum, e) => sum + Number(e.value), 0);
 
   return {
     expenses,
     totalExpenses,
+    totalPaid,
+    totalPending,
     isLoading,
     error,
     refetch,
     createExpense,
     updateExpense,
+    toggleStatus,
     deleteExpense,
   };
 }
