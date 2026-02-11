@@ -271,12 +271,11 @@ export function useFinancialSnapshot(timeWindow: TimeWindow): UseFinancialSnapsh
         paid: transactionsWithoutSchedules.filter(e => e.status === 'pago').length,
       });
 
-      // Despesas no período
+      // Despesas no período (inclui despesas futuras agendadas a partir do startDate)
       const { data: expensesData, error: expensesError } = await supabase
         .from('expenses')
         .select('*')
-        .gte('date', startDate)
-        .lte('date', endDate);
+        .gte('date', startDate);
 
       console.log('[FinancialSnapshot] expenses:', { count: expensesData?.length, error: expensesError });
       if (expensesError) throw expensesError;
