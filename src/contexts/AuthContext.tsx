@@ -120,67 +120,61 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     };
 
-    const initialize = async () => {
-      console.debug('[Auth]', 'Auth init start');
-      try {
-        // Supabase is always configured via integrations client
-
-        // First check for existing session
-        const { data: { session }, error } = await withTimeout(supabase.auth.getSession(), 10000, 'getSession');
-
-        if (error) {
-          console.debug('[Auth]', 'Auth getSession error', error);
-        } else {
-          console.debug('[Auth]', 'Auth getSession ok', { hasSession: Boolean(session) });
-        }
-        
-        if (session?.user && mounted) {
-          await safeFetchAndSetUser(session.user, 'init');
-        } else if (mounted) {
-          setUser(null);
-        }
-      } catch (error) {
-        console.debug('[Auth]', 'Auth getSession error', error);
-        if (mounted) setUser(null);
-      } finally {
-        finalizeAuthState('init:finally');
-      }
-    };
-
-    // Set up auth state listener
+    // Set up auth state listener — this is the SINGLE source of truth.
+    // We do NOT call getSession() separately to avoid race conditions.
+    // The INITIAL_SESSION event fires immediately and covers the initial load.
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         console.debug('[Auth]', `Auth state change: ${event}`, { hasSession: !!session });
         
         if (!mounted) return;
 
-        // Never leave the app stuck in loading because of auth events.
-        setIsLoading(true);
         try {
-          // Handle all session-related events including INITIAL_SESSION
-          if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+          if (event === 'INITIAL_SESSION') {
+            // First load — process session if exists
             if (session?.user) {
-              await safeFetchAndSetUser(session.user, `event:${event}`);
+              await safeFetchAndSetUser(session.user, 'INITIAL_SESSION');
             } else {
               setUser(null);
             }
+            // Always finalize on INITIAL_SESSION regardless of outcome
+            finalizeAuthState('INITIAL_SESSION');
+          } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+            if (session?.user) {
+              // Use setTimeout to avoid Supabase deadlock on token refresh
+              // (profile fetch uses the same client that's emitting the event)
+              setTimeout(async () => {
+                if (!mounted) return;
+                await safeFetchAndSetUser(session.user, `event:${event}`);
+                finalizeAuthState(`event:${event}`);
+              }, 0);
+            }
           } else if (event === 'SIGNED_OUT') {
             setUser(null);
+            finalizeAuthState('SIGNED_OUT');
           }
         } catch (error) {
           console.debug('[Auth]', 'Auth state change handler error', { event, error });
-          setUser(null);
-        } finally {
-          finalizeAuthState(`onAuthStateChange:${event}`);
+          if (mounted) {
+            setUser(null);
+            finalizeAuthState(`error:${event}`);
+          }
         }
       }
     );
 
-    initialize();
+    // Safety net: if INITIAL_SESSION never fires within 5s, unblock the app
+    const safetyTimeout = window.setTimeout(() => {
+      if (mounted && !isAuthReady) {
+        console.debug('[Auth]', 'Safety timeout — forcing auth ready');
+        finalizeAuthState('safety-timeout');
+      }
+    }, 5000);
 
     return () => {
       mounted = false;
       subscription.unsubscribe();
+      window.clearTimeout(safetyTimeout);
       initializingRef.current = false;
     };
   }, [fetchUserData]);
