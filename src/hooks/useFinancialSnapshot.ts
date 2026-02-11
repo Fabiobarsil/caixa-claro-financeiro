@@ -42,6 +42,11 @@ export interface DistributionData {
   em_atraso: number;
 }
 
+export interface ExpenseCategoryData {
+  name: string;
+  value: number;
+}
+
 export interface RiskMetrics {
   risco_percentual: number;
   nivel_risco: 'baixo' | 'medio' | 'alto';
@@ -68,6 +73,7 @@ export interface UseFinancialSnapshotReturn {
   snapshot: FinancialSnapshot;
   chartData: ChartDataPoint[];
   distribution: DistributionData;
+  expensesByCategory: ExpenseCategoryData[];
   risk: RiskMetrics;
   projection: ProjectionMetrics;
   criticalDueDates: CriticalDueDate[];
@@ -98,6 +104,7 @@ interface ExpenseRow {
   category: string;
   value: number;
   date: string;
+  status: 'pago' | 'pendente';
   notes: string | null;
 }
 
@@ -234,10 +241,16 @@ export function useFinancialSnapshot(monthPeriod: MonthPeriod): UseFinancialSnap
         .filter(e => e.status === 'pendente' && e.due_date && e.due_date < todayStr)
         .forEach(e => { emAtraso += Number(e.amount); });
 
-      // DESPESAS
-      const despesasPagas = expenses.reduce((sum, e) => sum + Number(e.value), 0);
-      const despesasAVencer = 0;
-      const despesasEmAtraso = 0;
+      // DESPESAS (split by status)
+      const despesasPagas = expenses
+        .filter(e => e.status === 'pago')
+        .reduce((sum, e) => sum + Number(e.value), 0);
+      const despesasAVencer = expenses
+        .filter(e => e.status === 'pendente' && e.date >= todayStr)
+        .reduce((sum, e) => sum + Number(e.value), 0);
+      const despesasEmAtraso = expenses
+        .filter(e => e.status === 'pendente' && e.date < todayStr)
+        .reduce((sum, e) => sum + Number(e.value), 0);
 
       // DERIVADOS
       const lucroReal = recebido - despesasPagas;
@@ -329,6 +342,17 @@ export function useFinancialSnapshot(monthPeriod: MonthPeriod): UseFinancialSnap
         em_atraso: snapshot.em_atraso,
       };
 
+      // Despesas por Categoria
+      const categoryMap = new Map<string, number>();
+      expenses.forEach(e => {
+        const cat = e.category || e.type || 'Outros';
+        categoryMap.set(cat, (categoryMap.get(cat) || 0) + Number(e.value));
+      });
+      const expensesByCategory: ExpenseCategoryData[] = Array.from(categoryMap.entries())
+        .map(([name, value]) => ({ name, value }))
+        .sort((a, b) => b.value - a.value)
+        .slice(0, 8);
+
       // ============================================
       // RISCO
       // ============================================
@@ -414,7 +438,7 @@ export function useFinancialSnapshot(monthPeriod: MonthPeriod): UseFinancialSnap
         })
         .slice(0, 5);
 
-      return { snapshot, chartData, distribution, risk, projection, criticalDueDates };
+      return { snapshot, chartData, distribution, expensesByCategory, risk, projection, criticalDueDates };
       } catch (err) {
         console.error('[FinancialSnapshot] ERRO:', err);
         throw err;
@@ -435,6 +459,7 @@ export function useFinancialSnapshot(monthPeriod: MonthPeriod): UseFinancialSnap
     snapshot: data?.snapshot || defaultSnapshot,
     chartData: data?.chartData || [],
     distribution: data?.distribution || { recebido: 0, a_receber: 0, em_atraso: 0 },
+    expensesByCategory: data?.expensesByCategory || [],
     risk: data?.risk || { risco_percentual: 0, nivel_risco: 'baixo', clientes_inadimplentes: 0 },
     projection: data?.projection || { saldo_projetado: 0, recebiveis_futuros: 0, despesas_futuras: 0 },
     criticalDueDates: data?.criticalDueDates || [],

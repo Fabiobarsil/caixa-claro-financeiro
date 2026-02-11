@@ -1,4 +1,6 @@
-import { CalendarCheck, Smile } from 'lucide-react';
+import { CalendarCheck, Smile, Plus } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Button } from '@/components/ui/button';
 import SectionCard from './SectionCard';
 import { DashboardEntry } from '@/hooks/useDashboard';
 import { format, parseISO, differenceInDays } from 'date-fns';
@@ -10,6 +12,7 @@ interface UpcomingDeadlinesProps {
 }
 
 export default function UpcomingDeadlines({ entries }: UpcomingDeadlinesProps) {
+  const navigate = useNavigate();
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
@@ -31,12 +34,21 @@ export default function UpcomingDeadlines({ entries }: UpcomingDeadlinesProps) {
   return (
     <SectionCard title="Próximos Prazos" subtitle="Próximos 7 dias">
       {upcomingEntries.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-8 text-center">
+         <div className="flex flex-col items-center justify-center py-8 text-center">
           <div className="w-12 h-12 rounded-full bg-success/10 flex items-center justify-center mb-3">
             <Smile className="h-6 w-6 text-success" />
           </div>
           <p className="text-sm font-medium text-foreground">Sem prazos para esta semana</p>
           <p className="text-xs text-muted-foreground mt-1">Você está em dia!</p>
+          <Button
+            variant="outline"
+            size="sm"
+            className="mt-4"
+            onClick={() => navigate('/novo-lancamento')}
+          >
+            <Plus className="h-4 w-4 mr-1" />
+            Novo Lançamento
+          </Button>
         </div>
       ) : (
         <div className="space-y-2">
