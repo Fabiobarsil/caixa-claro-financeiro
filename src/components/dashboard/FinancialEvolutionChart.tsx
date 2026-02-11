@@ -11,13 +11,12 @@ import {
   ReferenceDot
 } from 'recharts';
 import SectionCard from './SectionCard';
-import TimeWindowSelector from './TimeWindowSelector';
 import { Button } from '@/components/ui/button';
 import { formatCurrency } from '@/lib/formatters';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { X } from 'lucide-react';
-import type { TimeWindow, ChartDataPoint } from '@/hooks/useFinancialSnapshot';
+import type { ChartDataPoint } from '@/hooks/useFinancialSnapshot';
 
 // Context type for filtering
 export type EvolutionContextType = string | null; // Date string or null
@@ -26,16 +25,14 @@ interface FinancialEvolutionChartProps {
   data: ChartDataPoint[];
   activeContext?: EvolutionContextType;
   onContextChange?: (context: EvolutionContextType) => void;
-  timeWindow: TimeWindow;
-  onTimeWindowChange: (window: TimeWindow) => void;
+  monthLabel: string;
 }
 
 export default function FinancialEvolutionChart({ 
   data,
   activeContext,
   onContextChange,
-  timeWindow,
-  onTimeWindowChange
+  monthLabel,
 }: FinancialEvolutionChartProps) {
   // Os dados já vêm acumulados do snapshot, apenas formatar para exibição
   const chartData = useMemo(() => {
@@ -149,17 +146,14 @@ export default function FinancialEvolutionChart({
   // Dynamic title based on context and time window
   const getTitle = () => {
     if (activeContext) {
-      return `Evolução até ${format(parseISO(activeContext), "dd/MM", { locale: ptBR })} | últimos ${timeWindow} dias`;
+      return `Evolução até ${format(parseISO(activeContext), "dd/MM", { locale: ptBR })} | ${monthLabel}`;
     }
-    return `Evolução Financeira | últimos ${timeWindow} dias`;
+    return `Evolução Financeira | ${monthLabel}`;
   };
 
   return (
     <SectionCard 
       title={getTitle()}
-      headerContent={
-        <TimeWindowSelector value={timeWindow} onChange={onTimeWindowChange} />
-      }
       action={activeContext && (
         <Button
           variant="ghost"

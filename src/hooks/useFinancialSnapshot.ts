@@ -2,85 +2,58 @@ import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { subDays, format, eachDayOfInterval, parseISO } from 'date-fns';
+import { format, eachDayOfInterval, parseISO, lastDayOfMonth } from 'date-fns';
+import type { MonthPeriod } from '@/components/dashboard/TimeWindowSelector';
 
 // ============================================
 // MODELO FINANCEIRO CANÔNICO - FONTE ÚNICA DA VERDADE
 // ============================================
-// Nenhuma tela, componente ou gráfico pode calcular valores financeiros por conta própria.
-// Todo valor financeiro exibido deve ser derivado EXCLUSIVAMENTE deste snapshot.
-// ============================================
 
-// Janelas temporais disponíveis: 15, 30, 90 dias (default: 30)
-// Preparado para futuro: 'ytd' | 'year' (não ativado)
-export type TimeWindow = 15 | 30 | 90;
+// Re-export for backward compat
+export type { MonthPeriod };
 
 /**
  * Objeto canônico de consolidação financeira.
- * Todo componente que exibe valores financeiros DEVE consumir este objeto.
  */
 export interface FinancialSnapshot {
-  // Entradas
-  recebido: number;           // tipo=entrada, status=pago, filtrado por data_pagamento
-  a_receber: number;          // tipo=entrada, status=pendente, data_vencimento >= hoje
-  em_atraso: number;          // tipo=entrada, status=pendente, data_vencimento < hoje
-  
-  // Saídas
-  despesas_pagas: number;     // tipo=saida, status=pago
-  despesas_a_vencer: number;  // tipo=saida, status=pendente, data_vencimento >= hoje
-  despesas_em_atraso: number; // tipo=saida, status=pendente, data_vencimento < hoje
-  
-  // Derivados
-  lucro_real: number;         // RECEBIDO - DESPESAS_PAGAS (nunca valores futuros)
-  total_entradas: number;     // recebido + a_receber + em_atraso
-  total_saidas: number;       // despesas_pagas + despesas_a_vencer + despesas_em_atraso
-  
-  // Métricas auxiliares
-  total_atendimentos: number; // Contagem de entradas pagas
-  ticket_medio: number;       // recebido / total_atendimentos
+  recebido: number;
+  a_receber: number;
+  em_atraso: number;
+  despesas_pagas: number;
+  despesas_a_vencer: number;
+  despesas_em_atraso: number;
+  lucro_real: number;
+  total_entradas: number;
+  total_saidas: number;
+  total_atendimentos: number;
+  ticket_medio: number;
 }
 
-/**
- * Ponto de dados para gráficos de evolução.
- * Inclui valores realizados (pagos) e pendentes (a receber).
- */
 export interface ChartDataPoint {
   date: string;
-  recebido: number;       // Acumulado de entradas pagas
-  a_receber: number;      // Acumulado de valores pendentes (por data de vencimento)
-  despesas: number;       // Acumulado de saídas pagas
+  recebido: number;
+  a_receber: number;
+  despesas: number;
 }
 
-/**
- * Dados para gráfico de distribuição.
- */
 export interface DistributionData {
   recebido: number;
   a_receber: number;
   em_atraso: number;
 }
 
-/**
- * Métricas de risco financeiro derivadas do snapshot.
- */
 export interface RiskMetrics {
-  risco_percentual: number;    // em_atraso / (a_receber + em_atraso)
+  risco_percentual: number;
   nivel_risco: 'baixo' | 'medio' | 'alto';
   clientes_inadimplentes: number;
 }
 
-/**
- * Projeção financeira derivada do snapshot.
- */
 export interface ProjectionMetrics {
-  saldo_projetado: number;   // (recebido + a_receber) - (despesas_pagas + despesas_a_vencer)
+  saldo_projetado: number;
   recebiveis_futuros: number;
   despesas_futuras: number;
 }
 
-/**
- * Vencimento crítico para lista de prioridades.
- */
 export interface CriticalDueDate {
   id: string;
   scheduleId?: string;
@@ -100,12 +73,12 @@ export interface UseFinancialSnapshotReturn {
   criticalDueDates: CriticalDueDate[];
   isLoading: boolean;
   error: Error | null;
-  timeWindow: TimeWindow;
+  monthPeriod: MonthPeriod;
+  monthLabel: string;
   startDate: string;
   endDate: string;
 }
 
-// Interface interna para schedules
 interface ScheduleRow {
   id: string;
   entry_id: string;
@@ -118,7 +91,6 @@ interface ScheduleRow {
   amount: number;
 }
 
-// Interface interna para expenses
 interface ExpenseRow {
   id: string;
   user_id: string;
@@ -130,127 +102,70 @@ interface ExpenseRow {
 }
 
 /**
- * Hook canônico para dados financeiros.
- * Esta é a ÚNICA fonte de dados financeiros para todo o sistema.
- * 
- * @param timeWindow Período em dias (30, 60 ou 90)
- * @returns Snapshot financeiro completo e dados derivados
+ * Hook canônico para dados financeiros por competência mensal.
  */
-export function useFinancialSnapshot(timeWindow: TimeWindow): UseFinancialSnapshotReturn {
+export function useFinancialSnapshot(monthPeriod: MonthPeriod): UseFinancialSnapshotReturn {
   const { user, accountId } = useAuth();
 
-  // Calcular intervalo de datas (SEMPRE em UTC para consistência com o banco)
-  const { startDate, endDate, today, todayStr } = useMemo(() => {
+  const { startDate, endDate, today, todayStr, monthLabel } = useMemo(() => {
+    const first = new Date(monthPeriod.year, monthPeriod.month, 1);
+    const last = lastDayOfMonth(first);
+    const startStr = format(first, 'yyyy-MM-dd');
+    const endStr = format(last, 'yyyy-MM-dd');
     const now = new Date();
-    // Usar toISOString para garantir UTC puro (format() do date-fns usa timezone local!)
-    const todayUtc = now.toISOString().slice(0, 10); // '2026-02-10' em UTC
-    const startUtc = subDays(now, timeWindow).toISOString().slice(0, 10);
-    // today usado para cálculo de daysUntilDue - meia-noite UTC
+    const todayUtc = now.toISOString().slice(0, 10);
     const todayMidnight = new Date(todayUtc + 'T00:00:00Z');
-    
+    const label = format(first, "MMMM/yyyy");
+
     return {
-      startDate: startUtc,
-      endDate: todayUtc,
+      startDate: startStr,
+      endDate: endStr,
       today: todayMidnight,
       todayStr: todayUtc,
+      monthLabel: label,
     };
-  }, [timeWindow]);
+  }, [monthPeriod]);
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ['financial-snapshot', timeWindow, startDate, endDate, accountId],
+    queryKey: ['financial-snapshot', monthPeriod.year, monthPeriod.month, accountId],
     queryFn: async () => {
       try {
-      // ============================================
-      // 1. BUSCAR TOTAIS VIA RPC (fonte única de verdade)
-      // ============================================
-      
-      console.log('[FinancialSnapshot] Query params:', { startDate, endDate, todayStr, timeWindow, accountId });
+      console.log('[FinancialSnapshot] Query params:', { startDate, endDate, todayStr, monthPeriod, accountId });
 
-      // RPC backend-side: cálculo correto sem paginação
-      const { data: rpcTotals, error: rpcError } = await supabase
-        .rpc('get_dashboard_totals', { start_date: startDate, end_date: endDate });
-
-      console.log('[FinancialSnapshot] rpcTotals:', { data: rpcTotals, error: rpcError });
-      if (rpcError) throw rpcError;
-
-      const rpcRecebido = Number((rpcTotals as any)?.recebido ?? 0);
-      const rpcAReceber = Number((rpcTotals as any)?.a_receber ?? 0);
-
-      // ============================================
-      // 1b. BUSCAR DADOS BRUTOS para gráficos e métricas auxiliares
-      // ============================================
-
-      // Parcelas/schedules pagos no período (por data_pagamento) - para gráficos
+      // Parcelas pagas no período
       const { data: paidSchedules, error: paidSchedulesError } = await supabase
         .from('entry_schedules')
-        .select(`
-          id,
-          entry_id,
-          schedule_type,
-          installment_number,
-          installments_total,
-          due_date,
-          paid_at,
-          status,
-          amount
-        `)
+        .select('id, entry_id, schedule_type, installment_number, installments_total, due_date, paid_at, status, amount')
         .eq('status', 'pago')
         .gte('paid_at', startDate)
         .lte('paid_at', endDate + 'T23:59:59.999Z');
 
-      console.log('[FinancialSnapshot] paidSchedules:', { count: paidSchedules?.length, error: paidSchedulesError });
       if (paidSchedulesError) throw paidSchedulesError;
 
-      // Parcelas pendentes com vencimento a partir do início do período
+      // Parcelas pendentes com vencimento no período
       const { data: pendingSchedules, error: pendingSchedulesError } = await supabase
         .from('entry_schedules')
         .select(`
-          id,
-          entry_id,
-          schedule_type,
-          installment_number,
-          installments_total,
-          due_date,
-          paid_at,
-          status,
-          amount,
-          transactions!inner (
-            client_id,
-            clients (
-              id,
-              name
-            )
-          )
+          id, entry_id, schedule_type, installment_number, installments_total,
+          due_date, paid_at, status, amount,
+          transactions!inner ( client_id, clients ( id, name ) )
         `)
         .eq('status', 'pendente')
-        .gte('due_date', startDate);
+        .gte('due_date', startDate)
+        .lte('due_date', endDate);
 
-      console.log('[FinancialSnapshot] pendingSchedules:', { count: pendingSchedules?.length, error: pendingSchedulesError });
       if (pendingSchedulesError) throw pendingSchedulesError;
 
-      // Transactions sem schedules (para compatibilidade)
+      // Transactions no período
       const { data: transactionsData, error: transactionsError } = await supabase
         .from('transactions')
-        .select(`
-          id,
-          client_id,
-          amount,
-          status,
-          date,
-          due_date,
-          payment_date,
-          clients (
-            id,
-            name
-          )
-        `)
+        .select('id, client_id, amount, status, date, due_date, payment_date, clients ( id, name )')
         .gte('date', startDate)
         .lte('date', endDate);
 
-      console.log('[FinancialSnapshot] transactions:', { count: transactionsData?.length, error: transactionsError });
       if (transactionsError) throw transactionsError;
 
-      // Verificar quais transactions têm schedules
+      // Check which transactions have schedules
       const transactionIds = (transactionsData || []).map(e => e.id);
       const { data: schedulesForTransactions } = await supabase
         .from('entry_schedules')
@@ -261,43 +176,28 @@ export function useFinancialSnapshot(timeWindow: TimeWindow): UseFinancialSnapsh
         (schedulesForTransactions || []).map(s => s.entry_id)
       );
 
-      // Transactions sem schedules
       const transactionsWithoutSchedules = (transactionsData || []).filter(
         e => !transactionIdsWithSchedules.has(e.id)
       );
 
-      console.log('[FinancialSnapshot] transactionsWithoutSchedules:', { 
-        total: transactionsWithoutSchedules.length,
-        paid: transactionsWithoutSchedules.filter(e => e.status === 'pago').length,
-      });
-
-      // Despesas: buscar TODAS as despesas da conta (sem filtro de data)
-      // O usuário quer ver o total real de despesas cadastradas
+      // Despesas do mês
       const { data: expensesData, error: expensesError } = await supabase
         .from('expenses')
-        .select('*');
+        .select('*')
+        .gte('date', startDate)
+        .lte('date', endDate);
 
-      console.log('[FinancialSnapshot] expenses raw:', { 
-        count: expensesData?.length, 
-        total: (expensesData || []).reduce((s, e) => s + Number((e as any).value), 0),
-        dates: (expensesData || []).map((e: any) => e.date),
-        error: expensesError 
-      });
       if (expensesError) throw expensesError;
 
       const expenses = (expensesData || []) as ExpenseRow[];
 
       // ============================================
-      // 2. CALCULAR VALORES LOCALMENTE (entry_schedules + transactions)
+      // CALCULAR VALORES
       // ============================================
-      // A RPC get_dashboard_totals não inclui entry_schedules, então
-      // calculamos localmente a partir dos dados já buscados com filtros corretos.
-      
-      // RECEBIDO: schedules pagos no período + transactions pagas sem schedules
+
+      // RECEBIDO
       let recebido = 0;
-      (paidSchedules || []).forEach(s => {
-        recebido += Number(s.amount);
-      });
+      (paidSchedules || []).forEach(s => { recebido += Number(s.amount); });
       transactionsWithoutSchedules
         .filter(e => e.status === 'pago')
         .forEach(e => {
@@ -307,61 +207,45 @@ export function useFinancialSnapshot(timeWindow: TimeWindow): UseFinancialSnapsh
           }
         });
 
-      // A_RECEBER: schedules pendentes com vencimento >= hoje + transactions pendentes
+      // A_RECEBER (pendentes com vencimento >= hoje dentro do mês)
       let aReceber = 0;
       (pendingSchedules || [])
         .filter(s => s.due_date >= todayStr)
-        .forEach(s => {
-          aReceber += Number(s.amount);
-        });
+        .forEach(s => { aReceber += Number(s.amount); });
       transactionsWithoutSchedules
         .filter(e => e.status === 'pendente' && e.due_date && e.due_date >= todayStr)
-        .forEach(e => {
-          aReceber += Number(e.amount);
-        });
+        .forEach(e => { aReceber += Number(e.amount); });
 
-      // totalAtendimentos: contagem de schedules pagos + transactions pagas sem schedules
+      // Atendimentos
       let totalAtendimentos = (paidSchedules || []).length;
       transactionsWithoutSchedules
         .filter(e => e.status === 'pago')
         .forEach(e => {
           const paymentDate = e.payment_date || e.date;
-          if (paymentDate >= startDate && paymentDate <= endDate) {
-            totalAtendimentos++;
-          }
+          if (paymentDate >= startDate && paymentDate <= endDate) totalAtendimentos++;
         });
 
       // EM_ATRASO (pendentes com vencimento < hoje)
       let emAtraso = 0;
       (pendingSchedules || [])
         .filter(s => s.due_date < todayStr)
-        .forEach(s => {
-          emAtraso += Number(s.amount);
-        });
-
+        .forEach(s => { emAtraso += Number(s.amount); });
       transactionsWithoutSchedules
         .filter(e => e.status === 'pendente' && e.due_date && e.due_date < todayStr)
-        .forEach(e => {
-          emAtraso += Number(e.amount);
-        });
+        .forEach(e => { emAtraso += Number(e.amount); });
 
-      // DESPESAS_PAGAS
+      // DESPESAS
       const despesasPagas = expenses.reduce((sum, e) => sum + Number(e.value), 0);
-
-      // DESPESAS_A_VENCER e DESPESAS_EM_ATRASO
       const despesasAVencer = 0;
       const despesasEmAtraso = 0;
 
-      // ============================================
-      // 3. CALCULAR DERIVADOS
-      // ============================================
-      
+      // DERIVADOS
       const lucroReal = recebido - despesasPagas;
       const totalEntradas = recebido + aReceber + emAtraso;
       const totalSaidas = despesasPagas + despesasAVencer + despesasEmAtraso;
       const ticketMedio = totalAtendimentos > 0 ? recebido / totalAtendimentos : 0;
 
-      console.log('[FinancialSnapshot] Local calc values:', { recebido, aReceber, emAtraso, despesasPagas, lucroReal, totalAtendimentos });
+      console.log('[FinancialSnapshot] Calc:', { recebido, aReceber, emAtraso, despesasPagas, lucroReal });
 
       const snapshot: FinancialSnapshot = {
         recebido,
@@ -378,98 +262,64 @@ export function useFinancialSnapshot(timeWindow: TimeWindow): UseFinancialSnapsh
       };
 
       // ============================================
-      // 4. DADOS PARA GRÁFICOS
+      // DADOS PARA GRÁFICOS
       // ============================================
-      
-      // Gráfico de evolução: valores realizados (pagos) + a receber (por vencimento)
       const days = eachDayOfInterval({
         start: parseISO(startDate),
         end: parseISO(endDate),
       });
 
       const dailyData = new Map<string, { recebido: number; a_receber: number; despesas: number }>();
-      
       days.forEach(day => {
         const dateStr = format(day, 'yyyy-MM-dd');
         dailyData.set(dateStr, { recebido: 0, a_receber: 0, despesas: 0 });
       });
 
-      // Agregar schedules pagos por data de pagamento
       (paidSchedules || []).forEach(s => {
         if (s.paid_at) {
           const paidDate = format(new Date(s.paid_at), 'yyyy-MM-dd');
           const point = dailyData.get(paidDate);
-          if (point) {
-            point.recebido += Number(s.amount);
-          }
+          if (point) point.recebido += Number(s.amount);
         }
       });
 
-      // Agregar schedules pendentes por data de vencimento
-      // Se a due_date estiver fora do período, agregar no último dia do período
-      const lastDayStr = endDate;
       (pendingSchedules || []).forEach(s => {
-        const dueDate = s.due_date;
-        // Se estiver dentro do período, usar a data de vencimento
-        // Se estiver fora (futuro), agregar no último dia do gráfico
-        const targetDate = (dueDate >= startDate && dueDate <= endDate) ? dueDate : lastDayStr;
-        const point = dailyData.get(targetDate);
-        if (point) {
-          point.a_receber += Number(s.amount);
-        }
+        const point = dailyData.get(s.due_date);
+        if (point) point.a_receber += Number(s.amount);
       });
 
-      // Agregar transactions sem schedules pagos
       transactionsWithoutSchedules
         .filter(e => e.status === 'pago')
         .forEach(e => {
           const paymentDate = e.payment_date || e.date;
           if (paymentDate >= startDate && paymentDate <= endDate) {
             const point = dailyData.get(paymentDate);
-            if (point) {
-              point.recebido += Number(e.amount);
-            }
+            if (point) point.recebido += Number(e.amount);
           }
         });
 
-      // Agregar transactions sem schedules pendentes por data de vencimento
       transactionsWithoutSchedules
         .filter(e => e.status === 'pendente' && e.due_date)
         .forEach(e => {
-          const dueDate = e.due_date!;
-          const targetDate = (dueDate >= startDate && dueDate <= endDate) ? dueDate : lastDayStr;
-          const point = dailyData.get(targetDate);
-          if (point) {
-            point.a_receber += Number(e.amount);
-          }
+          const point = dailyData.get(e.due_date!);
+          if (point) point.a_receber += Number(e.amount);
         });
 
-      // Agregar despesas por data
       expenses.forEach(e => {
         const point = dailyData.get(e.date);
-        if (point) {
-          point.despesas += Number(e.value);
-        }
+        if (point) point.despesas += Number(e.value);
       });
 
-      // Converter para array acumulado
+      // Acumulado
       const chartData: ChartDataPoint[] = [];
-      let accRecebido = 0;
-      let accAReceber = 0;
-      let accDespesas = 0;
-
+      let accR = 0, accA = 0, accD = 0;
       Array.from(dailyData.entries())
         .sort(([a], [b]) => a.localeCompare(b))
         .forEach(([date, values]) => {
-          accRecebido += values.recebido;
-          accAReceber += values.a_receber;
-          accDespesas += values.despesas;
-          chartData.push({
-            date,
-            recebido: accRecebido,
-            a_receber: accAReceber,
-            despesas: accDespesas,
-          });
+          accR += values.recebido;
+          accA += values.a_receber;
+          accD += values.despesas;
+          chartData.push({ date, recebido: accR, a_receber: accA, despesas: accD });
         });
 
       // Distribuição
@@ -480,14 +330,11 @@ export function useFinancialSnapshot(timeWindow: TimeWindow): UseFinancialSnapsh
       };
 
       // ============================================
-      // 5. MÉTRICAS DE RISCO
+      // RISCO
       // ============================================
-      
-      // risco_percentual = em_atraso / (a_receber + em_atraso)
       const denominadorRisco = aReceber + emAtraso;
       const riscoPercentual = denominadorRisco > 0 ? (emAtraso / denominadorRisco) * 100 : 0;
 
-      // Contar clientes inadimplentes (únicos com parcelas em atraso)
       const clientesInadimplentes = new Set<string>();
       (pendingSchedules || [])
         .filter(s => s.due_date < todayStr)
@@ -495,20 +342,13 @@ export function useFinancialSnapshot(timeWindow: TimeWindow): UseFinancialSnapsh
           const clientId = (s.transactions as any)?.client_id;
           if (clientId) clientesInadimplentes.add(clientId);
         });
-
       transactionsWithoutSchedules
         .filter(e => e.status === 'pendente' && e.due_date && e.due_date < todayStr)
-        .forEach(e => {
-          if (e.client_id) clientesInadimplentes.add(e.client_id);
-        });
+        .forEach(e => { if (e.client_id) clientesInadimplentes.add(e.client_id); });
 
-      // Determinar nível de risco
       let nivelRisco: 'baixo' | 'medio' | 'alto' = 'baixo';
-      if (riscoPercentual > 30 || clientesInadimplentes.size > 5) {
-        nivelRisco = 'alto';
-      } else if (riscoPercentual > 15 || clientesInadimplentes.size > 2) {
-        nivelRisco = 'medio';
-      }
+      if (riscoPercentual > 30 || clientesInadimplentes.size > 5) nivelRisco = 'alto';
+      else if (riscoPercentual > 15 || clientesInadimplentes.size > 2) nivelRisco = 'medio';
 
       const risk: RiskMetrics = {
         risco_percentual: riscoPercentual,
@@ -517,12 +357,9 @@ export function useFinancialSnapshot(timeWindow: TimeWindow): UseFinancialSnapsh
       };
 
       // ============================================
-      // 6. PROJEÇÃO FINANCEIRA
+      // PROJEÇÃO
       // ============================================
-      
-      // saldo_projetado = (recebido + a_receber) - (despesas_pagas + despesas_a_vencer)
       const saldoProjetado = (recebido + aReceber) - (despesasPagas + despesasAVencer);
-
       const projection: ProjectionMetrics = {
         saldo_projetado: saldoProjetado,
         recebiveis_futuros: aReceber,
@@ -530,19 +367,16 @@ export function useFinancialSnapshot(timeWindow: TimeWindow): UseFinancialSnapsh
       };
 
       // ============================================
-      // 7. VENCIMENTOS CRÍTICOS
+      // VENCIMENTOS CRÍTICOS
       // ============================================
-      
       const allPendingItems: CriticalDueDate[] = [];
 
-      // De schedules pendentes
       (pendingSchedules || []).forEach(s => {
         const dueDate = new Date(s.due_date);
         dueDate.setHours(0, 0, 0, 0);
         const diffTime = dueDate.getTime() - today.getTime();
         const daysUntilDue = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
         const clientData = (s.transactions as any)?.clients;
-
         allPendingItems.push({
           id: (s.transactions as any)?.id || s.entry_id,
           scheduleId: s.id,
@@ -554,7 +388,6 @@ export function useFinancialSnapshot(timeWindow: TimeWindow): UseFinancialSnapsh
         });
       });
 
-      // De transactions sem schedules
       transactionsWithoutSchedules
         .filter(e => e.status === 'pendente' && e.due_date)
         .forEach(e => {
@@ -563,7 +396,6 @@ export function useFinancialSnapshot(timeWindow: TimeWindow): UseFinancialSnapsh
           const diffTime = dueDate.getTime() - today.getTime();
           const daysUntilDue = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
           const clientData = e.clients as any;
-
           allPendingItems.push({
             id: e.id,
             clientName: clientData?.name || 'Cliente não identificado',
@@ -574,7 +406,6 @@ export function useFinancialSnapshot(timeWindow: TimeWindow): UseFinancialSnapsh
           });
         });
 
-      // Ordenar: vencidos primeiro, depois por proximidade
       const criticalDueDates = allPendingItems
         .sort((a, b) => {
           if (a.isOverdue && !b.isOverdue) return -1;
@@ -583,38 +414,21 @@ export function useFinancialSnapshot(timeWindow: TimeWindow): UseFinancialSnapsh
         })
         .slice(0, 5);
 
-      console.log('[FinancialSnapshot] Final snapshot:', { recebido: snapshot.recebido, a_receber: snapshot.a_receber, despesas_pagas: snapshot.despesas_pagas, lucro_real: snapshot.lucro_real });
-
-      return {
-        snapshot,
-        chartData,
-        distribution,
-        risk,
-        projection,
-        criticalDueDates,
-      };
+      return { snapshot, chartData, distribution, risk, projection, criticalDueDates };
       } catch (err) {
-        console.error('[FinancialSnapshot] ERRO na queryFn:', err);
+        console.error('[FinancialSnapshot] ERRO:', err);
         throw err;
       }
     },
     enabled: !!user && !!accountId,
-    staleTime: 1000 * 60 * 5, // 5 minutos
+    staleTime: 1000 * 60 * 5,
   });
 
-  // Valores padrão
   const defaultSnapshot: FinancialSnapshot = {
-    recebido: 0,
-    a_receber: 0,
-    em_atraso: 0,
-    despesas_pagas: 0,
-    despesas_a_vencer: 0,
-    despesas_em_atraso: 0,
-    lucro_real: 0,
-    total_entradas: 0,
-    total_saidas: 0,
-    total_atendimentos: 0,
-    ticket_medio: 0,
+    recebido: 0, a_receber: 0, em_atraso: 0,
+    despesas_pagas: 0, despesas_a_vencer: 0, despesas_em_atraso: 0,
+    lucro_real: 0, total_entradas: 0, total_saidas: 0,
+    total_atendimentos: 0, ticket_medio: 0,
   };
 
   return {
@@ -626,7 +440,8 @@ export function useFinancialSnapshot(timeWindow: TimeWindow): UseFinancialSnapsh
     criticalDueDates: data?.criticalDueDates || [],
     isLoading,
     error: error as Error | null,
-    timeWindow,
+    monthPeriod,
+    monthLabel,
     startDate,
     endDate,
   };

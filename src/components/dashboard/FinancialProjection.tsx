@@ -2,17 +2,17 @@ import { TrendingUp, Calendar, ArrowUpRight, ArrowDownRight } from 'lucide-react
 import SectionCard from './SectionCard';
 import { formatCurrency } from '@/lib/formatters';
 import { cn } from '@/lib/utils';
-import type { ProjectionMetrics, TimeWindow } from '@/hooks/useFinancialSnapshot';
+import type { ProjectionMetrics } from '@/hooks/useFinancialSnapshot';
 
 interface FinancialProjectionProps {
   projection: ProjectionMetrics;
-  timeWindow: TimeWindow;
+  monthLabel: string;
   hasData?: boolean;
 }
 
 export default function FinancialProjection({
   projection,
-  timeWindow,
+  monthLabel,
   hasData = true,
 }: FinancialProjectionProps) {
   const isPositiveBalance = projection.saldo_projetado >= 0;
@@ -22,7 +22,7 @@ export default function FinancialProjection({
 
   return (
     <SectionCard 
-      title={`Projeção Financeira | ${timeWindow} dias`}
+      title={`Projeção Financeira | ${monthLabel}`}
       icon={<TrendingUp size={18} className="text-primary" />}
       tooltip="Projeção = (Recebido + A Receber) - (Despesas Pagas + Despesas a Vencer)"
       footer="Esta projeção ajuda você a se planejar com antecedência e evitar surpresas no caixa."
