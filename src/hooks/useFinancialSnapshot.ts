@@ -271,13 +271,18 @@ export function useFinancialSnapshot(timeWindow: TimeWindow): UseFinancialSnapsh
         paid: transactionsWithoutSchedules.filter(e => e.status === 'pago').length,
       });
 
-      // Despesas no período (inclui despesas futuras agendadas a partir do startDate)
+      // Despesas: buscar TODAS as despesas da conta (sem filtro de data)
+      // O usuário quer ver o total real de despesas cadastradas
       const { data: expensesData, error: expensesError } = await supabase
         .from('expenses')
-        .select('*')
-        .gte('date', startDate);
+        .select('*');
 
-      console.log('[FinancialSnapshot] expenses:', { count: expensesData?.length, error: expensesError });
+      console.log('[FinancialSnapshot] expenses raw:', { 
+        count: expensesData?.length, 
+        total: (expensesData || []).reduce((s, e) => s + Number((e as any).value), 0),
+        dates: (expensesData || []).map((e: any) => e.date),
+        error: expensesError 
+      });
       if (expensesError) throw expensesError;
 
       const expenses = (expensesData || []) as ExpenseRow[];
