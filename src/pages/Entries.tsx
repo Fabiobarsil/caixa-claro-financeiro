@@ -1,8 +1,11 @@
 import { useState, useMemo } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import AppLayout from '@/components/AppLayout';
 import { useEntries, Entry } from '@/hooks/useEntries';
 import { useEntrySchedules, getScheduleSummary, EntrySchedule } from '@/hooks/useEntrySchedules';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 import { Search, Loader2, Receipt, Package, Scissors, CheckCircle, ChevronDown, ChevronUp, Plus, DollarSign, RotateCcw } from 'lucide-react';
 import { Input } from '@/components/ui/input';
@@ -65,6 +68,7 @@ export default function Entries() {
     isLoading: schedulesLoading,
     isAdmin,
   } = useEntrySchedules();
+  const { accountId } = useAuth();
   
   // Read initial filter from URL params
   const initialFilter = (searchParams.get('status') as FilterType) || 'todos';
@@ -182,25 +186,89 @@ export default function Entries() {
     });
   }, [paidDisplayItems, search, isPaidMode]);
 
-  // Calculate total for paid items
+  // Server-side aggregation for paid total
+  const { data: serverPaidTotal } = useQuery({
+    queryKey: ['entries-total-paid', accountId],
+    queryFn: async () => {
+      // Get entry IDs that have schedules
+      const { data: scheduledEntryIds } = await supabase
+        .from('entry_schedules')
+        .select('entry_id');
+      const scheduledSet = new Set((scheduledEntryIds || []).map(s => s.entry_id));
+
+      // Sum paid schedules
+      const { data: paidSchedulesData } = await supabase
+        .from('entry_schedules')
+        .select('amount')
+        .eq('status', 'pago');
+      const schedulesTotal = (paidSchedulesData || []).reduce((sum, s) => sum + Number(s.amount), 0);
+
+      // Sum paid transactions without schedules
+      const { data: allTx } = await supabase
+        .from('transactions')
+        .select('id, amount')
+        .eq('status', 'pago');
+      const txWithoutSchedules = (allTx || []).filter(t => !scheduledSet.has(t.id));
+      const txTotal = txWithoutSchedules.reduce((sum, t) => sum + Number(t.amount), 0);
+
+      return { total: schedulesTotal + txTotal, count: (paidSchedulesData || []).length + txWithoutSchedules.length };
+    },
+    enabled: isPaidMode && !!accountId,
+  });
+
+  // Server-side aggregation for pending schedules total
+  const { data: serverPendingTotal } = useQuery({
+    queryKey: ['entries-total-pending', accountId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('entry_schedules')
+        .select('amount')
+        .eq('status', 'pendente');
+      const total = (data || []).reduce((sum, s) => sum + Number(s.amount), 0);
+      return { total, count: (data || []).length };
+    },
+    enabled: isGlobalPendingMode && !!accountId,
+  });
+
+  // Server-side aggregation for entries (todos / a_vencer / vencido)
+  const { data: serverEntriesTotal } = useQuery({
+    queryKey: ['entries-total-entries', accountId, activeFilter],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('transactions')
+        .select('amount, status, due_date, payment_date');
+
+      if (activeFilter === 'todos') {
+        const total = (data || []).reduce((sum, t) => sum + Number(t.amount), 0);
+        return { total, count: (data || []).length };
+      }
+
+      const filtered = (data || []).filter(t => {
+        const { visualStatus } = getEntryVisualInfo(t.status, t.due_date, t.payment_date);
+        const effectiveStatus = visualStatus === 'vence_hoje' ? 'a_vencer' : visualStatus;
+        return effectiveStatus === activeFilter;
+      });
+      const total = filtered.reduce((sum, t) => sum + Number(t.amount), 0);
+      return { total, count: filtered.length };
+    },
+    enabled: !isPaidMode && !isGlobalPendingMode && !!accountId,
+  });
+
+  // Calculate total for paid items (client-side fallback for list display)
   const paidTotal = useMemo(() => {
     return filteredPaidItems.reduce((sum, item) => sum + item.value, 0);
   }, [filteredPaidItems]);
 
   const filteredEntries = useMemo(() => {
-    // For global pending mode or paid mode, we handle separately
     if (isGlobalPendingMode || isPaidMode) return [];
 
     return entries.filter((entry) => {
-      // Filter by visual status
       if (activeFilter !== 'todos') {
         const { visualStatus } = getEntryVisualInfo(entry.status, entry.due_date, entry.payment_date);
-        // Group 'vence_hoje' with 'a_vencer' for filtering
         const effectiveStatus = visualStatus === 'vence_hoje' ? 'a_vencer' : visualStatus;
         if (effectiveStatus !== activeFilter) return false;
       }
 
-      // Filter by search
       const matchesSearch = search === '' || 
         (entry.client_name?.toLowerCase().includes(search.toLowerCase())) ||
         (entry.item_name?.toLowerCase().includes(search.toLowerCase()));
@@ -209,12 +277,10 @@ export default function Entries() {
     });
   }, [entries, activeFilter, search, isGlobalPendingMode, isPaidMode]);
 
-  // Calculate total for filtered entries (non-paid modes)
   const entriesTotal = useMemo(() => {
     return filteredEntries.reduce((sum, entry) => sum + entry.value, 0);
   }, [filteredEntries]);
 
-  // Get global pending schedules for the new filter
   const globalPendingSchedules = useMemo(() => {
     if (!isGlobalPendingMode) return [];
 
@@ -231,7 +297,6 @@ export default function Entries() {
       .sort((a, b) => a.due_date.localeCompare(b.due_date));
   }, [allSchedules, isGlobalPendingMode, search, entryInfoMap]);
 
-  // Calculate total for global pending
   const pendingTotal = useMemo(() => {
     return globalPendingSchedules.reduce((sum, s) => sum + s.amount, 0);
   }, [globalPendingSchedules]);
@@ -248,16 +313,28 @@ export default function Entries() {
     revertScheduleToPending.mutate(scheduleId);
   };
 
-  // Get current total and count based on mode
+  // Use server-side totals for banner, fallback to client-side
   const { currentTotal, currentCount, totalLabel } = useMemo(() => {
     if (isPaidMode) {
-      return { currentTotal: paidTotal, currentCount: filteredPaidItems.length, totalLabel: 'Total recebido' };
+      return { 
+        currentTotal: serverPaidTotal?.total ?? paidTotal, 
+        currentCount: serverPaidTotal?.count ?? filteredPaidItems.length, 
+        totalLabel: 'Total recebido' 
+      };
     }
     if (isGlobalPendingMode) {
-      return { currentTotal: pendingTotal, currentCount: globalPendingSchedules.length, totalLabel: 'Total pendente' };
+      return { 
+        currentTotal: serverPendingTotal?.total ?? pendingTotal, 
+        currentCount: serverPendingTotal?.count ?? globalPendingSchedules.length, 
+        totalLabel: 'Total pendente' 
+      };
     }
-    return { currentTotal: entriesTotal, currentCount: filteredEntries.length, totalLabel: 'Total' };
-  }, [isPaidMode, isGlobalPendingMode, paidTotal, pendingTotal, entriesTotal, filteredPaidItems.length, globalPendingSchedules.length, filteredEntries.length]);
+    return { 
+      currentTotal: serverEntriesTotal?.total ?? entriesTotal, 
+      currentCount: serverEntriesTotal?.count ?? filteredEntries.length, 
+      totalLabel: 'Total' 
+    };
+  }, [isPaidMode, isGlobalPendingMode, serverPaidTotal, serverPendingTotal, serverEntriesTotal, paidTotal, pendingTotal, entriesTotal, filteredPaidItems.length, globalPendingSchedules.length, filteredEntries.length]);
 
   return (
     <AppLayout>
