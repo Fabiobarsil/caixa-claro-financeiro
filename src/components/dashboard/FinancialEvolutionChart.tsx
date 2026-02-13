@@ -161,25 +161,25 @@ export default function FinancialEvolutionChart({
                 tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }}
                 tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v.toString()} width={45} />
               <Tooltip content={<CustomTooltip />} />
-              <Legend verticalAlign="top" height={36}
-                formatter={(value) => <span className="text-sm text-muted-foreground">{value}</span>} />
+              <Legend verticalAlign="bottom" height={36} iconType="circle" iconSize={8}
+                formatter={(value: string) => <span className="text-xs text-muted-foreground">{value}</span>} />
               <Line type="monotone" dataKey="recebido" name="Recebido" stroke="hsl(var(--success))"
-                strokeWidth={2.5} dot={false}
-                activeDot={{ r: 6, strokeWidth: 2, stroke: 'hsl(var(--background))', className: 'drop-shadow-md' }} />
+                strokeWidth={2.5} dot={false} label={false}
+                activeDot={{ r: 5, strokeWidth: 2, stroke: 'hsl(var(--background))' }} />
               <Line type="monotone" dataKey="a_receber" name="A Receber" stroke="hsl(var(--warning))"
-                strokeWidth={2.5} dot={false}
-                activeDot={{ r: 6, strokeWidth: 2, stroke: 'hsl(var(--background))', className: 'drop-shadow-md' }} />
+                strokeWidth={2.5} dot={false} label={false}
+                activeDot={{ r: 5, strokeWidth: 2, stroke: 'hsl(var(--background))' }} />
               <Line type="monotone" dataKey="despesas" name="Despesas" stroke="hsl(var(--expense))"
-                strokeWidth={2.5} dot={false}
-                activeDot={{ r: 6, strokeWidth: 2, stroke: 'hsl(var(--background))', className: 'drop-shadow-md' }} />
+                strokeWidth={2.5} dot={false} label={false}
+                activeDot={{ r: 5, strokeWidth: 2, stroke: 'hsl(var(--background))' }} />
               {activePointIndex >= 0 && chartData[activePointIndex] && (
                 <>
                   <ReferenceDot x={chartData[activePointIndex].day} y={chartData[activePointIndex].recebido}
-                    r={8} fill="hsl(var(--success))" stroke="hsl(var(--background))" strokeWidth={3} />
+                    r={7} fill="hsl(var(--success))" stroke="hsl(var(--background))" strokeWidth={3} />
                   <ReferenceDot x={chartData[activePointIndex].day} y={chartData[activePointIndex].a_receber}
-                    r={8} fill="hsl(var(--warning))" stroke="hsl(var(--background))" strokeWidth={3} />
+                    r={7} fill="hsl(var(--warning))" stroke="hsl(var(--background))" strokeWidth={3} />
                   <ReferenceDot x={chartData[activePointIndex].day} y={chartData[activePointIndex].despesas}
-                    r={8} fill="hsl(var(--expense))" stroke="hsl(var(--background))" strokeWidth={3} />
+                    r={7} fill="hsl(var(--expense))" stroke="hsl(var(--background))" strokeWidth={3} />
                 </>
               )}
             </LineChart>
