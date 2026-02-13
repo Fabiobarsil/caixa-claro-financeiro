@@ -15,6 +15,8 @@ interface User {
   role: AppRole;
   accountId: string | null;
   isSystemAdmin: boolean;
+  avatarUrl: string | null;
+  phone: string | null;
 }
 
 interface AuthContextType {
@@ -29,6 +31,7 @@ interface AuthContextType {
   logout: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ success: boolean; error?: string }>;
   updatePassword: (newPassword: string) => Promise<{ success: boolean; error?: string }>;
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -44,7 +47,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Fetch profile including account_id and is_system_admin
       const { data: profile } = await supabase
         .from('profiles')
-        .select('name, email, account_id, is_system_admin')
+        .select('name, email, account_id, is_system_admin, avatar_url, phone')
         .eq('user_id', supabaseUser.id)
         .maybeSingle();
 
@@ -62,6 +65,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         role: (roleData?.role as AppRole) || 'operador',
         accountId: profile?.account_id || null,
         isSystemAdmin: profile?.is_system_admin || false,
+        avatarUrl: profile?.avatar_url || null,
+        phone: profile?.phone || null,
       };
     } catch (error) {
       console.error('Error fetching user data:', error);
@@ -233,6 +238,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const refreshUser = useCallback(async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.user) {
+      const userData = await fetchUserData(session.user);
+      if (userData) setUser(userData);
+    }
+  }, [fetchUserData]);
+
   const value: AuthContextType = {
     user,
     isAuthenticated: !!user,
@@ -245,6 +258,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     logout,
     resetPassword,
     updatePassword,
+    refreshUser,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

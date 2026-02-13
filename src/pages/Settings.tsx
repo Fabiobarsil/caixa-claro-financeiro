@@ -21,6 +21,7 @@ import {
 import { Switch } from '@/components/ui/switch';
 import CurrentPlanCard from '@/components/subscription/CurrentPlanCard';
 import CompanyDataForm from '@/components/settings/CompanyDataForm';
+import ProfileEditor from '@/components/settings/ProfileEditor';
 
 export default function Settings() {
   const { user, logout, isAdmin, isSystemAdmin, isLoading } = useAuth();
@@ -74,25 +75,8 @@ export default function Settings() {
           <CurrentPlanCard />
         </div>
 
-        {/* Profile Card */}
-        <div className="bg-card rounded-xl p-4 border border-border mb-6">
-          <div className="flex items-center gap-3">
-            <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center text-primary">
-              <User size={28} />
-            </div>
-            <div className="flex-1">
-              <p className="font-semibold text-foreground">{user?.name}</p>
-              <p className="text-sm text-muted-foreground">{user?.email}</p>
-              <div className="flex items-center gap-1 mt-1">
-                <Shield size={12} className={isSystemAdmin ? "text-amber-500" : "text-primary"} />
-                <span className={`text-xs font-medium capitalize ${isSystemAdmin ? "text-amber-500" : "text-primary"}`}>
-                  {isSystemAdmin ? 'System Owner' : user?.role}
-                </span>
-              </div>
-            </div>
-            <ChevronRight size={20} className="text-muted-foreground" />
-          </div>
-        </div>
+        {/* Profile Editor */}
+        <ProfileEditor />
 
         {/* Company Data Form - Optional */}
         <CompanyDataForm />

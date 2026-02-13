@@ -234,6 +234,7 @@ export type Database = {
       profiles: {
         Row: {
           account_id: string | null
+          avatar_url: string | null
           company_name: string | null
           cpf: string | null
           created_at: string
@@ -265,6 +266,7 @@ export type Database = {
         }
         Insert: {
           account_id?: string | null
+          avatar_url?: string | null
           company_name?: string | null
           cpf?: string | null
           created_at?: string
@@ -296,6 +298,7 @@ export type Database = {
         }
         Update: {
           account_id?: string | null
+          avatar_url?: string | null
           company_name?: string | null
           cpf?: string | null
           created_at?: string
