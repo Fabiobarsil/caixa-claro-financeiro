@@ -5,6 +5,7 @@ import { ptBR } from 'date-fns/locale';
 import { Home, LogOut, ChevronDown } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import iconCaixacertus from '@/assets/icon-caixacertus.svg';
 import {
   DropdownMenu,
@@ -41,10 +42,12 @@ export default function GlobalHeader({ className }: GlobalHeaderProps) {
   const { user, logout } = useAuth();
   const now = useCurrentTime();
 
+  const firstName = user?.name?.split(' ')[0] || 'Gestor';
   const greeting = getGreeting();
   const dayOfWeek = format(now, "EEEE", { locale: ptBR });
   const fullDate = format(now, "d 'de' MMMM 'de' yyyy", { locale: ptBR });
   const currentTime = format(now, "HH:mm");
+  const avatarUrl = user?.avatarUrl;
 
   const isOnDashboard = location.pathname === '/dashboard';
 
@@ -90,7 +93,7 @@ export default function GlobalHeader({ className }: GlobalHeaderProps) {
         {/* Greeting and date/time - desktop */}
         <div className="hidden lg:block">
           <h1 className="text-lg font-semibold text-foreground">
-            {greeting}, {user?.name?.split(' ')[0]}
+            {greeting}, {firstName}
           </h1>
           <p className="text-sm text-muted-foreground capitalize">
             {dayOfWeek}, {fullDate} — {currentTime}
@@ -103,7 +106,7 @@ export default function GlobalHeader({ className }: GlobalHeaderProps) {
         {/* Mobile: Greeting compact */}
         <div className="lg:hidden text-right">
           <p className="text-sm font-medium text-foreground">
-            {greeting}, {user?.name?.split(' ')[0]}
+            {greeting}, {firstName}
           </p>
           <p className="text-xs text-muted-foreground">
             {currentTime}
@@ -117,9 +120,12 @@ export default function GlobalHeader({ className }: GlobalHeaderProps) {
               className="flex items-center gap-1 px-2 py-1.5 rounded-lg hover:bg-secondary transition-colors"
               aria-label="Menu do usuário"
             >
-              <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-medium text-sm">
-                {user?.name?.charAt(0).toUpperCase() || 'U'}
-              </div>
+              <Avatar className="w-8 h-8">
+                {avatarUrl ? <AvatarImage src={avatarUrl} alt={user?.name} /> : null}
+                <AvatarFallback className="bg-primary/20 text-primary font-medium text-sm">
+                  {user?.name?.charAt(0).toUpperCase() || 'G'}
+                </AvatarFallback>
+              </Avatar>
               <ChevronDown size={16} className="text-muted-foreground hidden sm:block" />
             </button>
           </DropdownMenuTrigger>
