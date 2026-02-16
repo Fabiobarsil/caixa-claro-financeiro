@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import { Home, Wallet, Receipt, Users, TrendingDown, Settings, ChevronLeft, ChevronRight, Package, CreditCard } from 'lucide-react';
+import { Home, Wallet, Receipt, Users, TrendingDown, Settings, ChevronLeft, ChevronRight, Package, CreditCard, BadgeDollarSign } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import iconCaixacertus from '@/assets/icon-caixacertus.svg';
@@ -16,6 +16,7 @@ interface NavItem {
 const navItems: NavItem[] = [
   { to: '/dashboard', icon: Home, label: 'Dashboard' },
   { to: '/pro-labore', icon: Wallet, label: 'Meu Pró-Labore' },
+  { to: '/cobrancas', icon: BadgeDollarSign, label: 'Cobranças' },
   { to: '/lancamentos', icon: Receipt, label: 'Lançamentos' },
   { to: '/clientes', icon: Users, label: 'Clientes' },
   { to: '/servicos-produtos', icon: Package, label: 'Serviços & Produtos' },
