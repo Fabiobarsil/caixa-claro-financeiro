@@ -29,6 +29,7 @@ import TermsOfUse from "./pages/TermsOfUse";
 import AdminSubscriptions from "./pages/AdminSubscriptions";
 import LGPD from "./pages/LGPD";
 import Welcome from "./pages/Welcome";
+import Cobrancas from "./pages/Cobrancas";
 
 // Component to show configuration error
 function SupabaseConfigError() {
@@ -201,6 +202,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <ServiceProductForm />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/cobrancas"
+        element={
+          <ProtectedRoute>
+            <Cobrancas />
           </ProtectedRoute>
         }
       />
