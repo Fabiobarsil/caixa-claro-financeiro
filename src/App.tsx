@@ -19,6 +19,7 @@ import Expenses from "./pages/Expenses";
 import Settings from "./pages/Settings";
 import Team from "./pages/Team";
 import ServicesProducts from "./pages/ServicesProducts";
+import Prolabore from "./pages/Prolabore";
 import ServiceProductForm from "./pages/ServiceProductForm";
 import NotFound from "./pages/NotFound";
 import ResetPassword from "./pages/ResetPassword";
@@ -112,6 +113,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <Dashboard />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/pro-labore"
+        element={
+          <ProtectedRoute>
+            <Prolabore />
           </ProtectedRoute>
         }
       />
