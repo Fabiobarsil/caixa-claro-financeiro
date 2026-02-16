@@ -68,7 +68,7 @@ export default function DistributionChart({
 
   return (
     <SectionCard title={`Despesas por Categoria | ${monthLabel}`}>
-      <div className="h-48">
+      <div className="h-44">
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
             <Pie
@@ -88,19 +88,24 @@ export default function DistributionChart({
               ))}
             </Pie>
             <Tooltip content={<CustomTooltip />} />
-            <Legend 
-              verticalAlign="bottom" 
-              height={36}
-              formatter={(value: string) => (
-                <span className="text-xs text-foreground">{value}</span>
-              )}
-            />
           </PieChart>
         </ResponsiveContainer>
       </div>
-      <p className="text-xs text-muted-foreground text-center mt-2">
-        Distribuição das despesas por categoria no mês
-      </p>
+      <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1.5 justify-center px-2">
+        {expensesByCategory.map((item, index) => {
+          const pct = total > 0 ? ((item.value / total) * 100).toFixed(0) : '0';
+          return (
+            <div key={item.name} className="flex items-center gap-1.5 text-xs">
+              <span
+                className="inline-block w-2.5 h-2.5 rounded-full shrink-0"
+                style={{ backgroundColor: COLORS[index % COLORS.length] }}
+              />
+              <span className="text-foreground font-medium">{item.name}</span>
+              <span className="text-muted-foreground">({pct}%)</span>
+            </div>
+          );
+        })}
+      </div>
     </SectionCard>
   );
 }
