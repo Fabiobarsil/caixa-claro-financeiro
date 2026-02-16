@@ -720,7 +720,25 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      v_prolabore_mvp: {
+        Row: {
+          account_id: string | null
+          competence: string | null
+          expense_m: number | null
+          profit_m: number | null
+          recommended_prolabore: number | null
+          revenue_m: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transactions_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       admin_list_profiles_masked: {
