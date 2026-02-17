@@ -1,98 +1,10 @@
 import { useState, useMemo } from 'react';
-import { AlertTriangle, Clock, CheckCircle2, MessageCircle, Check } from 'lucide-react';
+import { AlertTriangle, Clock, CheckCircle2, MessageCircle, Check, Loader2 } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import AppLayout from '@/components/AppLayout';
-
-// --- Mock Data ---
-interface Receivable {
-  id: string;
-  clientName: string;
-  clientPhone: string;
-  productName: string;
-  installmentCurrent: number;
-  installmentsTotal: number;
-  totalAmount: number;
-  paidAmount: number;
-  dueDate: string; // ISO
-  status: 'em_dia' | 'atrasado' | 'parcial';
-}
-
-const mockReceivables: Receivable[] = [
-  {
-    id: '1',
-    clientName: 'Alice Mendes',
-    clientPhone: '5511999001122',
-    productName: 'Consulta Nutricional',
-    installmentCurrent: 1,
-    installmentsTotal: 2,
-    totalAmount: 8800,
-    paidAmount: 4400,
-    dueDate: '2026-02-10',
-    status: 'parcial',
-  },
-  {
-    id: '2',
-    clientName: 'Rosangela Souza',
-    clientPhone: '5511988112233',
-    productName: 'Pacote Mensal',
-    installmentCurrent: 2,
-    installmentsTotal: 3,
-    totalAmount: 45000,
-    paidAmount: 15000,
-    dueDate: '2026-01-28',
-    status: 'atrasado',
-  },
-  {
-    id: '3',
-    clientName: 'Andreia Lima',
-    clientPhone: '5511977223344',
-    productName: 'Avaliação Corporal',
-    installmentCurrent: 1,
-    installmentsTotal: 1,
-    totalAmount: 12000,
-    paidAmount: 0,
-    dueDate: '2026-02-20',
-    status: 'em_dia',
-  },
-  {
-    id: '4',
-    clientName: 'Carlos Eduardo',
-    clientPhone: '5511966334455',
-    productName: 'Whey Protein 1kg',
-    installmentCurrent: 1,
-    installmentsTotal: 1,
-    totalAmount: 15000,
-    paidAmount: 0,
-    dueDate: '2026-01-15',
-    status: 'atrasado',
-  },
-  {
-    id: '5',
-    clientName: 'Fernanda Oliveira',
-    clientPhone: '5511955445566',
-    productName: 'Retorno + Creatina',
-    installmentCurrent: 2,
-    installmentsTotal: 2,
-    totalAmount: 20000,
-    paidAmount: 10000,
-    dueDate: '2026-02-18',
-    status: 'parcial',
-  },
-  {
-    id: '6',
-    clientName: 'João Pedro',
-    clientPhone: '5511944556677',
-    productName: 'Consulta Nutricional',
-    installmentCurrent: 1,
-    installmentsTotal: 1,
-    totalAmount: 18000,
-    paidAmount: 0,
-    dueDate: '2026-02-25',
-    status: 'em_dia',
-  },
-];
+import { useCobrancas, Receivable } from '@/hooks/useCobrancas';
 
 // --- Helpers ---
 function formatCents(cents: number): string {
@@ -145,7 +57,7 @@ function DueDateLabel({ dueDate, status }: { dueDate: string; status: Receivable
   return <span className="text-xs text-muted-foreground">Vence em {days} dias</span>;
 }
 
-function ReceivableCard({ item, onMarkPaid }: { item: Receivable; onMarkPaid: (id: string) => void }) {
+function ReceivableCard({ item }: { item: Receivable }) {
   const remaining = item.totalAmount - item.paidAmount;
 
   const waText = encodeURIComponent(
@@ -155,9 +67,7 @@ function ReceivableCard({ item, onMarkPaid }: { item: Receivable; onMarkPaid: (i
 
   return (
     <Card className="p-4 space-y-3">
-      {/* Top row */}
       <div className="flex items-start justify-between gap-3">
-        {/* Left */}
         <div className="min-w-0 flex-1">
           <p className="font-semibold text-foreground truncate">{item.clientName}</p>
           <p className="text-xs text-muted-foreground truncate">{item.productName}</p>
@@ -167,8 +77,6 @@ function ReceivableCard({ item, onMarkPaid }: { item: Receivable; onMarkPaid: (i
             </p>
           )}
         </div>
-
-        {/* Right — amount hierarchy */}
         <div className="text-right shrink-0">
           <p className="text-lg font-bold text-foreground leading-tight">
             {formatCents(remaining)}
@@ -179,32 +87,23 @@ function ReceivableCard({ item, onMarkPaid }: { item: Receivable; onMarkPaid: (i
         </div>
       </div>
 
-      {/* Bottom row */}
       <div className="flex items-center justify-between gap-2 pt-1 border-t border-border">
         <div className="flex items-center gap-2">
           <StatusBadge status={item.status} />
           <DueDateLabel dueDate={item.dueDate} status={item.status} />
         </div>
-
         <div className="flex items-center gap-1.5">
-          <a
-            href={waLink}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center justify-center h-8 w-8 rounded-md bg-[#25D366] text-white hover:bg-[#1da851] transition-colors"
-            title="Cobrar via WhatsApp"
-          >
-            <MessageCircle size={16} />
-          </a>
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-8 text-xs gap-1"
-            onClick={() => onMarkPaid(item.id)}
-          >
-            <Check size={14} />
-            Pago
-          </Button>
+          {item.clientPhone && (
+            <a
+              href={waLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center justify-center h-8 w-8 rounded-md bg-[#25D366] text-white hover:bg-[#1da851] transition-colors"
+              title="Cobrar via WhatsApp"
+            >
+              <MessageCircle size={16} />
+            </a>
+          )}
         </div>
       </div>
     </Card>
@@ -213,17 +112,8 @@ function ReceivableCard({ item, onMarkPaid }: { item: Receivable; onMarkPaid: (i
 
 // --- Page ---
 export default function Cobrancas() {
-  const [receivables, setReceivables] = useState<Receivable[]>(mockReceivables);
+  const { data: receivables = [], isLoading } = useCobrancas();
 
-  const handleMarkPaid = (id: string) => {
-    setReceivables(prev =>
-      prev.map(r =>
-        r.id === id ? { ...r, paidAmount: r.totalAmount, status: 'em_dia' as const } : r
-      )
-    );
-  };
-
-  // Only show items with remaining > 0
   const openItems = useMemo(
     () => receivables.filter(r => r.totalAmount - r.paidAmount > 0),
     [receivables]
@@ -239,7 +129,6 @@ export default function Cobrancas() {
     [openItems]
   );
 
-  // Sort: overdue first, then by due date asc
   const sortedItems = useMemo(
     () =>
       [...openItems].sort((a, b) => {
@@ -253,10 +142,8 @@ export default function Cobrancas() {
   return (
     <AppLayout>
       <div className="max-w-2xl mx-auto px-4 pb-24 lg:pb-8">
-        {/* Header */}
         <h1 className="text-xl font-bold text-foreground pt-4 pb-3">Cobranças em Aberto</h1>
 
-        {/* Sticky summary */}
         <div className="sticky top-0 z-10 -mx-4 px-4 py-3 bg-background/95 backdrop-blur-sm border-b border-border mb-4">
           <div className="flex items-center justify-between gap-4">
             <div>
@@ -272,8 +159,11 @@ export default function Cobrancas() {
           </div>
         </div>
 
-        {/* List */}
-        {sortedItems.length === 0 ? (
+        {isLoading ? (
+          <div className="flex justify-center py-16">
+            <Loader2 className="animate-spin text-muted-foreground" size={32} />
+          </div>
+        ) : sortedItems.length === 0 ? (
           <div className="text-center py-16 text-muted-foreground">
             <CheckCircle2 className="mx-auto mb-3 text-success" size={40} />
             <p className="font-medium">Nenhuma cobrança em aberto!</p>
@@ -281,7 +171,7 @@ export default function Cobrancas() {
         ) : (
           <div className="space-y-3">
             {sortedItems.map(item => (
-              <ReceivableCard key={item.id} item={item} onMarkPaid={handleMarkPaid} />
+              <ReceivableCard key={item.id} item={item} />
             ))}
           </div>
         )}
