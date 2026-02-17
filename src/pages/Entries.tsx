@@ -1,12 +1,12 @@
 import { useState, useMemo } from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import AppLayout from '@/components/AppLayout';
 import { useEntries, Entry } from '@/hooks/useEntries';
 import { useEntrySchedules, getScheduleSummary, EntrySchedule } from '@/hooks/useEntrySchedules';
 import { useFinancialSnapshot, type MonthPeriod } from '@/hooks/useFinancialSnapshot';
 import MonthSelector from '@/components/dashboard/TimeWindowSelector';
 import { cn } from '@/lib/utils';
-import { Search, Loader2, Receipt, Package, Scissors, CheckCircle, ChevronDown, ChevronUp, Plus, DollarSign, RotateCcw, TrendingUp, TrendingDown, Clock } from 'lucide-react';
+import { Search, Loader2, Receipt, Package, Scissors, CheckCircle, ChevronDown, ChevronUp, Plus, DollarSign, RotateCcw, TrendingUp, TrendingDown, Clock, AlertTriangle } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { format, parseISO } from 'date-fns';
@@ -15,13 +15,12 @@ import EntryStatusBadge from '@/components/EntryStatusBadge';
 import { getEntryVisualInfo } from '@/lib/entryStatus';
 import { formatCurrency } from '@/lib/formatters';
 
-type FilterType = 'todos' | 'pago' | 'a_vencer' | 'vencido' | 'pendente_geral';
+type FilterType = 'todos' | 'pago' | 'a_vencer' | 'pendente_geral';
 
 const filters: { value: FilterType; label: string }[] = [
   { value: 'todos', label: 'Todos' },
   { value: 'pago', label: 'Pagos' },
   { value: 'a_vencer', label: 'A vencer' },
-  { value: 'vencido', label: 'Vencidos' },
   { value: 'pendente_geral', label: 'Pendentes (Geral)' },
 ];
 
@@ -90,7 +89,7 @@ export default function Entries() {
   // Read initial filter from URL params
   const initialFilter = (searchParams.get('status') as FilterType) || 'todos';
   const [activeFilter, setActiveFilter] = useState<FilterType>(
-    ['todos', 'pago', 'a_vencer', 'vencido', 'pendente_geral'].includes(initialFilter) ? initialFilter : 'todos'
+    ['todos', 'pago', 'a_vencer', 'pendente_geral'].includes(initialFilter) ? initialFilter as FilterType : 'todos'
   );
   const [search, setSearch] = useState('');
 
@@ -331,7 +330,7 @@ export default function Entries() {
           />
         </div>
 
-        {/* Status Filters */}
+        {/* Status Filters + Cobranças Link */}
         <div className="flex gap-2 mb-4 overflow-x-auto pb-2">
           {filters.map((filter) => (
             <button
@@ -347,6 +346,13 @@ export default function Entries() {
               {filter.label}
             </button>
           ))}
+          <Link
+            to="/cobrancas"
+            className="px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors bg-destructive/10 text-destructive hover:bg-destructive/20 flex items-center gap-1.5"
+          >
+            <AlertTriangle size={14} />
+            Cobranças
+          </Link>
         </div>
 
         {/* Entries List */}
@@ -563,6 +569,12 @@ function EntryListCard({
   const scheduleSummary = hasSchedules ? getScheduleSummary(schedules) : null;
   const showMarkAsPaid = entry.status === 'pendente' && !hasSchedules;
 
+  // Calculate remaining balance
+  const paidAmount = hasSchedules
+    ? schedules.filter(s => s.status === 'pago').reduce((sum, s) => sum + s.amount, 0)
+    : (entry.status === 'pago' ? entry.value : 0);
+  const remainingAmount = entry.value - paidAmount;
+
   return (
     <div className={cn(
       "bg-card rounded-xl p-4 flex flex-col gap-3",
@@ -594,9 +606,14 @@ function EntryListCard({
           </div>
         </div>
         <div className="text-right flex flex-col items-end gap-1">
-          <p className="font-semibold text-foreground">
-            R$ {entry.value.toFixed(2)}
+          <p className="font-bold text-lg text-foreground">
+            {formatCurrency(remainingAmount)}
           </p>
+          {remainingAmount !== entry.value && (
+            <p className="text-xs text-muted-foreground">
+              Total: {formatCurrency(entry.value)}
+            </p>
+          )}
           <EntryStatusBadge 
             status={entry.status}
             dueDate={entry.due_date}
