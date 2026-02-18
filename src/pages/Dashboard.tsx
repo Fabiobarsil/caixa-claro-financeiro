@@ -258,9 +258,9 @@ export default function Dashboard() {
               <CriticalDueDates items={criticalDueDates} />
             </section>
 
-            {/* Próximos Prazos */}
+            {/* Próximos Prazos - uses same criticalDueDates but filters to future */}
             <section className="mb-6">
-              <UpcomingDeadlines entries={[...pendingEntries, ...recentEntries]} />
+              <UpcomingDeadlines items={criticalDueDates} />
             </section>
 
             {/* Charts */}

@@ -39,7 +39,7 @@ function ReceivableCard({ item }: { item: Receivable }) {
             </p>
           )}
         </div>
-        <div className="text-right shrink-0 flex items-start gap-2">
+        <div className="text-right shrink-0 flex items-center gap-2">
           <div>
             <p className="text-lg font-bold text-destructive leading-tight">
               {formatCents(installmentAmount)}
@@ -50,17 +50,15 @@ function ReceivableCard({ item }: { item: Receivable }) {
               </p>
             )}
           </div>
-          {item.clientPhone && (
-            <a
-              href={waLink}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center justify-center h-10 w-10 rounded-lg bg-[#25D366] text-white hover:bg-[#1da851] transition-colors shrink-0"
-              title="Cobrar via WhatsApp"
-            >
-              <MessageCircle size={20} />
-            </a>
-          )}
+          <a
+            href={waLink}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="relative z-10 inline-flex items-center justify-center h-10 w-10 rounded-lg bg-[#25D366] text-white hover:bg-[#1da851] transition-colors shrink-0 shadow-sm"
+            title="Cobrar via WhatsApp"
+          >
+            <MessageCircle size={20} />
+          </a>
         </div>
       </div>
 
