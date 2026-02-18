@@ -22,8 +22,9 @@ function ReceivableCard({ item }: { item: Receivable }) {
   const days = daysOverdue(item.dueDate);
   const installmentAmount = item.totalAmount / item.installmentsTotal;
 
+  const dueDateFormatted = new Date(item.dueDate + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
   const waText = encodeURIComponent(
-    `Olá ${item.clientName.split(' ')[0]}, seu pagamento de ${formatCents(installmentAmount)} referente a "${item.productName}" está vencido há ${days} ${days === 1 ? 'dia' : 'dias'}. Podemos resolver?`
+    `Oi ${item.clientName.split(' ')[0]}, tudo bem? 😊 Passando só pra lembrar da sua parcela de ${formatCents(installmentAmount)} que venceu em ${dueDateFormatted}. Qualquer dúvida me chama!`
   );
   const waLink = `https://wa.me/${item.clientPhone}?text=${waText}`;
 

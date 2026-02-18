@@ -6,7 +6,7 @@ import { useEntrySchedules, getScheduleSummary, EntrySchedule } from '@/hooks/us
 import { useFinancialSnapshot, type MonthPeriod } from '@/hooks/useFinancialSnapshot';
 import MonthSelector from '@/components/dashboard/TimeWindowSelector';
 import { cn } from '@/lib/utils';
-import { Search, Loader2, Receipt, Package, Scissors, CheckCircle, ChevronDown, ChevronUp, Plus, DollarSign, RotateCcw, TrendingUp, TrendingDown, Clock, AlertTriangle } from 'lucide-react';
+import { Search, Loader2, Receipt, Package, Scissors, CheckCircle, ChevronDown, ChevronUp, Plus, DollarSign, RotateCcw, TrendingUp, TrendingDown, Clock, AlertTriangle, Pencil } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { format, parseISO } from 'date-fns';
@@ -14,6 +14,7 @@ import { ptBR } from 'date-fns/locale';
 import EntryStatusBadge from '@/components/EntryStatusBadge';
 import { getEntryVisualInfo } from '@/lib/entryStatus';
 import { formatCurrency } from '@/lib/formatters';
+import EditTransactionDialog from '@/components/EditTransactionDialog';
 
 type FilterType = 'todos' | 'pago' | 'a_vencer' | 'pendente_geral';
 
@@ -67,6 +68,7 @@ export default function Entries() {
     isLoading: schedulesLoading,
     isAdmin,
   } = useEntrySchedules();
+  const [editingEntry, setEditingEntry] = useState<Entry | null>(null);
   
   // Month period for financial KPIs (persisted in localStorage)
   const [monthPeriod, setMonthPeriod] = useState<MonthPeriod>(() => {
@@ -444,6 +446,7 @@ export default function Entries() {
                   onRevertToPending={() => handleRevertEntryToPending(entry.id)}
                   onMarkSchedulePaid={handleMarkSchedulePaid}
                   onRevertSchedule={handleRevertSchedule}
+                  onEdit={() => setEditingEntry(entry)}
                   isMarkingPaid={markAsPaid.isPending}
                   isRevertingEntry={updateEntryStatus.isPending}
                   isMarkingSchedulePaid={markScheduleAsPaid.isPending}
@@ -454,6 +457,12 @@ export default function Entries() {
             </div>
           )}
         </div>
+
+        <EditTransactionDialog
+          open={!!editingEntry}
+          onOpenChange={(open) => !open && setEditingEntry(null)}
+          transaction={editingEntry}
+        />
       </div>
     </AppLayout>
   );
@@ -543,6 +552,7 @@ interface EntryListCardProps {
   onRevertToPending: () => void;
   onMarkSchedulePaid: (scheduleId: string) => void;
   onRevertSchedule: (scheduleId: string) => void;
+  onEdit: () => void;
   isMarkingPaid: boolean;
   isRevertingEntry: boolean;
   isMarkingSchedulePaid: boolean;
@@ -557,6 +567,7 @@ function EntryListCard({
   onRevertToPending,
   onMarkSchedulePaid,
   onRevertSchedule,
+  onEdit,
   isMarkingPaid,
   isRevertingEntry,
   isMarkingSchedulePaid,
@@ -650,19 +661,31 @@ function EntryListCard({
           ))}
         </div>
       )}
-      
-      {showMarkAsPaid && (
+      {/* Action buttons row */}
+      <div className="flex gap-2">
         <Button
-          variant="outline"
+          variant="ghost"
           size="sm"
-          onClick={onMarkAsPaid}
-          disabled={isMarkingPaid}
-          className="w-full border-success text-success hover:bg-success hover:text-success-foreground"
+          onClick={onEdit}
+          className="text-muted-foreground hover:text-primary"
+          title="Editar lançamento"
         >
-          <CheckCircle className="mr-2 h-4 w-4" />
-          Marcar como pago
+          <Pencil className="mr-1.5 h-4 w-4" />
+          Editar
         </Button>
-      )}
+        {showMarkAsPaid && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onMarkAsPaid}
+            disabled={isMarkingPaid}
+            className="flex-1 border-success text-success hover:bg-success hover:text-success-foreground"
+          >
+            <CheckCircle className="mr-2 h-4 w-4" />
+            Marcar como pago
+          </Button>
+        )}
+      </div>
 
       {/* Admin only: Revert paid entry without schedules */}
       {entry.status === 'pago' && !hasSchedules && isAdmin && (
