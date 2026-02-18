@@ -94,5 +94,6 @@ export function useCobrancas() {
       });
     },
     enabled: !!user?.accountId,
+    refetchInterval: 5000,
   });
 }

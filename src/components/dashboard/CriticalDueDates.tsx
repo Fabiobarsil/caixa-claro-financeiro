@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { Clock, Calendar, ChevronRight } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import SectionCard from './SectionCard';
 import { formatCurrency } from '@/lib/formatters';
 import { format, parseISO } from 'date-fns';
@@ -13,6 +14,12 @@ interface CriticalDueDatesProps {
 
 export default function CriticalDueDates({ items }: CriticalDueDatesProps) {
   const navigate = useNavigate();
+
+  // Only show overdue items
+  const overdueItems = items.filter(i => i.isOverdue);
+
+  // Hide widget if no overdue items
+  if (overdueItems.length === 0) return null;
 
   const getDueDateLabel = (daysUntilDue: number, isOverdue: boolean) => {
     if (isOverdue) {
@@ -34,60 +41,32 @@ export default function CriticalDueDates({ items }: CriticalDueDatesProps) {
     default: 'bg-secondary text-muted-foreground border-border',
   };
 
-  if (items.length === 0) {
-    return (
-      <SectionCard 
-        title="Vencimentos Críticos" 
-        icon={<Clock size={18} className="text-warning" />}
-        tooltip="Próximos valores importantes que exigem atenção."
-        subtitle="Antecipar ações aqui ajuda a evitar inadimplência"
-      >
-        <div className="flex flex-col items-center justify-center py-8 text-center">
-          <Calendar size={32} className="text-muted-foreground/50 mb-2" />
-          <p className="text-sm text-muted-foreground">
-            Nenhum vencimento próximo
-          </p>
-          <p className="text-xs text-muted-foreground/70 mt-1">
-            Suas finanças estão em dia!
-          </p>
-        </div>
-      </SectionCard>
-    );
-  }
-
   return (
     <SectionCard 
       title="Vencimentos Críticos" 
       icon={<Clock size={18} className="text-warning" />}
-      tooltip="Próximos valores importantes que exigem atenção."
-      subtitle="Antecipar ações aqui ajuda a evitar inadimplência"
+      tooltip="Itens com vencimento passado que precisam de ação imediata."
+      subtitle="Cobranças atrasadas que exigem atenção"
     >
       <div className="space-y-2">
-        {items.map((item, index) => {
+        {overdueItems.map((item, index) => {
           const label = getDueDateLabel(item.daysUntilDue, item.isOverdue);
           const formattedDate = format(parseISO(item.dueDate), "dd/MM", { locale: ptBR });
 
           return (
             <button
               key={item.scheduleId || item.id}
-              onClick={() => navigate(`/lancamentos?highlight=${item.id}`)}
+              onClick={() => navigate('/cobrancas')}
               className={cn(
                 'w-full flex items-center gap-3 p-3 rounded-xl transition-all',
                 'hover:bg-secondary/80 active:scale-[0.99]',
-                item.isOverdue ? 'bg-expense/5' : 'bg-secondary/50'
+                'bg-expense/5'
               )}
             >
-              {/* Priority indicator */}
-              <div className={cn(
-                'w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold',
-                item.isOverdue 
-                  ? 'bg-expense/20 text-expense' 
-                  : 'bg-primary/20 text-primary'
-              )}>
+              <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold bg-expense/20 text-expense">
                 {index + 1}
               </div>
 
-              {/* Content */}
               <div className="flex-1 text-left min-w-0">
                 <p className="text-sm font-medium text-foreground truncate">
                   {item.clientName}
@@ -97,12 +76,8 @@ export default function CriticalDueDates({ items }: CriticalDueDatesProps) {
                 </p>
               </div>
 
-              {/* Value */}
               <div className="text-right">
-                <p className={cn(
-                  'text-sm font-semibold',
-                  item.isOverdue ? 'text-expense' : 'text-foreground'
-                )}>
+                <p className="text-sm font-semibold text-expense">
                   {formatCurrency(item.value)}
                 </p>
                 <span className={cn(
@@ -118,6 +93,14 @@ export default function CriticalDueDates({ items }: CriticalDueDatesProps) {
           );
         })}
       </div>
+      <Button
+        variant="ghost"
+        size="sm"
+        className="w-full mt-3 text-xs text-muted-foreground hover:text-foreground"
+        onClick={() => navigate('/cobrancas')}
+      >
+        Ver todas as cobranças →
+      </Button>
     </SectionCard>
   );
 }
