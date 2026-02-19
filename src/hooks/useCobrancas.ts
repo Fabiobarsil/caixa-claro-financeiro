@@ -41,7 +41,7 @@ export function useCobrancas() {
             services_products!transactions_service_product_id_fkey ( name )
           )
         `)
-        .eq('status', 'pendente')
+        .neq('status', 'pago')
         .order('due_date', { ascending: true });
 
       if (error) throw error;

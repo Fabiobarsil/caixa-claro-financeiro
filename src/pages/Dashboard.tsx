@@ -2,7 +2,6 @@ import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AppLayout from '@/components/AppLayout';
 import KPICard from '@/components/dashboard/KPICard';
-import StatusIndicator from '@/components/dashboard/StatusIndicator';
 import SectionCard from '@/components/dashboard/SectionCard';
 import UpcomingDeadlines from '@/components/dashboard/UpcomingDeadlines';
 import MiniCalendar from '@/components/dashboard/MiniCalendar';
@@ -35,11 +34,9 @@ import {
   TrendingDown, 
   TrendingUp,
   Loader2,
-  CheckCircle,
-  Clock,
-  AlertTriangle,
   X,
 } from 'lucide-react';
+import OverviewCard from '@/components/dashboard/OverviewCard';
 
 // Constantes para persistência
 const STORAGE_KEY = 'dashboard_month_period';
@@ -111,7 +108,7 @@ export default function Dashboard() {
   }, [pendingEntries]);
 
   const isFullyLoading = dashboardLoading || snapshotLoading;
-  const statusAllZero = snapshot.a_receber === 0 && snapshot.em_atraso === 0 && snapshot.recebido === 0;
+  
 
   return (
     <AppLayout>
@@ -179,11 +176,11 @@ export default function Dashboard() {
                 />
                 <KPICard
                   title="A Receber"
-                  value={hasActiveContext ? filteredSnapshot.a_receber : snapshot.a_receber}
+                  value={hasActiveContext ? filteredSnapshot.a_receber : (snapshot.a_receber + snapshot.em_atraso)}
                   icon={Wallet}
                   variant="info"
                   onClick={!hasActiveContext ? () => navigate('/lancamentos?status=pendente_geral') : undefined}
-                  tooltip="Entradas pendentes com vencimento futuro no mês."
+                  tooltip="Entradas pendentes (a vencer + atrasadas) no mês."
                   subtitle={hasActiveContext ? `Filtrado: ${activeContextLabel}` : monthLabel}
                 />
                 <KPICard
@@ -205,40 +202,9 @@ export default function Dashboard() {
               </div>
             </section>
 
-            {/* Status Rápido */}
+            {/* Visão Geral: Entrou x Saiu */}
             <section className="mb-6">
-              <SectionCard title="Status Rápido" subtitle="Situação atual dos seus recebíveis">
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                  <StatusIndicator
-                    label="A vencer"
-                    value={formatCurrency(snapshot.a_receber)}
-                    icon={Clock}
-                    variant="warning"
-                    onClick={() => navigate('/lancamentos?status=a_vencer')}
-                    tooltip="Valores com vencimento futuro (>= hoje)."
-                  />
-                  <StatusIndicator
-                    label="Em atraso"
-                    value={formatCurrency(snapshot.em_atraso)}
-                    icon={AlertTriangle}
-                    variant="danger"
-                    onClick={() => navigate('/lancamentos?status=vencido')}
-                    tooltip="Valores com vencimento passado (< hoje)."
-                  />
-                  <StatusIndicator
-                    label="Recebido"
-                    value={formatCurrency(snapshot.recebido)}
-                    icon={CheckCircle}
-                    variant="success"
-                    tooltip="Total recebido no mês."
-                  />
-                </div>
-                {statusAllZero && (
-                  <p className="text-xs text-muted-foreground text-center mt-3 pt-3 border-t border-border">
-                    Assim que você cadastrar lançamentos, este resumo mostrará a saúde do seu caixa.
-                  </p>
-                )}
-              </SectionCard>
+              <OverviewCard snapshot={snapshot} />
             </section>
 
             {/* Projeção e Risco */}
@@ -294,13 +260,11 @@ export default function Dashboard() {
                       <span className="text-sm text-muted-foreground">Ticket médio</span>
                       <span className="text-lg font-semibold text-foreground">{formatCurrency(snapshot.ticket_medio)}</span>
                     </div>
-                    <div className="flex items-center justify-between py-3 border-b border-border">
-                      <span className="text-sm text-muted-foreground">Total entradas</span>
-                      <span className="text-lg font-semibold text-foreground">{formatCurrency(snapshot.total_entradas)}</span>
-                    </div>
                     <div className="flex items-center justify-between py-3">
-                      <span className="text-sm text-muted-foreground">Total saídas</span>
-                      <span className="text-lg font-semibold text-expense">{formatCurrency(snapshot.total_saidas)}</span>
+                      <span className="text-sm text-muted-foreground">Previsão de Saldo</span>
+                      <span className="text-lg font-semibold text-foreground">
+                        {formatCurrency((snapshot.recebido + snapshot.a_receber) - (snapshot.despesas_pagas + snapshot.despesas_a_vencer))}
+                      </span>
                     </div>
                   </div>
                 </SectionCard>
