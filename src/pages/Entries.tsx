@@ -238,6 +238,26 @@ export default function Entries() {
       .sort((a, b) => a.due_date.localeCompare(b.due_date));
   }, [allSchedules, isGlobalPendingMode, search, entryInfoMap]);
 
+  // Single pending transactions (without schedules) for "Pendentes (Geral)" tab
+  const globalPendingSingleTx = useMemo(() => {
+    if (!isGlobalPendingMode) return [];
+
+    return entries
+      .filter(e => e.status === 'pendente' && !entryIdsWithSchedules.has(e.id))
+      .filter(e => {
+        if (search === '') return true;
+        return (
+          e.client_name?.toLowerCase().includes(search.toLowerCase()) ||
+          e.item_name?.toLowerCase().includes(search.toLowerCase())
+        );
+      })
+      .sort((a, b) => {
+        const dateA = a.due_date || a.date;
+        const dateB = b.due_date || b.date;
+        return dateA.localeCompare(dateB);
+      });
+  }, [entries, isGlobalPendingMode, search, entryIdsWithSchedules]);
+
   const handleMarkAsPaid = (entry: Entry) => {
     markAsPaid.mutate(entry.id);
   };
@@ -294,7 +314,7 @@ export default function Entries() {
               <p className="text-xs text-muted-foreground">A Receber</p>
             </div>
             <p className="text-lg font-bold text-warning">
-              {snapshotLoading ? '...' : formatCurrency(snapshot.a_receber)}
+              {snapshotLoading ? '...' : formatCurrency(snapshot.a_receber + snapshot.em_atraso)}
             </p>
           </div>
           <div className="bg-destructive/10 rounded-xl p-3">
@@ -388,14 +408,33 @@ export default function Entries() {
               </div>
             )
           ) : isGlobalPendingMode ? (
-            /* Global Pending Schedules View */
-            globalPendingSchedules.length === 0 ? (
+            /* Global Pending View (schedules + single transactions) */
+            (globalPendingSchedules.length === 0 && globalPendingSingleTx.length === 0) ? (
               <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
                 <Receipt size={48} className="mb-4 opacity-50" />
-                <p className="text-center">Nenhuma parcela pendente</p>
+                <p className="text-center">Nenhuma cobrança pendente</p>
               </div>
             ) : (
               <div className="space-y-2">
+                {/* Single pending transactions (without schedules) */}
+                {globalPendingSingleTx.map((entry) => (
+                  <EntryListCard
+                    key={entry.id}
+                    entry={entry}
+                    schedules={[]}
+                    onMarkAsPaid={() => handleMarkAsPaid(entry)}
+                    onRevertToPending={() => handleRevertEntryToPending(entry.id)}
+                    onMarkSchedulePaid={handleMarkSchedulePaid}
+                    onRevertSchedule={handleRevertSchedule}
+                    onEdit={() => setEditingEntry(entry)}
+                    isMarkingPaid={markAsPaid.isPending}
+                    isRevertingEntry={updateEntryStatus.isPending}
+                    isMarkingSchedulePaid={markScheduleAsPaid.isPending}
+                    isRevertingSchedule={revertScheduleToPending.isPending}
+                    isAdmin={isAdmin}
+                  />
+                ))}
+                {/* Pending schedules (installments) */}
                 {globalPendingSchedules.map((schedule) => {
                   const entryInfo = entryInfoMap.get(schedule.entry_id);
                   return (
