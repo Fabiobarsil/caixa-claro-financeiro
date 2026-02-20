@@ -19,16 +19,19 @@ export type Database = {
           created_at: string
           id: string
           name: string
+          user_id: string | null
         }
         Insert: {
           created_at?: string
           id?: string
           name: string
+          user_id?: string | null
         }
         Update: {
           created_at?: string
           id?: string
           name?: string
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -154,6 +157,7 @@ export type Database = {
           category: string
           created_at: string
           date: string
+          exclude_from_profit: boolean
           id: string
           notes: string | null
           status: Database["public"]["Enums"]["entry_status"]
@@ -167,6 +171,7 @@ export type Database = {
           category: string
           created_at?: string
           date?: string
+          exclude_from_profit?: boolean
           id?: string
           notes?: string | null
           status?: Database["public"]["Enums"]["entry_status"]
@@ -180,6 +185,7 @@ export type Database = {
           category?: string
           created_at?: string
           date?: string
+          exclude_from_profit?: boolean
           id?: string
           notes?: string | null
           status?: Database["public"]["Enums"]["entry_status"]
@@ -720,24 +726,59 @@ export type Database = {
       }
     }
     Views: {
+      v_month_profit_paid: {
+        Row: {
+          account_id: string | null
+          month: string | null
+          profit_paid: number | null
+          total_expenses_paid: number | null
+          total_received_paid: number | null
+        }
+        Relationships: []
+      }
+      v_month_summary: {
+        Row: {
+          account_id: string | null
+          expenses_open: number | null
+          expenses_paid: number | null
+          month: string | null
+          profit_paid: number | null
+          received_open: number | null
+          received_paid: number | null
+        }
+        Relationships: []
+      }
+      v_month_summary_canon: {
+        Row: {
+          account_id: string | null
+          expenses_open: number | null
+          expenses_paid: number | null
+          month: string | null
+          profit_paid: number | null
+          received_open: number | null
+          received_paid: number | null
+        }
+        Relationships: []
+      }
+      v_month_summary_v2: {
+        Row: {
+          account_id: string | null
+          expenses_open: number | null
+          expenses_paid: number | null
+          month: string | null
+          profit_paid: number | null
+          received_open: number | null
+          received_paid: number | null
+        }
+        Relationships: []
+      }
       v_prolabore_mvp: {
         Row: {
           account_id: string | null
-          competence: string | null
-          expense_m: number | null
           profit_m: number | null
           recommended_prolabore: number | null
-          revenue_m: number | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "transactions_account_id_fkey"
-            columns: ["account_id"]
-            isOneToOne: false
-            referencedRelation: "accounts"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
     }
     Functions: {
@@ -788,6 +829,13 @@ export type Database = {
       get_dashboard_totals: {
         Args: { end_date: string; start_date: string }
         Returns: Json
+      }
+      get_prolabore_suggestion: {
+        Args: { p_account: string; p_month: string; p_rate?: number }
+        Returns: {
+          profit_paid: number
+          prolabore_suggested: number
+        }[]
       }
       get_user_account_id: { Args: never; Returns: string }
       has_role: {
