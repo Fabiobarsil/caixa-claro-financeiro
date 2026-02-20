@@ -726,6 +726,19 @@ export type Database = {
       }
     }
     Views: {
+      v_financial_competencia: {
+        Row: {
+          account_id: string | null
+          categoria: string | null
+          competencia: string | null
+          origem: string | null
+          origem_id: string | null
+          status: string | null
+          tipo: string | null
+          valor: number | null
+        }
+        Relationships: []
+      }
       v_month_profit_paid: {
         Row: {
           account_id: string | null

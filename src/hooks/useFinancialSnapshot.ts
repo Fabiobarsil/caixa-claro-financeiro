@@ -6,15 +6,11 @@ import { format, eachDayOfInterval, parseISO, lastDayOfMonth } from 'date-fns';
 import type { MonthPeriod } from '@/components/dashboard/TimeWindowSelector';
 
 // ============================================
-// MODELO FINANCEIRO CANÔNICO - FONTE ÚNICA DA VERDADE
+// MODELO FINANCEIRO CANÔNICO - v_financial_competencia
 // ============================================
 
-// Re-export for backward compat
 export type { MonthPeriod };
 
-/**
- * Objeto canônico de consolidação financeira.
- */
 export interface FinancialSnapshot {
   recebido: number;
   a_receber: number;
@@ -85,36 +81,26 @@ export interface UseFinancialSnapshotReturn {
   endDate: string;
 }
 
-interface ScheduleRow {
-  id: string;
-  entry_id: string;
-  schedule_type: string;
-  installment_number: number;
-  installments_total: number;
-  due_date: string;
-  paid_at: string | null;
-  status: 'pago' | 'pendente';
-  amount: number;
-}
-
-interface ExpenseRow {
-  id: string;
-  user_id: string;
-  type: 'fixa' | 'variavel';
-  category: string;
-  value: number;
-  date: string;
-  status: 'pago' | 'pendente';
-  notes: string | null;
+// Row shape returned by v_financial_competencia
+interface ViewRow {
+  account_id: string | null;
+  competencia: string | null;
+  valor: number | null;
+  origem_id: string | null;
+  status: string | null;
+  tipo: string | null;
+  categoria: string | null;
+  origem: string | null;
 }
 
 /**
- * Hook canônico para dados financeiros por competência mensal.
+ * Hook canônico — lê exclusivamente de v_financial_competencia.
+ * Lucro = receitas − despesas (regime de competência, sem filtro por status).
  */
 export function useFinancialSnapshot(monthPeriod: MonthPeriod): UseFinancialSnapshotReturn {
   const { user, accountId } = useAuth();
 
-  const { startDate, endDate, today, todayStr, monthLabel } = useMemo(() => {
+  const { startDate, endDate, todayStr, today, monthLabel } = useMemo(() => {
     const first = new Date(monthPeriod.year, monthPeriod.month, 1);
     const last = lastDayOfMonth(first);
     const startStr = format(first, 'yyyy-MM-dd');
@@ -134,126 +120,66 @@ export function useFinancialSnapshot(monthPeriod: MonthPeriod): UseFinancialSnap
   }, [monthPeriod]);
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ['financial-snapshot', monthPeriod.year, monthPeriod.month, accountId],
+    queryKey: ['financial-snapshot-v2', monthPeriod.year, monthPeriod.month, accountId],
     queryFn: async () => {
-      try {
-      console.log('[FinancialSnapshot] Query params:', { startDate, endDate, todayStr, monthPeriod, accountId });
+      console.log('[FinancialSnapshot] Buscando v_financial_competencia:', { startDate, endDate, accountId });
 
-      // Parcelas pagas no período
-      const { data: paidSchedules, error: paidSchedulesError } = await supabase
-        .from('entry_schedules')
-        .select('id, entry_id, schedule_type, installment_number, installments_total, due_date, paid_at, status, amount')
-        .eq('status', 'pago')
-        .gte('paid_at', startDate)
-        .lte('paid_at', endDate + 'T23:59:59.999Z');
+      const { data: rows, error: rowsError } = await supabase
+        .from('v_financial_competencia')
+        .select('account_id, competencia, valor, origem_id, status, tipo, categoria, origem')
+        .eq('account_id', accountId!)
+        .gte('competencia', startDate)
+        .lte('competencia', endDate);
 
-      if (paidSchedulesError) throw paidSchedulesError;
+      if (rowsError) throw rowsError;
 
-      // Parcelas pendentes com vencimento no período
-      const { data: pendingSchedules, error: pendingSchedulesError } = await supabase
-        .from('entry_schedules')
-        .select(`
-          id, entry_id, schedule_type, installment_number, installments_total,
-          due_date, paid_at, status, amount,
-          transactions!inner ( client_id, clients ( id, name ) )
-        `)
-        .eq('status', 'pendente')
-        .gte('due_date', startDate)
-        .lte('due_date', endDate);
+      const allRows = (rows || []) as ViewRow[];
 
-      if (pendingSchedulesError) throw pendingSchedulesError;
-
-      // Transactions no período
-      const { data: transactionsData, error: transactionsError } = await supabase
-        .from('transactions')
-        .select('id, client_id, amount, status, date, due_date, payment_date, clients ( id, name )')
-        .gte('date', startDate)
-        .lte('date', endDate);
-
-      if (transactionsError) throw transactionsError;
-
-      // Check which transactions have schedules
-      const transactionIds = (transactionsData || []).map(e => e.id);
-      const { data: schedulesForTransactions } = await supabase
-        .from('entry_schedules')
-        .select('entry_id')
-        .in('entry_id', transactionIds.length > 0 ? transactionIds : ['']);
-
-      const transactionIdsWithSchedules = new Set(
-        (schedulesForTransactions || []).map(s => s.entry_id)
-      );
-
-      const transactionsWithoutSchedules = (transactionsData || []).filter(
-        e => !transactionIdsWithSchedules.has(e.id)
-      );
-
-      // Despesas do mês
-      const { data: expensesData, error: expensesError } = await supabase
-        .from('expenses')
-        .select('*')
-        .gte('date', startDate)
-        .lte('date', endDate);
-
-      if (expensesError) throw expensesError;
-
-      const expenses = (expensesData || []) as ExpenseRow[];
+      console.log('[FinancialSnapshot] Linhas retornadas:', allRows.length);
 
       // ============================================
-      // CALCULAR VALORES
+      // AGREGAÇÕES FINANCEIRAS
       // ============================================
 
-      // RECEBIDO
-      let recebido = 0;
-      (paidSchedules || []).forEach(s => { recebido += Number(s.amount); });
-      transactionsWithoutSchedules
-        .filter(e => e.status === 'pago')
-        .forEach(e => {
-          const paymentDate = e.payment_date || e.date;
-          if (paymentDate >= startDate && paymentDate <= endDate) {
-            recebido += Number(e.amount);
-          }
-        });
+      const receitas = allRows.filter(r => r.tipo === 'receita');
+      const despesas = allRows.filter(r => r.tipo === 'despesa');
 
-      // A_RECEBER (pendentes com vencimento >= hoje dentro do mês)
-      let aReceber = 0;
-      (pendingSchedules || [])
-        .filter(s => s.due_date >= todayStr)
-        .forEach(s => { aReceber += Number(s.amount); });
-      transactionsWithoutSchedules
-        .filter(e => e.status === 'pendente' && e.due_date && e.due_date >= todayStr)
-        .forEach(e => { aReceber += Number(e.amount); });
+      // RECEBIDO — receitas pagas
+      const recebido = receitas
+        .filter(r => r.status === 'pago')
+        .reduce((s, r) => s + Number(r.valor ?? 0), 0);
 
-      // Atendimentos
-      let totalAtendimentos = (paidSchedules || []).length;
-      transactionsWithoutSchedules
-        .filter(e => e.status === 'pago')
-        .forEach(e => {
-          const paymentDate = e.payment_date || e.date;
-          if (paymentDate >= startDate && paymentDate <= endDate) totalAtendimentos++;
-        });
+      // A_RECEBER — receitas pendentes com competência >= hoje
+      const aReceber = receitas
+        .filter(r => r.status === 'pendente' && r.competencia && r.competencia >= todayStr)
+        .reduce((s, r) => s + Number(r.valor ?? 0), 0);
 
-      // EM_ATRASO (pendentes com vencimento < hoje)
-      let emAtraso = 0;
-      (pendingSchedules || [])
-        .filter(s => s.due_date < todayStr)
-        .forEach(s => { emAtraso += Number(s.amount); });
-      transactionsWithoutSchedules
-        .filter(e => e.status === 'pendente' && e.due_date && e.due_date < todayStr)
-        .forEach(e => { emAtraso += Number(e.amount); });
+      // EM_ATRASO — receitas pendentes com competência < hoje
+      const emAtraso = receitas
+        .filter(r => r.status === 'pendente' && r.competencia && r.competencia < todayStr)
+        .reduce((s, r) => s + Number(r.valor ?? 0), 0);
 
-      // DESPESAS (split by status)
-      const despesasPagas = expenses
-        .filter(e => e.status === 'pago')
-        .reduce((sum, e) => sum + Number(e.value), 0);
-      const despesasAVencer = expenses
-        .filter(e => e.status === 'pendente' && e.date >= todayStr)
-        .reduce((sum, e) => sum + Number(e.value), 0);
-      const despesasEmAtraso = expenses
-        .filter(e => e.status === 'pendente' && e.date < todayStr)
-        .reduce((sum, e) => sum + Number(e.value), 0);
+      // ATENDIMENTOS — receitas pagas (contagem)
+      const totalAtendimentos = receitas.filter(r => r.status === 'pago').length;
 
-      // DERIVADOS
-      const lucroReal = recebido - despesasPagas;
+      // DESPESAS — split por status
+      const despesasPagas = despesas
+        .filter(r => r.status === 'pago')
+        .reduce((s, r) => s + Number(r.valor ?? 0), 0);
+
+      const despesasAVencer = despesas
+        .filter(r => r.status === 'pendente' && r.competencia && r.competencia >= todayStr)
+        .reduce((s, r) => s + Number(r.valor ?? 0), 0);
+
+      const despesasEmAtraso = despesas
+        .filter(r => r.status === 'pendente' && r.competencia && r.competencia < todayStr)
+        .reduce((s, r) => s + Number(r.valor ?? 0), 0);
+
+      // LUCRO REAL — regime de competência, sem filtro por status
+      const totalReceitas = receitas.reduce((s, r) => s + Number(r.valor ?? 0), 0);
+      const totalDespesas = despesas.reduce((s, r) => s + Number(r.valor ?? 0), 0);
+      const lucroReal = totalReceitas - totalDespesas;
+
       const totalEntradas = recebido + aReceber + emAtraso;
       const totalSaidas = despesasPagas + despesasAVencer + despesasEmAtraso;
       const ticketMedio = totalAtendimentos > 0 ? recebido / totalAtendimentos : 0;
@@ -275,7 +201,7 @@ export function useFinancialSnapshot(monthPeriod: MonthPeriod): UseFinancialSnap
       };
 
       // ============================================
-      // DADOS PARA GRÁFICOS
+      // DADOS PARA GRÁFICOS — acumulado diário
       // ============================================
       const days = eachDayOfInterval({
         start: parseISO(startDate),
@@ -284,46 +210,23 @@ export function useFinancialSnapshot(monthPeriod: MonthPeriod): UseFinancialSnap
 
       const dailyData = new Map<string, { recebido: number; a_receber: number; despesas: number }>();
       days.forEach(day => {
-        const dateStr = format(day, 'yyyy-MM-dd');
-        dailyData.set(dateStr, { recebido: 0, a_receber: 0, despesas: 0 });
+        dailyData.set(format(day, 'yyyy-MM-dd'), { recebido: 0, a_receber: 0, despesas: 0 });
       });
 
-      (paidSchedules || []).forEach(s => {
-        if (s.paid_at) {
-          const paidDate = format(new Date(s.paid_at), 'yyyy-MM-dd');
-          const point = dailyData.get(paidDate);
-          if (point) point.recebido += Number(s.amount);
+      allRows.forEach(r => {
+        const dateKey = r.competencia;
+        if (!dateKey) return;
+        const point = dailyData.get(dateKey);
+        if (!point) return;
+
+        if (r.tipo === 'receita') {
+          if (r.status === 'pago') point.recebido += Number(r.valor ?? 0);
+          else point.a_receber += Number(r.valor ?? 0);
+        } else if (r.tipo === 'despesa') {
+          point.despesas += Number(r.valor ?? 0);
         }
       });
 
-      (pendingSchedules || []).forEach(s => {
-        const point = dailyData.get(s.due_date);
-        if (point) point.a_receber += Number(s.amount);
-      });
-
-      transactionsWithoutSchedules
-        .filter(e => e.status === 'pago')
-        .forEach(e => {
-          const paymentDate = e.payment_date || e.date;
-          if (paymentDate >= startDate && paymentDate <= endDate) {
-            const point = dailyData.get(paymentDate);
-            if (point) point.recebido += Number(e.amount);
-          }
-        });
-
-      transactionsWithoutSchedules
-        .filter(e => e.status === 'pendente' && e.due_date)
-        .forEach(e => {
-          const point = dailyData.get(e.due_date!);
-          if (point) point.a_receber += Number(e.amount);
-        });
-
-      expenses.forEach(e => {
-        const point = dailyData.get(e.date);
-        if (point) point.despesas += Number(e.value);
-      });
-
-      // Acumulado
       const chartData: ChartDataPoint[] = [];
       let accR = 0, accA = 0, accD = 0;
       Array.from(dailyData.entries())
@@ -335,18 +238,22 @@ export function useFinancialSnapshot(monthPeriod: MonthPeriod): UseFinancialSnap
           chartData.push({ date, recebido: accR, a_receber: accA, despesas: accD });
         });
 
-      // Distribuição
+      // ============================================
+      // DISTRIBUIÇÃO
+      // ============================================
       const distribution: DistributionData = {
         recebido: snapshot.recebido,
         a_receber: snapshot.a_receber,
         em_atraso: snapshot.em_atraso,
       };
 
-      // Despesas por Categoria
+      // ============================================
+      // DESPESAS POR CATEGORIA
+      // ============================================
       const categoryMap = new Map<string, number>();
-      expenses.forEach(e => {
-        const cat = e.category || e.type || 'Outros';
-        categoryMap.set(cat, (categoryMap.get(cat) || 0) + Number(e.value));
+      despesas.forEach(r => {
+        const cat = r.categoria || 'Outros';
+        categoryMap.set(cat, (categoryMap.get(cat) || 0) + Number(r.valor ?? 0));
       });
       const expensesByCategory: ExpenseCategoryData[] = Array.from(categoryMap.entries())
         .map(([name, value]) => ({ name, value }))
@@ -359,25 +266,21 @@ export function useFinancialSnapshot(monthPeriod: MonthPeriod): UseFinancialSnap
       const denominadorRisco = aReceber + emAtraso;
       const riscoPercentual = denominadorRisco > 0 ? (emAtraso / denominadorRisco) * 100 : 0;
 
-      const clientesInadimplentes = new Set<string>();
-      (pendingSchedules || [])
-        .filter(s => s.due_date < todayStr)
-        .forEach(s => {
-          const clientId = (s.transactions as any)?.client_id;
-          if (clientId) clientesInadimplentes.add(clientId);
-        });
-      transactionsWithoutSchedules
-        .filter(e => e.status === 'pendente' && e.due_date && e.due_date < todayStr)
-        .forEach(e => { if (e.client_id) clientesInadimplentes.add(e.client_id); });
+      // Contar origens únicas em atraso (proxy para clientes inadimplentes)
+      const origemInadimplentes = new Set<string>(
+        receitas
+          .filter(r => r.status === 'pendente' && r.competencia && r.competencia < todayStr && r.origem_id)
+          .map(r => r.origem_id!)
+      );
 
       let nivelRisco: 'baixo' | 'medio' | 'alto' = 'baixo';
-      if (riscoPercentual > 30 || clientesInadimplentes.size > 5) nivelRisco = 'alto';
-      else if (riscoPercentual > 15 || clientesInadimplentes.size > 2) nivelRisco = 'medio';
+      if (riscoPercentual > 30 || origemInadimplentes.size > 5) nivelRisco = 'alto';
+      else if (riscoPercentual > 15 || origemInadimplentes.size > 2) nivelRisco = 'medio';
 
       const risk: RiskMetrics = {
         risco_percentual: riscoPercentual,
         nivel_risco: nivelRisco,
-        clientes_inadimplentes: clientesInadimplentes.size,
+        clientes_inadimplentes: origemInadimplentes.size,
       };
 
       // ============================================
@@ -391,46 +294,23 @@ export function useFinancialSnapshot(monthPeriod: MonthPeriod): UseFinancialSnap
       };
 
       // ============================================
-      // VENCIMENTOS CRÍTICOS
+      // VENCIMENTOS CRÍTICOS — derivados da view
       // ============================================
-      const allPendingItems: CriticalDueDate[] = [];
-
-      (pendingSchedules || []).forEach(s => {
-        const dueDate = new Date(s.due_date);
-        dueDate.setHours(0, 0, 0, 0);
-        const diffTime = dueDate.getTime() - today.getTime();
-        const daysUntilDue = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        const clientData = (s.transactions as any)?.clients;
-        allPendingItems.push({
-          id: (s.transactions as any)?.id || s.entry_id,
-          scheduleId: s.id,
-          clientName: clientData?.name || 'Cliente não identificado',
-          value: Number(s.amount),
-          dueDate: s.due_date,
-          daysUntilDue,
-          isOverdue: daysUntilDue < 0,
-        });
-      });
-
-      transactionsWithoutSchedules
-        .filter(e => e.status === 'pendente' && e.due_date)
-        .forEach(e => {
-          const dueDate = new Date(e.due_date!);
-          dueDate.setHours(0, 0, 0, 0);
+      const criticalDueDates: CriticalDueDate[] = receitas
+        .filter(r => r.status === 'pendente' && r.competencia)
+        .map(r => {
+          const dueDate = new Date(r.competencia! + 'T00:00:00Z');
           const diffTime = dueDate.getTime() - today.getTime();
           const daysUntilDue = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-          const clientData = e.clients as any;
-          allPendingItems.push({
-            id: e.id,
-            clientName: clientData?.name || 'Cliente não identificado',
-            value: Number(e.amount),
-            dueDate: e.due_date!,
+          return {
+            id: r.origem_id || r.competencia!,
+            clientName: 'Cliente',          // view não expõe nome — detalhes via hook específico
+            value: Number(r.valor ?? 0),
+            dueDate: r.competencia!,
             daysUntilDue,
             isOverdue: daysUntilDue < 0,
-          });
-        });
-
-      const criticalDueDates = allPendingItems
+          };
+        })
         .sort((a, b) => {
           if (a.isOverdue && !b.isOverdue) return -1;
           if (!a.isOverdue && b.isOverdue) return 1;
@@ -439,15 +319,14 @@ export function useFinancialSnapshot(monthPeriod: MonthPeriod): UseFinancialSnap
         .slice(0, 5);
 
       return { snapshot, chartData, distribution, expensesByCategory, risk, projection, criticalDueDates };
-      } catch (err) {
-        console.error('[FinancialSnapshot] ERRO:', err);
-        throw err;
-      }
     },
     enabled: !!user && !!accountId,
     staleTime: 1000 * 60 * 5,
   });
 
+  // ============================================
+  // DEFAULTS
+  // ============================================
   const defaultSnapshot: FinancialSnapshot = {
     recebido: 0, a_receber: 0, em_atraso: 0,
     despesas_pagas: 0, despesas_a_vencer: 0, despesas_em_atraso: 0,
