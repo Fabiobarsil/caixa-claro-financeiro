@@ -731,6 +731,7 @@ export type Database = {
           account_id: string | null
           categoria: string | null
           competencia: string | null
+          master_id: string | null
           origem: string | null
           origem_id: string | null
           status: string | null
