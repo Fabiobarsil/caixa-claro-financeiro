@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { 
   format, 
@@ -23,14 +24,26 @@ interface MiniCalendarProps {
 
 export default function MiniCalendar({ highlightDates = [], onDateClick }: MiniCalendarProps) {
   const [currentMonth, setCurrentMonth] = useState(new Date());
+  const navigate = useNavigate();
   const today = new Date();
+
+  const highlightSet = new Set(highlightDates);
+
+  const handleDayClick = (date: Date) => {
+    if (onDateClick) {
+      onDateClick(date);
+      return;
+    }
+    const dayStr = format(date, 'yyyy-MM-dd');
+    if (highlightSet.has(dayStr)) {
+      navigate('/lancamentos?status=a_vencer');
+    }
+  };
 
   const monthStart = startOfMonth(currentMonth);
   const monthEnd = endOfMonth(monthStart);
   const startDate = startOfWeek(monthStart, { weekStartsOn: 0 });
   const endDate = endOfWeek(monthEnd, { weekStartsOn: 0 });
-
-  const highlightSet = new Set(highlightDates);
 
   const rows = [];
   let days = [];
@@ -47,12 +60,12 @@ export default function MiniCalendar({ highlightDates = [], onDateClick }: MiniC
       days.push(
         <button
           key={dayStr}
-          onClick={() => onDateClick?.(currentDay)}
+          onClick={() => handleDayClick(currentDay)}
           className={cn(
             'w-8 h-8 text-xs rounded-full transition-all',
             isCurrentMonth ? 'text-foreground' : 'text-muted-foreground/50',
             isToday && 'bg-primary text-primary-foreground font-semibold',
-            isHighlighted && !isToday && 'bg-warning/20 text-warning font-medium',
+            isHighlighted && !isToday && 'bg-warning/20 text-warning font-medium cursor-pointer hover:bg-warning/30',
             !isToday && !isHighlighted && 'hover:bg-secondary'
           )}
         >
