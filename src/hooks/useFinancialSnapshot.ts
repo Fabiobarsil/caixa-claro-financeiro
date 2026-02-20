@@ -87,6 +87,7 @@ interface ViewRow {
   competencia: string | null;
   valor: number | null;
   origem_id: string | null;
+  master_id?: string | null;
   status: string | null;
   tipo: string | null;
   categoria: string | null;
@@ -124,16 +125,52 @@ export function useFinancialSnapshot(monthPeriod: MonthPeriod): UseFinancialSnap
     queryFn: async () => {
       console.log('[FinancialSnapshot] Buscando v_financial_competencia:', { startDate, endDate, accountId });
 
+      // Busca principal na view
       const { data: rows, error: rowsError } = await supabase
         .from('v_financial_competencia')
-        .select('account_id, competencia, valor, origem_id, status, tipo, categoria, origem')
+        .select('account_id, competencia, valor, origem_id, status, tipo, categoria, origem, master_id')
         .eq('account_id', accountId!)
         .gte('competencia', startDate)
         .lte('competencia', endDate);
 
       if (rowsError) throw rowsError;
 
-      const allRows = (rows || []) as ViewRow[];
+      const allRows = (rows || []) as (ViewRow & { master_id?: string | null })[];
+
+      // Buscar nomes dos clientes para as receitas pendentes (vencimentos críticos)
+      const pendingReceitas = allRows.filter(r => r.tipo === 'receita' && r.status === 'pendente');
+      const transactionIds = [...new Set(
+        pendingReceitas.map(r => r.master_id || r.origem_id).filter(Boolean) as string[]
+      )];
+
+      let clientNameMap = new Map<string, string>();
+
+      if (transactionIds.length > 0) {
+        // Buscar via entry_schedules -> transactions -> clients
+        const { data: scheduleData } = await supabase
+          .from('entry_schedules')
+          .select('id, entry_id, transactions!entry_schedules_transaction_id_fkey(id, client_id, clients!transactions_client_id_fkey(name))')
+          .in('id', transactionIds);
+
+        (scheduleData || []).forEach((s: any) => {
+          const clientName = s.transactions?.clients?.name;
+          if (clientName) clientNameMap.set(s.id, clientName);
+        });
+
+        // Para transactions diretas (single)
+        const missingIds = transactionIds.filter(id => !clientNameMap.has(id));
+        if (missingIds.length > 0) {
+          const { data: txData } = await supabase
+            .from('transactions')
+            .select('id, clients!transactions_client_id_fkey(name)')
+            .in('id', missingIds);
+
+          (txData || []).forEach((tx: any) => {
+            const clientName = tx.clients?.name;
+            if (clientName) clientNameMap.set(tx.id, clientName);
+          });
+        }
+      }
 
       console.log('[FinancialSnapshot] Linhas retornadas:', allRows.length);
 
@@ -294,17 +331,20 @@ export function useFinancialSnapshot(monthPeriod: MonthPeriod): UseFinancialSnap
       };
 
       // ============================================
-      // VENCIMENTOS CRÍTICOS — derivados da view
+      // VENCIMENTOS CRÍTICOS — derivados da view com nomes reais
       // ============================================
       const criticalDueDates: CriticalDueDate[] = receitas
         .filter(r => r.status === 'pendente' && r.competencia)
-        .map(r => {
+        .map((r: any) => {
           const dueDate = new Date(r.competencia! + 'T00:00:00Z');
           const diffTime = dueDate.getTime() - today.getTime();
           const daysUntilDue = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+          const lookupId = r.master_id || r.origem_id;
+          const clientName = (lookupId && clientNameMap.get(lookupId)) || 'Cliente';
           return {
             id: r.origem_id || r.competencia!,
-            clientName: 'Cliente',          // view não expõe nome — detalhes via hook específico
+            scheduleId: r.master_id || undefined,
+            clientName,
             value: Number(r.valor ?? 0),
             dueDate: r.competencia!,
             daysUntilDue,
@@ -321,7 +361,8 @@ export function useFinancialSnapshot(monthPeriod: MonthPeriod): UseFinancialSnap
       return { snapshot, chartData, distribution, expensesByCategory, risk, projection, criticalDueDates };
     },
     enabled: !!user && !!accountId,
-    staleTime: 1000 * 60 * 5,
+    staleTime: 0,           // sem cache — dados sempre frescos
+    refetchInterval: 30000, // atualiza automaticamente a cada 30s
   });
 
   // ============================================
