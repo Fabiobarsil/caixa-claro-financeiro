@@ -794,6 +794,30 @@ export type Database = {
         }
         Relationships: []
       }
+      vw_lancamentos_consolidados: {
+        Row: {
+          account_id: string | null
+          data_venda: string | null
+          description: string | null
+          id_master: string | null
+          inconsistente: boolean | null
+          item_name: string | null
+          item_type: string | null
+          nome_cliente: string | null
+          payment_method: Database["public"]["Enums"]["payment_method"] | null
+          proximo_vencimento: string | null
+          qtd_parcelas_pagas: number | null
+          qtd_parcelas_pendentes: number | null
+          qtd_parcelas_total: number | null
+          quantity: number | null
+          status_geral: string | null
+          total_atrasado: number | null
+          total_original: number | null
+          total_pago: number | null
+          total_pendente: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       admin_list_profiles_masked: {
