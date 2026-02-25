@@ -1,31 +1,28 @@
-import { useState, useMemo } from 'react';
-import { useSearchParams, useNavigate, Link } from 'react-router-dom';
+import { useState } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
 import AppLayout from '@/components/AppLayout';
-import { useEntries, Entry } from '@/hooks/useEntries';
-import { useEntrySchedules, getScheduleSummary, EntrySchedule } from '@/hooks/useEntrySchedules';
+import { useLancamentos, LancamentoConsolidado, ParcelaPendente } from '@/hooks/useLancamentos';
 import { useFinancialSnapshot, type MonthPeriod } from '@/hooks/useFinancialSnapshot';
 import MonthSelector from '@/components/dashboard/TimeWindowSelector';
 import { cn } from '@/lib/utils';
-import { Search, Loader2, Receipt, Package, Scissors, CheckCircle, ChevronDown, ChevronUp, Plus, DollarSign, RotateCcw, TrendingUp, TrendingDown, Clock, AlertTriangle, Pencil } from 'lucide-react';
+import {
+  Search, Loader2, Receipt, Package, Scissors, CheckCircle,
+  ChevronDown, ChevronUp, Plus, DollarSign, TrendingUp,
+  TrendingDown, Clock, AlertTriangle, Pencil, RotateCcw, AlertCircle
+} from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import EntryStatusBadge from '@/components/EntryStatusBadge';
-import { getEntryVisualInfo } from '@/lib/entryStatus';
 import { formatCurrency } from '@/lib/formatters';
 import EditTransactionDialog from '@/components/EditTransactionDialog';
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter
+} from '@/components/ui/dialog';
+import { Checkbox } from '@/components/ui/checkbox';
 
-type FilterType = 'todos' | 'pago' | 'a_vencer' | 'pendente_geral';
-
-const filters: { value: FilterType; label: string }[] = [
-  { value: 'todos', label: 'Todos' },
-  { value: 'pago', label: 'Pagos' },
-  { value: 'a_vencer', label: 'A vencer' },
-  { value: 'pendente_geral', label: 'Pendentes (Geral)' },
-];
-
-function formatPaymentMethod(method: string): string {
+function formatPaymentMethod(method: string | null): string {
+  if (!method) return '';
   const methods: Record<string, string> = {
     pix: 'Pix',
     dinheiro: 'Dinheiro',
@@ -35,42 +32,26 @@ function formatPaymentMethod(method: string): string {
   return methods[method] || method;
 }
 
-// Unified item for display (can be entry or paid schedule)
-interface DisplayItem {
-  type: 'entry' | 'paid_schedule';
-  id: string;
-  clientName: string;
-  itemName: string;
-  itemType: 'servico' | 'produto';
-  value: number;
-  date: string;
-  paymentDate: string | null;
-  paymentMethod?: string;
-  quantity?: number;
-  // For schedules
-  scheduleType?: 'installment' | 'monthly_package' | 'single';
-  installmentNumber?: number;
-  installmentsTotal?: number;
-  // Original entry for actions
-  entry?: Entry;
-  schedule?: EntrySchedule;
-}
-
 export default function Entries() {
   const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
-  const { entries, isLoading, markAsPaid, updateEntryStatus } = useEntries();
-  const { 
-    schedulesByEntry, 
-    allSchedules, 
-    markScheduleAsPaid, 
-    revertScheduleToPending,
-    isLoading: schedulesLoading,
-    isAdmin,
-  } = useEntrySchedules();
-  const [editingEntry, setEditingEntry] = useState<Entry | null>(null);
-  
-  // Month period for financial KPIs (persisted in localStorage)
+  const {
+    lancamentos, atrasados, vencemEm7Dias, futuros, pagos, inconsistentes,
+    isLoading, isAdmin, fetchParcelasPendentes,
+    markSchedulesPaid, markTransactionPaid, revertSchedule,
+  } = useLancamentos();
+
+  const [search, setSearch] = useState('');
+  const [pagosExpanded, setPagosExpanded] = useState(false);
+  const [editingEntry, setEditingEntry] = useState<LancamentoConsolidado | null>(null);
+
+  // Payment modal state
+  const [paymentModalOpen, setPaymentModalOpen] = useState(false);
+  const [paymentTarget, setPaymentTarget] = useState<LancamentoConsolidado | null>(null);
+  const [parcelas, setParcelas] = useState<ParcelaPendente[]>([]);
+  const [selectedParcelas, setSelectedParcelas] = useState<Set<string>>(new Set());
+  const [loadingParcelas, setLoadingParcelas] = useState(false);
+
+  // Month period for financial KPIs
   const [monthPeriod, setMonthPeriod] = useState<MonthPeriod>(() => {
     try {
       const saved = localStorage.getItem('entries_month_period');
@@ -79,225 +60,109 @@ export default function Entries() {
     const now = new Date();
     return { year: now.getFullYear(), month: now.getMonth() };
   });
-  
+
   const handleMonthChange = (mp: MonthPeriod) => {
     setMonthPeriod(mp);
     localStorage.setItem('entries_month_period', JSON.stringify(mp));
   };
-  
-  // Financial snapshot from backend (same source as Dashboard)
+
   const { snapshot, isLoading: snapshotLoading } = useFinancialSnapshot(monthPeriod);
-  
-  // Read initial filter from URL params
-  const initialFilter = (searchParams.get('status') as FilterType) || 'todos';
-  const [activeFilter, setActiveFilter] = useState<FilterType>(
-    ['todos', 'pago', 'a_vencer', 'pendente_geral'].includes(initialFilter) ? initialFilter as FilterType : 'todos'
-  );
-  const [search, setSearch] = useState('');
 
-  // Update URL when filter changes
-  const handleFilterChange = (filter: FilterType) => {
-    setActiveFilter(filter);
-    if (filter === 'todos') {
-      searchParams.delete('status');
-    } else {
-      searchParams.set('status', filter);
-    }
-    setSearchParams(searchParams);
+  // Search filter
+  const filterBySearch = (items: LancamentoConsolidado[]) => {
+    if (!search) return items;
+    const s = search.toLowerCase();
+    return items.filter(l =>
+      l.nome_cliente.toLowerCase().includes(s) ||
+      (l.item_name || '').toLowerCase().includes(s) ||
+      (l.description || '').toLowerCase().includes(s)
+    );
   };
 
-  // Check modes
-  const isGlobalPendingMode = activeFilter === 'pendente_geral';
-  const isPaidMode = activeFilter === 'pago';
+  const filteredAtrasados = filterBySearch(atrasados);
+  const filteredVence7 = filterBySearch(vencemEm7Dias);
+  const filteredFuturos = filterBySearch(futuros);
+  const filteredPagos = filterBySearch(pagos);
 
-  // Build entry info map for schedules display
-  const entryInfoMap = useMemo(() => {
-    const map = new Map<string, { 
-      clientName?: string; 
-      itemName?: string; 
-      itemType?: 'servico' | 'produto';
-      paymentMethod?: string;
-      entry?: Entry;
-    }>();
-    entries.forEach(e => {
-      map.set(e.id, {
-        clientName: e.client_name,
-        itemName: e.item_name,
-        itemType: e.item_type,
-        paymentMethod: e.payment_method,
-        entry: e,
-      });
-    });
-    return map;
-  }, [entries]);
+  // Open payment modal
+  const openPaymentModal = async (lanc: LancamentoConsolidado) => {
+    setPaymentTarget(lanc);
+    setPaymentModalOpen(true);
+    setLoadingParcelas(true);
+    setSelectedParcelas(new Set());
 
-  // Set of entry IDs that have schedules
-  const entryIdsWithSchedules = useMemo(() => {
-    return new Set(allSchedules.map(s => s.entry_id));
-  }, [allSchedules]);
-
-  // For "Pagos" filter: combine entries without schedules that are paid + paid schedules
-  const paidDisplayItems = useMemo((): DisplayItem[] => {
-    if (!isPaidMode) return [];
-
-    const items: DisplayItem[] = [];
-
-    // 1. Entries without schedules that are paid
-    entries
-      .filter(e => !entryIdsWithSchedules.has(e.id) && e.status === 'pago')
-      .forEach(e => {
-        items.push({
-          type: 'entry',
-          id: e.id,
-          clientName: e.client_name || 'Cliente não informado',
-          itemName: e.item_name || 'Item não informado',
-          itemType: e.item_type || 'servico',
-          value: e.value,
-          date: e.date,
-          paymentDate: e.payment_date,
-          paymentMethod: e.payment_method,
-          quantity: e.quantity,
-          entry: e,
-        });
-      });
-
-    // 2. Paid schedules
-    allSchedules
-      .filter(s => s.status === 'pago')
-      .forEach(s => {
-        const entryInfo = entryInfoMap.get(s.entry_id);
-        items.push({
-          type: 'paid_schedule',
-          id: s.id,
-          clientName: entryInfo?.clientName || 'Cliente não informado',
-          itemName: entryInfo?.itemName || 'Item não informado',
-          itemType: entryInfo?.itemType || 'servico',
-          value: s.amount,
-          date: s.due_date,
-          paymentDate: s.paid_at?.split('T')[0] || null,
-          paymentMethod: entryInfo?.paymentMethod,
-          scheduleType: s.schedule_type as 'installment' | 'monthly_package' | 'single',
-          installmentNumber: s.installment_number,
-          installmentsTotal: s.installments_total,
-          schedule: s,
-        });
-      });
-
-    // Sort by payment date descending
-    return items.sort((a, b) => {
-      const dateA = a.paymentDate || a.date;
-      const dateB = b.paymentDate || b.date;
-      return dateB.localeCompare(dateA);
-    });
-  }, [isPaidMode, entries, allSchedules, entryIdsWithSchedules, entryInfoMap]);
-
-  // Filter paidDisplayItems by search
-  const filteredPaidItems = useMemo(() => {
-    if (!isPaidMode) return [];
-    
-    return paidDisplayItems.filter(item => {
-      if (search === '') return true;
-      return (
-        item.clientName.toLowerCase().includes(search.toLowerCase()) ||
-        item.itemName.toLowerCase().includes(search.toLowerCase())
-      );
-    });
-  }, [paidDisplayItems, search, isPaidMode]);
-
-  const filteredEntries = useMemo(() => {
-    if (isGlobalPendingMode || isPaidMode) return [];
-
-    return entries.filter((entry) => {
-      if (activeFilter !== 'todos') {
-        const { visualStatus } = getEntryVisualInfo(entry.status, entry.due_date, entry.payment_date);
-        const effectiveStatus = visualStatus === 'vence_hoje' ? 'a_vencer' : visualStatus;
-        if (effectiveStatus !== activeFilter) return false;
+    try {
+      // If it has installments, fetch them
+      if (lanc.qtd_parcelas_total > 1 || lanc.qtd_parcelas_pendentes > 0) {
+        const result = await fetchParcelasPendentes(lanc.id_master);
+        setParcelas(result);
+        // Pre-select all
+        setSelectedParcelas(new Set(result.map(p => p.id)));
+      } else {
+        setParcelas([]);
       }
+    } catch {
+      setParcelas([]);
+    } finally {
+      setLoadingParcelas(false);
+    }
+  };
 
-      const matchesSearch = search === '' || 
-        (entry.client_name?.toLowerCase().includes(search.toLowerCase())) ||
-        (entry.item_name?.toLowerCase().includes(search.toLowerCase()));
-      
-      return matchesSearch;
-    });
-  }, [entries, activeFilter, search, isGlobalPendingMode, isPaidMode]);
+  const handleConfirmPayment = () => {
+    if (!paymentTarget) return;
 
-  const globalPendingSchedules = useMemo(() => {
-    if (!isGlobalPendingMode) return [];
-
-    return allSchedules
-      .filter(s => s.status === 'pendente')
-      .filter(s => {
-        if (search === '') return true;
-        const entryInfo = entryInfoMap.get(s.entry_id);
-        return (
-          entryInfo?.clientName?.toLowerCase().includes(search.toLowerCase()) ||
-          entryInfo?.itemName?.toLowerCase().includes(search.toLowerCase())
-        );
-      })
-      .sort((a, b) => a.due_date.localeCompare(b.due_date));
-  }, [allSchedules, isGlobalPendingMode, search, entryInfoMap]);
-
-  // Single pending transactions (without schedules) for "Pendentes (Geral)" tab
-  const globalPendingSingleTx = useMemo(() => {
-    if (!isGlobalPendingMode) return [];
-
-    return entries
-      .filter(e => e.status === 'pendente' && !entryIdsWithSchedules.has(e.id))
-      .filter(e => {
-        if (search === '') return true;
-        return (
-          e.client_name?.toLowerCase().includes(search.toLowerCase()) ||
-          e.item_name?.toLowerCase().includes(search.toLowerCase())
-        );
-      })
-      .sort((a, b) => {
-        const dateA = a.due_date || a.date;
-        const dateB = b.due_date || b.date;
-        return dateA.localeCompare(dateB);
+    if (parcelas.length > 0) {
+      const ids = Array.from(selectedParcelas);
+      if (ids.length === 0) return;
+      markSchedulesPaid.mutate(ids, {
+        onSuccess: () => {
+          setPaymentModalOpen(false);
+          setPaymentTarget(null);
+        },
       });
-  }, [entries, isGlobalPendingMode, search, entryIdsWithSchedules]);
-
-  const handleMarkAsPaid = (entry: Entry) => {
-    markAsPaid.mutate(entry.id);
+    } else {
+      // Single transaction without schedules
+      markTransactionPaid.mutate(paymentTarget.id_master, {
+        onSuccess: () => {
+          setPaymentModalOpen(false);
+          setPaymentTarget(null);
+        },
+      });
+    }
   };
 
-  const handleRevertEntryToPending = (entryId: string) => {
-    updateEntryStatus.mutate({ id: entryId, status: 'pendente' });
+  const toggleParcela = (id: string) => {
+    setSelectedParcelas(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
   };
 
-  const handleMarkSchedulePaid = (scheduleId: string) => {
-    markScheduleAsPaid.mutate(scheduleId);
-  };
-
-  const handleRevertSchedule = (scheduleId: string) => {
-    revertScheduleToPending.mutate(scheduleId);
-  };
+  const selectedTotal = parcelas
+    .filter(p => selectedParcelas.has(p.id))
+    .reduce((sum, p) => sum + p.amount, 0);
 
   return (
     <AppLayout>
       <div className="flex flex-col h-full">
-        {/* Header with time window selector */}
+        {/* Header */}
         <div className="flex items-start justify-between mb-4">
           <div>
             <h1 className="text-xl font-bold text-foreground">Lançamentos</h1>
-            <p className="text-sm text-muted-foreground">
-              {isGlobalPendingMode ? 'Todas as parcelas pendentes' : isPaidMode ? 'Pagamentos recebidos' : 'Vendas e atendimentos'}
-            </p>
+            <p className="text-sm text-muted-foreground">Vendas e atendimentos</p>
           </div>
           <div className="flex items-center gap-2">
             <MonthSelector value={monthPeriod} onChange={handleMonthChange} />
-            <Button 
-              onClick={() => navigate('/lancamentos/novo')}
-              className="hidden lg:flex"
-            >
+            <Button onClick={() => navigate('/lancamentos/novo')} className="hidden lg:flex">
               <Plus className="mr-2 h-4 w-4" />
               Novo
             </Button>
           </div>
         </div>
 
-        {/* Financial KPI Cards - same data source as Dashboard */}
+        {/* Financial KPI Cards */}
         <div className="grid grid-cols-2 gap-3 mb-4">
           <div className="bg-success/10 rounded-xl p-3">
             <div className="flex items-center gap-2 mb-1">
@@ -331,10 +196,7 @@ export default function Entries() {
               <DollarSign className="h-4 w-4 text-primary" />
               <p className="text-xs text-muted-foreground">Lucro</p>
             </div>
-            <p className={cn(
-              "text-lg font-bold",
-              snapshot.lucro_real >= 0 ? "text-success" : "text-destructive"
-            )}>
+            <p className={cn("text-lg font-bold", snapshot.lucro_real >= 0 ? "text-success" : "text-destructive")}>
               {snapshotLoading ? '...' : formatCurrency(snapshot.lucro_real)}
             </p>
           </div>
@@ -352,22 +214,8 @@ export default function Entries() {
           />
         </div>
 
-        {/* Status Filters + Cobranças Link */}
-        <div className="flex gap-2 mb-4 overflow-x-auto pb-2">
-          {filters.map((filter) => (
-            <button
-              key={filter.value}
-              onClick={() => handleFilterChange(filter.value)}
-              className={cn(
-                'px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors',
-                activeFilter === filter.value
-                  ? 'bg-primary text-primary-foreground'
-                  : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
-              )}
-            >
-              {filter.label}
-            </button>
-          ))}
+        {/* Cobranças Link */}
+        <div className="flex gap-2 mb-4">
           <Link
             to="/cobrancas"
             className="px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors bg-destructive/10 text-destructive hover:bg-destructive/20 flex items-center gap-1.5"
@@ -377,521 +225,362 @@ export default function Entries() {
           </Link>
         </div>
 
-        {/* Entries List */}
-        <div className="flex-1 overflow-auto -mx-4 px-4 pb-36">
-          {isLoading || schedulesLoading ? (
+        {/* Inconsistency alert */}
+        {inconsistentes.length > 0 && isAdmin && (
+          <div className="bg-destructive/10 border border-destructive/30 rounded-lg p-3 mb-4 flex items-start gap-2">
+            <AlertCircle className="h-5 w-5 text-destructive mt-0.5 shrink-0" />
+            <div>
+              <p className="text-sm font-medium text-destructive">Inconsistência detectada</p>
+              <p className="text-xs text-muted-foreground">
+                {inconsistentes.length} lançamento(s) com divergência entre total original e soma de parcelas.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Entries grouped */}
+        <div className="flex-1 overflow-auto -mx-4 px-4 pb-36 space-y-6">
+          {isLoading ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
             </div>
-          ) : isPaidMode ? (
-            /* Paid Items View (entries + schedules) */
-            filteredPaidItems.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-                <Receipt size={48} className="mb-4 opacity-50" />
-                <p className="text-center">Nenhum pagamento encontrado</p>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {filteredPaidItems.map((item) => (
-                  <PaidItemCard 
-                    key={item.id} 
-                    item={item} 
-                    isAdmin={isAdmin}
-                    onRevert={
-                      item.schedule 
-                        ? () => handleRevertSchedule(item.schedule!.id) 
-                        : () => handleRevertEntryToPending(item.id)
-                    }
-                    isReverting={revertScheduleToPending.isPending || updateEntryStatus.isPending}
-                  />
-                ))}
-              </div>
-            )
-          ) : isGlobalPendingMode ? (
-            /* Global Pending View (schedules + single transactions) */
-            (globalPendingSchedules.length === 0 && globalPendingSingleTx.length === 0) ? (
-              <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-                <Receipt size={48} className="mb-4 opacity-50" />
-                <p className="text-center">Nenhuma cobrança pendente</p>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {/* Single pending transactions (without schedules) */}
-                {globalPendingSingleTx.map((entry) => (
-                  <EntryListCard
-                    key={entry.id}
-                    entry={entry}
-                    schedules={[]}
-                    onMarkAsPaid={() => handleMarkAsPaid(entry)}
-                    onRevertToPending={() => handleRevertEntryToPending(entry.id)}
-                    onMarkSchedulePaid={handleMarkSchedulePaid}
-                    onRevertSchedule={handleRevertSchedule}
-                    onEdit={() => setEditingEntry(entry)}
-                    isMarkingPaid={markAsPaid.isPending}
-                    isRevertingEntry={updateEntryStatus.isPending}
-                    isMarkingSchedulePaid={markScheduleAsPaid.isPending}
-                    isRevertingSchedule={revertScheduleToPending.isPending}
-                    isAdmin={isAdmin}
-                  />
-                ))}
-                {/* Pending schedules (installments) */}
-                {globalPendingSchedules.map((schedule) => {
-                  const entryInfo = entryInfoMap.get(schedule.entry_id);
-                  return (
-                    <GlobalScheduleCard
-                      key={schedule.id}
-                      schedule={schedule}
-                      clientName={entryInfo?.clientName}
-                      itemName={entryInfo?.itemName}
-                      itemType={entryInfo?.itemType}
-                      onMarkPaid={() => handleMarkSchedulePaid(schedule.id)}
-                      isMarking={markScheduleAsPaid.isPending}
-                    />
-                  );
-                })}
-              </div>
-            )
-          ) : filteredEntries.length === 0 ? (
+          ) : lancamentos.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
               <Receipt size={48} className="mb-4 opacity-50" />
-              <p className="text-center font-medium text-foreground">
-                {search || activeFilter !== 'todos'
-                  ? 'Nenhum lançamento encontrado'
-                  : 'Ainda não há lançamentos registrados.'}
+              <p className="text-center font-medium text-foreground">Ainda não há lançamentos registrados.</p>
+              <p className="text-sm text-center mt-1 max-w-xs">
+                Registre serviços prestados, produtos vendidos ou parcelas a receber.
               </p>
-              {!search && activeFilter === 'todos' && (
-                <>
-                  <p className="text-sm text-center mt-1 max-w-xs">
-                    Registre serviços prestados, produtos vendidos ou parcelas a receber.
-                  </p>
-                  <Button 
-                    className="mt-4"
-                    onClick={() => navigate('/lancamentos/novo')}
-                  >
-                    <Plus className="mr-2 h-4 w-4" />
-                    Criar primeiro lançamento
-                  </Button>
-                </>
-              )}
+              <Button className="mt-4" onClick={() => navigate('/lancamentos/novo')}>
+                <Plus className="mr-2 h-4 w-4" />
+                Criar primeiro lançamento
+              </Button>
             </div>
           ) : (
-            <div className="space-y-2">
-              {filteredEntries.map((entry) => (
-                <EntryListCard 
-                  key={entry.id} 
-                  entry={entry}
-                  schedules={schedulesByEntry[entry.id] || []}
-                  onMarkAsPaid={() => handleMarkAsPaid(entry)}
-                  onRevertToPending={() => handleRevertEntryToPending(entry.id)}
-                  onMarkSchedulePaid={handleMarkSchedulePaid}
-                  onRevertSchedule={handleRevertSchedule}
-                  onEdit={() => setEditingEntry(entry)}
-                  isMarkingPaid={markAsPaid.isPending}
-                  isRevertingEntry={updateEntryStatus.isPending}
-                  isMarkingSchedulePaid={markScheduleAsPaid.isPending}
-                  isRevertingSchedule={revertScheduleToPending.isPending}
-                  isAdmin={isAdmin}
-                />
-              ))}
-            </div>
+            <>
+              {/* ATRASADOS */}
+              <LancamentoGroup
+                title="Atrasados"
+                icon={<AlertTriangle className="h-4 w-4 text-destructive" />}
+                items={filteredAtrasados}
+                variant="destructive"
+                onPayment={openPaymentModal}
+                onEdit={setEditingEntry}
+                isAdmin={isAdmin}
+                defaultOpen
+              />
+
+              {/* VENCEM EM 7 DIAS */}
+              <LancamentoGroup
+                title="Vencem em 7 dias"
+                icon={<Clock className="h-4 w-4 text-warning" />}
+                items={filteredVence7}
+                variant="warning"
+                onPayment={openPaymentModal}
+                onEdit={setEditingEntry}
+                isAdmin={isAdmin}
+                defaultOpen
+              />
+
+              {/* FUTUROS */}
+              <LancamentoGroup
+                title="Futuros"
+                icon={<TrendingUp className="h-4 w-4 text-primary" />}
+                items={filteredFuturos}
+                variant="primary"
+                onPayment={openPaymentModal}
+                onEdit={setEditingEntry}
+                isAdmin={isAdmin}
+                defaultOpen
+              />
+
+              {/* PAGOS (collapsed by default) */}
+              {filteredPagos.length > 0 && (
+                <div>
+                  <button
+                    onClick={() => setPagosExpanded(!pagosExpanded)}
+                    className="flex items-center gap-2 w-full mb-2"
+                  >
+                    <CheckCircle className="h-4 w-4 text-success" />
+                    <span className="text-sm font-semibold text-foreground">
+                      Pagos ({filteredPagos.length})
+                    </span>
+                    {pagosExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                  </button>
+                  {pagosExpanded && (
+                    <div className="space-y-2">
+                      {filteredPagos.map(lanc => (
+                        <LancamentoCard
+                          key={lanc.id_master}
+                          lanc={lanc}
+                          onPayment={openPaymentModal}
+                          onEdit={setEditingEntry}
+                          isAdmin={isAdmin}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
           )}
         </div>
 
+        {/* Edit Dialog */}
         <EditTransactionDialog
           open={!!editingEntry}
           onOpenChange={(open) => !open && setEditingEntry(null)}
-          transaction={editingEntry}
+          transaction={editingEntry ? {
+            id: editingEntry.id_master,
+            client_name: editingEntry.nome_cliente,
+            item_name: editingEntry.item_name || undefined,
+            description: editingEntry.description,
+            amount: editingEntry.total_original,
+            date: editingEntry.data_venda,
+            due_date: editingEntry.proximo_vencimento,
+            notes: null,
+          } : null}
         />
+
+        {/* Payment Modal */}
+        <Dialog open={paymentModalOpen} onOpenChange={setPaymentModalOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Registrar Pagamento</DialogTitle>
+              <DialogDescription>
+                {paymentTarget?.nome_cliente} — {paymentTarget?.item_name || paymentTarget?.description}
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-3 py-2">
+              {loadingParcelas ? (
+                <div className="flex justify-center py-4">
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : parcelas.length > 0 ? (
+                <>
+                  <p className="text-sm text-muted-foreground">Selecione as parcelas a pagar:</p>
+                  {parcelas.map(p => (
+                    <label
+                      key={p.id}
+                      className={cn(
+                        "flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors",
+                        selectedParcelas.has(p.id)
+                          ? "border-primary bg-primary/5"
+                          : "border-border hover:border-primary/30"
+                      )}
+                    >
+                      <Checkbox
+                        checked={selectedParcelas.has(p.id)}
+                        onCheckedChange={() => toggleParcela(p.id)}
+                      />
+                      <div className="flex-1">
+                        <p className="text-sm font-medium">
+                          {p.schedule_type === 'installment' ? 'Parcela' : 'Mês'} {p.installment_number}/{p.installments_total}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Venc: {format(parseISO(p.due_date), 'dd/MM/yyyy')}
+                        </p>
+                      </div>
+                      <span className="font-semibold text-sm">{formatCurrency(p.amount)}</span>
+                    </label>
+                  ))}
+                  <div className="flex justify-between items-center pt-2 border-t border-border">
+                    <span className="text-sm text-muted-foreground">Total selecionado:</span>
+                    <span className="font-bold text-foreground">{formatCurrency(selectedTotal)}</span>
+                  </div>
+                </>
+              ) : (
+                <div className="text-center py-4">
+                  <p className="text-sm text-muted-foreground">
+                    Confirmar pagamento de {paymentTarget ? formatCurrency(paymentTarget.total_pendente) : ''}?
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setPaymentModalOpen(false)}>
+                Cancelar
+              </Button>
+              <Button
+                onClick={handleConfirmPayment}
+                disabled={parcelas.length > 0 && selectedParcelas.size === 0}
+                loading={markSchedulesPaid.isPending || markTransactionPaid.isPending}
+                loadingText="Salvando..."
+              >
+                <CheckCircle className="mr-2 h-4 w-4" />
+                Confirmar Pagamento
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </AppLayout>
   );
 }
 
-// Card for paid items (entries or schedules)
-interface PaidItemCardProps {
-  item: DisplayItem;
+// Group component
+interface LancamentoGroupProps {
+  title: string;
+  icon: React.ReactNode;
+  items: LancamentoConsolidado[];
+  variant: 'destructive' | 'warning' | 'primary';
+  onPayment: (lanc: LancamentoConsolidado) => void;
+  onEdit: (lanc: LancamentoConsolidado) => void;
   isAdmin: boolean;
-  onRevert?: () => void;
-  isReverting?: boolean;
+  defaultOpen?: boolean;
 }
 
-function PaidItemCard({ item, isAdmin, onRevert, isReverting }: PaidItemCardProps) {
-  const isSchedule = item.type === 'paid_schedule';
-  const typeLabel = isSchedule 
-    ? (item.scheduleType === 'installment' ? 'Parcela' : 'Mês') 
-    : null;
+function LancamentoGroup({ title, icon, items, onPayment, onEdit, isAdmin, defaultOpen }: LancamentoGroupProps) {
+  const [open, setOpen] = useState(defaultOpen ?? true);
+
+  if (items.length === 0) return null;
 
   return (
-    <div className="bg-card rounded-xl p-4 flex flex-col gap-3">
-      <div className="flex items-center gap-3">
-        <div className={cn(
-          'w-10 h-10 rounded-full flex items-center justify-center',
-          item.itemType === 'servico' ? 'bg-primary/10 text-primary' : 'bg-accent text-accent-foreground'
-        )}>
-          {item.itemType === 'servico' ? <Scissors size={20} /> : <Package size={20} />}
-        </div>
-        <div className="flex-1 min-w-0">
-          <p className="font-medium text-foreground truncate">
-            {item.clientName}
-          </p>
-          <p className="text-sm text-muted-foreground truncate">
-            {item.itemName}
-            {isSchedule && typeLabel && ` • ${typeLabel} ${item.installmentNumber}/${item.installmentsTotal}`}
-            {!isSchedule && item.quantity && item.quantity > 1 && ` (${item.quantity}x)`}
-          </p>
-          <div className="flex items-center gap-2 mt-1">
-            <span className="text-xs text-muted-foreground">
-              {item.paymentDate 
-                ? format(parseISO(item.paymentDate), "dd MMM", { locale: ptBR })
-                : format(parseISO(item.date), "dd MMM", { locale: ptBR })
-              }
-            </span>
-            {item.paymentMethod && (
-              <>
-                <span className="text-xs text-muted-foreground">•</span>
-                <span className="text-xs text-muted-foreground">
-                  {formatPaymentMethod(item.paymentMethod)}
-                </span>
-              </>
-            )}
-          </div>
-        </div>
-        <div className="text-right flex flex-col items-end gap-1">
-          <p className="font-semibold text-foreground">
-            R$ {item.value.toFixed(2)}
-          </p>
-          <span className="text-xs font-medium text-success flex items-center gap-1">
-            <CheckCircle size={12} />
-            Pago
-          </span>
-        </div>
-      </div>
-      
-      {/* Admin only: Revert button */}
-      {isAdmin && onRevert && (
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={onRevert}
-          disabled={isReverting}
-          className="w-full border-muted-foreground/30 text-muted-foreground hover:bg-destructive/10 hover:text-destructive hover:border-destructive"
-        >
-          <RotateCcw className="mr-2 h-4 w-4" />
-          Reverter para pendente
-        </Button>
-      )}
-    </div>
-  );
-}
-
-interface EntryListCardProps {
-  entry: Entry;
-  schedules: EntrySchedule[];
-  onMarkAsPaid: () => void;
-  onRevertToPending: () => void;
-  onMarkSchedulePaid: (scheduleId: string) => void;
-  onRevertSchedule: (scheduleId: string) => void;
-  onEdit: () => void;
-  isMarkingPaid: boolean;
-  isRevertingEntry: boolean;
-  isMarkingSchedulePaid: boolean;
-  isRevertingSchedule: boolean;
-  isAdmin: boolean;
-}
-
-function EntryListCard({ 
-  entry, 
-  schedules,
-  onMarkAsPaid, 
-  onRevertToPending,
-  onMarkSchedulePaid,
-  onRevertSchedule,
-  onEdit,
-  isMarkingPaid,
-  isRevertingEntry,
-  isMarkingSchedulePaid,
-  isRevertingSchedule,
-  isAdmin,
-}: EntryListCardProps) {
-  const [expanded, setExpanded] = useState(false);
-  const { visualStatus } = getEntryVisualInfo(entry.status, entry.due_date, entry.payment_date);
-  const hasSchedules = schedules.length > 0;
-  const scheduleSummary = hasSchedules ? getScheduleSummary(schedules) : null;
-  const showMarkAsPaid = entry.status === 'pendente' && !hasSchedules;
-
-  // Calculate remaining balance
-  const paidAmount = hasSchedules
-    ? schedules.filter(s => s.status === 'pago').reduce((sum, s) => sum + s.amount, 0)
-    : (entry.status === 'pago' ? entry.value : 0);
-  const remainingAmount = entry.value - paidAmount;
-
-  return (
-    <div className={cn(
-      "bg-card rounded-xl p-4 flex flex-col gap-3",
-      visualStatus === 'vencido' && "border-l-4 border-destructive"
-    )}>
-      <div className="flex items-center gap-3">
-        <div className={cn(
-          'w-10 h-10 rounded-full flex items-center justify-center',
-          entry.item_type === 'servico' ? 'bg-primary/10 text-primary' : 'bg-accent text-accent-foreground'
-        )}>
-          {entry.item_type === 'servico' ? <Scissors size={20} /> : <Package size={20} />}
-        </div>
-        <div className="flex-1 min-w-0">
-          <p className="font-medium text-foreground truncate">
-            {entry.client_name || 'Cliente não informado'}
-          </p>
-          <p className="text-sm text-muted-foreground truncate">
-            {entry.item_name || 'Item não informado'}
-            {entry.quantity > 1 && ` (${entry.quantity}x)`}
-          </p>
-          <div className="flex items-center gap-2 mt-1">
-            <span className="text-xs text-muted-foreground">
-              {format(parseISO(entry.date), "dd MMM", { locale: ptBR })}
-            </span>
-            <span className="text-xs text-muted-foreground">•</span>
-            <span className="text-xs text-muted-foreground">
-              {formatPaymentMethod(entry.payment_method)}
-            </span>
-          </div>
-        </div>
-        <div className="text-right flex flex-col items-end gap-1">
-          <p className="font-bold text-lg text-foreground">
-            {formatCurrency(remainingAmount)}
-          </p>
-          {remainingAmount !== entry.value && (
-            <p className="text-xs text-muted-foreground">
-              Total: {formatCurrency(entry.value)}
-            </p>
-          )}
-          <EntryStatusBadge 
-            status={entry.status}
-            dueDate={entry.due_date}
-            paymentDate={entry.payment_date}
-            size="sm"
-          />
-        </div>
-      </div>
-
-      {/* Schedule Summary */}
-      {scheduleSummary && (
-        <button
-          onClick={() => setExpanded(!expanded)}
-          className="flex items-center justify-between w-full text-sm text-muted-foreground bg-secondary/50 rounded-lg px-3 py-2 hover:bg-secondary transition-colors"
-        >
-          <span>{scheduleSummary.summary}</span>
-          {expanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-        </button>
-      )}
-
-      {/* Expanded Schedules List */}
-      {expanded && hasSchedules && (
-        <div className="space-y-2 pt-2 border-t border-border">
-          {schedules.map((schedule) => (
-            <ScheduleItem
-              key={schedule.id}
-              schedule={schedule}
-              onMarkPaid={() => onMarkSchedulePaid(schedule.id)}
-              onRevert={() => onRevertSchedule(schedule.id)}
-              isMarking={isMarkingSchedulePaid}
-              isReverting={isRevertingSchedule}
+    <div>
+      <button onClick={() => setOpen(!open)} className="flex items-center gap-2 w-full mb-2">
+        {icon}
+        <span className="text-sm font-semibold text-foreground">
+          {title} ({items.length})
+        </span>
+        {open ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+      </button>
+      {open && (
+        <div className="space-y-2">
+          {items.map(lanc => (
+            <LancamentoCard
+              key={lanc.id_master}
+              lanc={lanc}
+              onPayment={onPayment}
+              onEdit={onEdit}
               isAdmin={isAdmin}
             />
           ))}
         </div>
       )}
-      {/* Action buttons row */}
-      <div className="flex gap-2">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={onEdit}
-          className="text-muted-foreground hover:text-primary"
-          title="Editar lançamento"
-        >
-          <Pencil className="mr-1.5 h-4 w-4" />
-          Editar
-        </Button>
-        {showMarkAsPaid && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onMarkAsPaid}
-            disabled={isMarkingPaid}
-            className="flex-1 border-success text-success hover:bg-success hover:text-success-foreground"
-          >
-            <CheckCircle className="mr-2 h-4 w-4" />
-            Marcar como pago
-          </Button>
-        )}
-      </div>
-
-      {/* Admin only: Revert paid entry without schedules */}
-      {entry.status === 'pago' && !hasSchedules && isAdmin && (
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={onRevertToPending}
-          disabled={isRevertingEntry}
-          className="w-full border-muted-foreground/30 text-muted-foreground hover:bg-destructive/10 hover:text-destructive hover:border-destructive"
-        >
-          <RotateCcw className="mr-2 h-4 w-4" />
-          Reverter para pendente
-        </Button>
-      )}
     </div>
   );
 }
 
-interface ScheduleItemProps {
-  schedule: EntrySchedule;
-  onMarkPaid: () => void;
-  onRevert: () => void;
-  isMarking: boolean;
-  isReverting: boolean;
+// Card component
+interface LancamentoCardProps {
+  lanc: LancamentoConsolidado;
+  onPayment: (lanc: LancamentoConsolidado) => void;
+  onEdit: (lanc: LancamentoConsolidado) => void;
   isAdmin: boolean;
 }
 
-function ScheduleItem({ schedule, onMarkPaid, onRevert, isMarking, isReverting, isAdmin }: ScheduleItemProps) {
-  const { label, variant } = getEntryVisualInfo(
-    schedule.status, 
-    schedule.due_date, 
-    schedule.paid_at?.split('T')[0] || null
-  );
-  const typeLabel = schedule.schedule_type === 'installment' ? 'Parcela' : 'Mês';
+function LancamentoCard({ lanc, onPayment, onEdit, isAdmin }: LancamentoCardProps) {
+  const isPago = lanc.status_geral === 'PAGO';
+  const isAtrasado = lanc.status_geral === 'ATRASADO';
 
-  return (
-    <div className="flex items-center justify-between py-2 px-3 bg-secondary/30 rounded-lg">
-      <div className="flex-1">
-        <p className="text-sm font-medium text-foreground">
-          {typeLabel} {schedule.installment_number}/{schedule.installments_total}
-        </p>
-        <p className="text-xs text-muted-foreground">
-          {format(parseISO(schedule.due_date), "dd/MM/yyyy")}
-        </p>
-      </div>
-      <div className="text-right flex items-center gap-2">
-        <div>
-          <p className="text-sm font-medium text-foreground">
-            R$ {schedule.amount.toFixed(2)}
-          </p>
-          <span className={cn(
-            'text-xs font-medium',
-            variant === 'success' && 'text-success',
-            variant === 'warning' && 'text-warning',
-            variant === 'destructive' && 'text-destructive'
-          )}>
-            {label}
-          </span>
-        </div>
-        {schedule.status === 'pendente' && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onMarkPaid}
-            disabled={isMarking}
-            className="h-8 px-2 text-success hover:text-success hover:bg-success/10"
-            title="Marcar como pago"
-          >
-            <CheckCircle size={18} />
-          </Button>
-        )}
-        {/* Admin only: Revert paid schedule */}
-        {schedule.status === 'pago' && isAdmin && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onRevert}
-            disabled={isReverting}
-            className="h-8 px-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-            title="Reverter para pendente"
-          >
-            <RotateCcw size={16} />
-          </Button>
-        )}
-      </div>
-    </div>
-  );
-}
-
-interface GlobalScheduleCardProps {
-  schedule: EntrySchedule;
-  clientName?: string;
-  itemName?: string;
-  itemType?: 'servico' | 'produto';
-  onMarkPaid: () => void;
-  isMarking: boolean;
-}
-
-function GlobalScheduleCard({ 
-  schedule, 
-  clientName, 
-  itemName, 
-  itemType,
-  onMarkPaid, 
-  isMarking 
-}: GlobalScheduleCardProps) {
-  const { visualStatus, label, variant } = getEntryVisualInfo(
-    schedule.status, 
-    schedule.due_date, 
-    schedule.paid_at?.split('T')[0] || null
-  );
-  const typeLabel = schedule.schedule_type === 'installment' ? 'Parcela' : 'Mês';
+  const statusBadge = (() => {
+    if (isPago) return { label: 'Pago', className: 'text-success bg-success/10' };
+    if (isAtrasado) return { label: 'Atrasado', className: 'text-destructive bg-destructive/10' };
+    return { label: 'Pendente', className: 'text-warning bg-warning/10' };
+  })();
 
   return (
     <div className={cn(
-      "bg-card rounded-xl p-4 flex flex-col gap-3",
-      visualStatus === 'vencido' && "border-l-4 border-destructive"
+      "bg-card rounded-xl p-4 flex flex-col gap-3 border border-transparent",
+      isAtrasado && "border-l-4 border-l-destructive",
+      lanc.inconsistente && "border-destructive/50"
     )}>
       <div className="flex items-center gap-3">
         <div className={cn(
-          'w-10 h-10 rounded-full flex items-center justify-center',
-          itemType === 'servico' ? 'bg-primary/10 text-primary' : 'bg-accent text-accent-foreground'
+          'w-10 h-10 rounded-full flex items-center justify-center shrink-0',
+          lanc.item_type === 'servico' ? 'bg-primary/10 text-primary' : 'bg-accent text-accent-foreground'
         )}>
-          {itemType === 'servico' ? <Scissors size={20} /> : <Package size={20} />}
+          {lanc.item_type === 'servico' ? <Scissors size={20} /> : <Package size={20} />}
         </div>
         <div className="flex-1 min-w-0">
-          <p className="font-medium text-foreground truncate">
-            {clientName || 'Cliente não informado'}
-          </p>
+          <p className="font-medium text-foreground truncate">{lanc.nome_cliente}</p>
           <p className="text-sm text-muted-foreground truncate">
-            {itemName || 'Item não informado'}
+            {lanc.item_name || lanc.description || 'Item não informado'}
+            {lanc.quantity > 1 && ` (${lanc.quantity}x)`}
           </p>
-          <div className="flex items-center gap-2 mt-1">
+          <div className="flex items-center gap-2 mt-1 flex-wrap">
             <span className="text-xs text-muted-foreground">
-              {typeLabel} {schedule.installment_number}/{schedule.installments_total}
+              {format(parseISO(lanc.data_venda), 'dd MMM', { locale: ptBR })}
             </span>
-            <span className="text-xs text-muted-foreground">•</span>
-            <span className="text-xs text-muted-foreground">
-              Venc: {format(parseISO(schedule.due_date), "dd/MM/yyyy")}
-            </span>
+            {lanc.payment_method && (
+              <>
+                <span className="text-xs text-muted-foreground">•</span>
+                <span className="text-xs text-muted-foreground">{formatPaymentMethod(lanc.payment_method)}</span>
+              </>
+            )}
+            {lanc.qtd_parcelas_total > 1 && (
+              <>
+                <span className="text-xs text-muted-foreground">•</span>
+                <span className="text-xs text-muted-foreground">
+                  {lanc.qtd_parcelas_pagas}/{lanc.qtd_parcelas_total} pagas
+                </span>
+              </>
+            )}
           </div>
         </div>
-        <div className="text-right flex flex-col items-end gap-1">
-          <p className="font-semibold text-foreground">
-            R$ {schedule.amount.toFixed(2)}
+        <div className="text-right flex flex-col items-end gap-1 shrink-0">
+          {/* Main value: total_pendente */}
+          <p className={cn("font-bold text-lg", isPago ? "text-foreground" : isAtrasado ? "text-destructive" : "text-foreground")}>
+            {formatCurrency(isPago ? lanc.total_original : lanc.total_pendente)}
           </p>
-          <span className={cn(
-            'text-xs font-medium',
-            variant === 'success' && 'text-success',
-            variant === 'warning' && 'text-warning',
-            variant === 'destructive' && 'text-destructive'
-          )}>
-            {label}
+          {/* Details */}
+          {!isPago && lanc.total_pago > 0 && (
+            <p className="text-xs text-muted-foreground">
+              Pago: {formatCurrency(lanc.total_pago)}
+            </p>
+          )}
+          {!isPago && (
+            <p className="text-xs text-muted-foreground">
+              Total: {formatCurrency(lanc.total_original)}
+            </p>
+          )}
+          <span className={cn('text-xs font-medium px-2 py-0.5 rounded-full', statusBadge.className)}>
+            {statusBadge.label}
           </span>
         </div>
       </div>
 
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={onMarkPaid}
-        disabled={isMarking}
-        className="w-full border-success text-success hover:bg-success hover:text-success-foreground"
-      >
-        <CheckCircle className="mr-2 h-4 w-4" />
-        Marcar como pago
-      </Button>
+      {/* Next due date for pending */}
+      {!isPago && lanc.proximo_vencimento && (
+        <div className="text-xs text-muted-foreground flex items-center gap-1">
+          <Clock size={12} />
+          Próx. vencimento: {format(parseISO(lanc.proximo_vencimento), 'dd/MM/yyyy')}
+          {lanc.total_atrasado > 0 && (
+            <span className="text-destructive font-medium ml-2">
+              ({formatCurrency(lanc.total_atrasado)} em atraso)
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* Inconsistency warning */}
+      {lanc.inconsistente && isAdmin && (
+        <div className="text-xs text-destructive flex items-center gap-1">
+          <AlertCircle size={12} />
+          Inconsistência: total ≠ pago + pendente
+        </div>
+      )}
+
+      {/* Actions */}
+      <div className="flex gap-2">
+        <Button variant="ghost" size="sm" onClick={() => onEdit(lanc)} className="text-muted-foreground hover:text-primary">
+          <Pencil className="mr-1.5 h-4 w-4" />
+          Editar
+        </Button>
+        {!isPago && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onPayment(lanc)}
+            className="flex-1 border-success text-success hover:bg-success hover:text-success-foreground"
+          >
+            <DollarSign className="mr-2 h-4 w-4" />
+            Registrar Pagamento
+          </Button>
+        )}
+      </div>
     </div>
   );
 }
