@@ -55,7 +55,7 @@ interface ScheduleRow {
 }
 
 export function useDashboard(selectedMonth?: string) {
-  const { user } = useAuth();
+  const { user, accountId } = useAuth();
 
   // Parse selected month or use current month
   const { startDate, endDate } = useMemo(() => {
@@ -67,7 +67,7 @@ export function useDashboard(selectedMonth?: string) {
   }, [selectedMonth]);
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ['dashboard', startDate, endDate],
+    queryKey: ['dashboard', accountId, startDate, endDate],
     queryFn: async () => {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
@@ -324,7 +324,7 @@ export function useDashboard(selectedMonth?: string) {
         chartData,
       };
     },
-    enabled: !!user,
+    enabled: !!user && !!accountId,
   });
 
   return {

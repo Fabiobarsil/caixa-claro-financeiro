@@ -36,7 +36,7 @@ interface ScheduleRow {
 }
 
 export function useBIData(timeWindow: TimeWindow) {
-  const { user } = useAuth();
+  const { user, accountId } = useAuth();
 
   // Calculate date range based on time window
   const { startDate, endDate, today } = useMemo(() => {
@@ -52,7 +52,7 @@ export function useBIData(timeWindow: TimeWindow) {
   }, [timeWindow]);
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ['bi-data', timeWindow, startDate, endDate],
+    queryKey: ['bi-data', accountId, timeWindow, startDate, endDate],
     queryFn: async () => {
       const todayStr = format(today, 'yyyy-MM-dd');
 
@@ -224,7 +224,7 @@ export function useBIData(timeWindow: TimeWindow) {
         chartData,
       };
     },
-    enabled: !!user,
+    enabled: !!user && !!accountId,
   });
 
   return {

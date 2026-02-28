@@ -45,7 +45,8 @@ export function useLancamentos() {
     queryFn: async (): Promise<LancamentoConsolidado[]> => {
       const { data, error } = await supabase
         .from('vw_lancamentos_consolidados')
-        .select('*');
+        .select('*')
+        .eq('account_id', accountId!);
 
       if (error) throw error;
 
