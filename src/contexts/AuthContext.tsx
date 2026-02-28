@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useCallback, useEffect, ReactNode, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { User as SupabaseUser } from '@supabase/supabase-js';
+import { useQueryClient } from '@tanstack/react-query';
 
 // Supabase is always configured when using the official client from integrations
 export const isSupabaseConfigured = true;
@@ -41,6 +42,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthReady, setIsAuthReady] = useState(false);
   const initializingRef = useRef(false);
+  const queryClient = useQueryClient();
 
   const fetchUserData = useCallback(async (supabaseUser: SupabaseUser): Promise<User | null> => {
     try {
@@ -114,9 +116,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (!userData) {
           // If profile/role fetch fails (RLS/403/network), never block the app in loading.
           setUser(null);
+          queryClient.clear();
           return;
         }
 
+        console.debug('[Auth]', 'accountId resolved:', userData.accountId);
         setUser(userData);
       } catch (error) {
         console.debug('[Auth]', 'fetchUserData error', { source, error });
@@ -156,6 +160,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             }
           } else if (event === 'SIGNED_OUT') {
             setUser(null);
+            queryClient.clear();
             finalizeAuthState('SIGNED_OUT');
           }
         } catch (error) {
@@ -202,9 +207,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const logout = useCallback(async () => {
+    queryClient.clear();
     await supabase.auth.signOut();
     setUser(null);
-  }, []);
+  }, [queryClient]);
 
   const resetPassword = useCallback(async (email: string): Promise<{ success: boolean; error?: string }> => {
     try {
