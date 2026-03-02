@@ -72,30 +72,30 @@ export default function AdminSubscriptions() {
     setIsLoading(true);
     try {
       // Fetch subscribers
-      const { data: subs, error: subsError } = await supabase
-        .from('profiles')
+      const { data: subs, error: subsError } = await (supabase
+        .from('v_subscriptions_panel' as any)
         .select('id, email, name, subscription_status, subscription_plan, subscription_start_date, subscription_expiration_date, is_system_admin')
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false }) as any);
 
       if (subsError) throw subsError;
       setSubscribers(subs || []);
 
       // Fetch webhook requests
-      const { data: requests, error: reqError } = await supabase
-        .from('webhook_requests')
+      const { data: requests, error: reqError } = await (supabase
+        .from('v_webhook_requests' as any)
         .select('id, created_at, status_code, reason, raw_body')
         .order('created_at', { ascending: false })
-        .limit(20);
+        .limit(20) as any);
 
       if (reqError) throw reqError;
       setWebhookRequests(requests || []);
 
       // Fetch webhook events
-      const { data: events, error: eventsError } = await supabase
-        .from('webhook_events')
+      const { data: events, error: eventsError } = await (supabase
+        .from('v_webhook_events' as any)
         .select('id, created_at, email, raw_event, normalized_event, normalized_plan, subscription_status_applied, success, error_message')
         .order('created_at', { ascending: false })
-        .limit(20);
+        .limit(20) as any);
 
       if (eventsError) throw eventsError;
       setWebhookEvents(events || []);
