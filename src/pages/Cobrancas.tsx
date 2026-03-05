@@ -1,13 +1,20 @@
-import { useMemo } from 'react';
-import { AlertTriangle, Clock, CheckCircle2, MessageCircle, Loader2 } from 'lucide-react';
+import { useMemo, useState, useCallback } from 'react';
+import { AlertTriangle, CheckCircle2, MessageCircle, Loader2, HandCoins } from 'lucide-react';
 import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import AppLayout from '@/components/AppLayout';
 import { useCobrancas, Receivable } from '@/hooks/useCobrancas';
+import { useLancamentos } from '@/hooks/useLancamentos';
+import QuitarParcelaModal, { ParcelaItem, QuitarPayload } from '@/components/QuitarParcelaModal';
 
 // --- Helpers ---
 function formatCents(cents: number): string {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(cents / 100);
+}
+
+function formatBRL(value: number): string {
+  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 }
 
 function daysOverdue(dateStr: string): number {
@@ -18,7 +25,7 @@ function daysOverdue(dateStr: string): number {
 }
 
 // --- Components ---
-function ReceivableCard({ item }: { item: Receivable }) {
+function ReceivableCard({ item, onReceber }: { item: Receivable; onReceber: () => void }) {
   const days = daysOverdue(item.dueDate);
   const installmentAmount = item.totalAmount / item.installmentsTotal;
 
@@ -40,26 +47,15 @@ function ReceivableCard({ item }: { item: Receivable }) {
             </p>
           )}
         </div>
-        <div className="text-right shrink-0 flex items-center gap-2">
-          <div>
-            <p className="text-lg font-bold text-destructive leading-tight">
-              {formatCents(installmentAmount)}
+        <div className="text-right shrink-0">
+          <p className="text-lg font-bold text-destructive leading-tight">
+            {formatCents(installmentAmount)}
+          </p>
+          {item.installmentsTotal > 1 && (
+            <p className="text-xs text-muted-foreground">
+              Total: {formatCents(item.totalAmount)}
             </p>
-            {item.installmentsTotal > 1 && (
-              <p className="text-xs text-muted-foreground">
-                Total: {formatCents(item.totalAmount)}
-              </p>
-            )}
-          </div>
-          <a
-            href={waLink}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="relative z-10 inline-flex items-center justify-center h-10 w-10 rounded-lg bg-[#25D366] text-white hover:bg-[#1da851] transition-colors shrink-0 shadow-sm"
-            title="Cobrar via WhatsApp"
-          >
-            <MessageCircle size={20} />
-          </a>
+          )}
         </div>
       </div>
 
@@ -75,6 +71,28 @@ function ReceivableCard({ item }: { item: Receivable }) {
           {days === 0 ? 'Vence hoje' : `Atrasado há ${days} ${days === 1 ? 'dia' : 'dias'}`}
         </span>
       </div>
+
+      <div className="flex items-center gap-2 pt-1">
+        <Button
+          onClick={onReceber}
+          size="sm"
+          className="flex-1 bg-success hover:bg-success/90 text-success-foreground"
+        >
+          <HandCoins className="mr-1.5 h-4 w-4" />
+          Receber
+        </Button>
+        {item.clientPhone && (
+          <a
+            href={waLink}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center justify-center h-9 w-9 rounded-md bg-[#25D366] text-white hover:bg-[#1da851] transition-colors shrink-0 shadow-sm"
+            title="Cobrar via WhatsApp"
+          >
+            <MessageCircle size={16} />
+          </a>
+        )}
+      </div>
     </Card>
   );
 }
@@ -82,8 +100,50 @@ function ReceivableCard({ item }: { item: Receivable }) {
 // --- Page ---
 export default function Cobrancas() {
   const { data: receivables = [], isLoading } = useCobrancas();
+  const { fetchParcelasAll, markSchedulesPaid, markTransactionPaid, revertSchedule, isAdmin } = useLancamentos();
 
-  // Only show overdue items (due_date < today)
+  // Modal state
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalItem, setModalItem] = useState<Receivable | null>(null);
+  const [modalParcelas, setModalParcelas] = useState<ParcelaItem[]>([]);
+  const [loadingParcelas, setLoadingParcelas] = useState(false);
+
+  const handleReceber = useCallback(async (item: Receivable) => {
+    setModalItem(item);
+    setModalOpen(true);
+    setLoadingParcelas(true);
+
+    try {
+      // entry_id on Receivable maps to the schedule's entry_id or the transaction id
+      const parcelas = await fetchParcelasAll(item.entryId || item.id);
+      setModalParcelas(parcelas);
+    } catch {
+      // If no schedules found, it's a single transaction
+      setModalParcelas([]);
+    } finally {
+      setLoadingParcelas(false);
+    }
+  }, [fetchParcelasAll]);
+
+  const handleConfirmQuitar = useCallback(async (payload: QuitarPayload) => {
+    if (payload.scheduleIds.length > 0) {
+      await markSchedulesPaid.mutateAsync(payload);
+    } else if (modalItem) {
+      await markTransactionPaid.mutateAsync(modalItem.id);
+    }
+    setModalOpen(false);
+  }, [markSchedulesPaid, markTransactionPaid, modalItem]);
+
+  const handleEstornar = useCallback(async (scheduleId: string) => {
+    await revertSchedule.mutateAsync(scheduleId);
+    // Refresh parcelas
+    if (modalItem) {
+      const parcelas = await fetchParcelasAll(modalItem.entryId || modalItem.id);
+      setModalParcelas(parcelas);
+    }
+  }, [revertSchedule, fetchParcelasAll, modalItem]);
+
+  // Only show overdue items (due_date <= today)
   const overdueItems = useMemo(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -133,11 +193,28 @@ export default function Cobrancas() {
         ) : (
           <div className="space-y-3">
             {sortedItems.map(item => (
-              <ReceivableCard key={item.id} item={item} />
+              <ReceivableCard key={item.id} item={item} onReceber={() => handleReceber(item)} />
             ))}
           </div>
         )}
       </div>
+
+      {modalItem && (
+        <QuitarParcelaModal
+          open={modalOpen}
+          onOpenChange={setModalOpen}
+          title={modalItem.clientName}
+          subtitle={modalItem.productName}
+          parcelas={modalParcelas}
+          isLoadingParcelas={loadingParcelas}
+          singleTransactionId={modalParcelas.length === 0 ? modalItem.id : undefined}
+          singleTransactionAmount={modalItem.totalAmount / 100}
+          onConfirmQuitar={handleConfirmQuitar}
+          onConfirmEstornar={handleEstornar}
+          isSubmitting={markSchedulesPaid.isPending || markTransactionPaid.isPending}
+          isAdmin={isAdmin}
+        />
+      )}
     </AppLayout>
   );
 }

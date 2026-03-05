@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 
 export interface Receivable {
   id: string;
+  entryId: string; // the transaction/entry id for fetching parcelas
   clientName: string;
   clientPhone: string;
   productName: string;
@@ -80,6 +81,7 @@ export function useCobrancas() {
 
         return {
           id: schedule.id,
+          entryId: schedule.entry_id,
           clientName: client?.name || 'Cliente',
           clientPhone: (client?.phone || '').replace(/\D/g, ''),
           productName: sp?.name || tx?.description || 'Item',
@@ -133,6 +135,7 @@ export function useCobrancas() {
 
           return {
             id: tx.id,
+            entryId: tx.id,
             clientName: client?.name || 'Cliente',
             clientPhone: (client?.phone || '').replace(/\D/g, ''),
             productName: sp?.name || tx.description || 'Item',
