@@ -16,10 +16,7 @@ import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { formatCurrency } from '@/lib/formatters';
 import EditTransactionDialog from '@/components/EditTransactionDialog';
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter
-} from '@/components/ui/dialog';
-import { Checkbox } from '@/components/ui/checkbox';
+import QuitarParcelaModal, { type QuitarPayload, type ParcelaItem } from '@/components/QuitarParcelaModal';
 
 function formatPaymentMethod(method: string | null): string {
   if (!method) return '';
@@ -36,7 +33,7 @@ export default function Entries() {
   const navigate = useNavigate();
   const {
     lancamentos, atrasados, vencemEm7Dias, futuros, pagos, inconsistentes,
-    isLoading, isAdmin, fetchParcelasPendentes,
+    isLoading, isAdmin, fetchParcelasAll,
     markSchedulesPaid, markTransactionPaid, revertSchedule,
   } = useLancamentos();
 
@@ -44,11 +41,10 @@ export default function Entries() {
   const [pagosExpanded, setPagosExpanded] = useState(false);
   const [editingEntry, setEditingEntry] = useState<LancamentoConsolidado | null>(null);
 
-  // Payment modal state
-  const [paymentModalOpen, setPaymentModalOpen] = useState(false);
-  const [paymentTarget, setPaymentTarget] = useState<LancamentoConsolidado | null>(null);
-  const [parcelas, setParcelas] = useState<ParcelaPendente[]>([]);
-  const [selectedParcelas, setSelectedParcelas] = useState<Set<string>>(new Set());
+  // Quitar modal state
+  const [quitarModalOpen, setQuitarModalOpen] = useState(false);
+  const [quitarTarget, setQuitarTarget] = useState<LancamentoConsolidado | null>(null);
+  const [parcelas, setParcelas] = useState<ParcelaItem[]>([]);
   const [loadingParcelas, setLoadingParcelas] = useState(false);
 
   // Month period for financial KPIs
@@ -84,20 +80,16 @@ export default function Entries() {
   const filteredFuturos = filterBySearch(futuros);
   const filteredPagos = filterBySearch(pagos);
 
-  // Open payment modal
-  const openPaymentModal = async (lanc: LancamentoConsolidado) => {
-    setPaymentTarget(lanc);
-    setPaymentModalOpen(true);
+  // Open quitar modal
+  const openQuitarModal = async (lanc: LancamentoConsolidado) => {
+    setQuitarTarget(lanc);
+    setQuitarModalOpen(true);
     setLoadingParcelas(true);
-    setSelectedParcelas(new Set());
 
     try {
-      // If it has installments, fetch them
       if (lanc.qtd_parcelas_total > 1 || lanc.qtd_parcelas_pendentes > 0) {
-        const result = await fetchParcelasPendentes(lanc.id_master);
+        const result = await fetchParcelasAll(lanc.id_master);
         setParcelas(result);
-        // Pre-select all
-        setSelectedParcelas(new Set(result.map(p => p.id)));
       } else {
         setParcelas([]);
       }
@@ -108,41 +100,36 @@ export default function Entries() {
     }
   };
 
-  const handleConfirmPayment = () => {
-    if (!paymentTarget) return;
+  const handleConfirmQuitar = (payload: QuitarPayload) => {
+    if (!quitarTarget) return;
 
-    if (parcelas.length > 0) {
-      const ids = Array.from(selectedParcelas);
-      if (ids.length === 0) return;
-      markSchedulesPaid.mutate(ids, {
+    if (payload.scheduleIds.length > 0) {
+      markSchedulesPaid.mutate(payload, {
         onSuccess: () => {
-          setPaymentModalOpen(false);
-          setPaymentTarget(null);
+          setQuitarModalOpen(false);
+          setQuitarTarget(null);
         },
       });
     } else {
-      // Single transaction without schedules
-      markTransactionPaid.mutate(paymentTarget.id_master, {
+      markTransactionPaid.mutate(quitarTarget.id_master, {
         onSuccess: () => {
-          setPaymentModalOpen(false);
-          setPaymentTarget(null);
+          setQuitarModalOpen(false);
+          setQuitarTarget(null);
         },
       });
     }
   };
 
-  const toggleParcela = (id: string) => {
-    setSelectedParcelas(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
+  const handleEstornar = (scheduleId: string) => {
+    revertSchedule.mutate(scheduleId, {
+      onSuccess: () => {
+        // Refresh parcelas in modal
+        if (quitarTarget) {
+          fetchParcelasAll(quitarTarget.id_master).then(setParcelas).catch(() => {});
+        }
+      },
     });
   };
-
-  const selectedTotal = parcelas
-    .filter(p => selectedParcelas.has(p.id))
-    .reduce((sum, p) => sum + p.amount, 0);
 
   return (
     <AppLayout>
@@ -264,7 +251,7 @@ export default function Entries() {
                 icon={<AlertTriangle className="h-4 w-4 text-destructive" />}
                 items={filteredAtrasados}
                 variant="destructive"
-                onPayment={openPaymentModal}
+                onPayment={openQuitarModal}
                 onEdit={setEditingEntry}
                 isAdmin={isAdmin}
                 defaultOpen
@@ -276,7 +263,7 @@ export default function Entries() {
                 icon={<Clock className="h-4 w-4 text-warning" />}
                 items={filteredVence7}
                 variant="warning"
-                onPayment={openPaymentModal}
+                onPayment={openQuitarModal}
                 onEdit={setEditingEntry}
                 isAdmin={isAdmin}
                 defaultOpen
@@ -288,7 +275,7 @@ export default function Entries() {
                 icon={<TrendingUp className="h-4 w-4 text-primary" />}
                 items={filteredFuturos}
                 variant="primary"
-                onPayment={openPaymentModal}
+                onPayment={openQuitarModal}
                 onEdit={setEditingEntry}
                 isAdmin={isAdmin}
                 defaultOpen
@@ -313,7 +300,7 @@ export default function Entries() {
                         <LancamentoCard
                           key={lanc.id_master}
                           lanc={lanc}
-                          onPayment={openPaymentModal}
+                          onPayment={openQuitarModal}
                           onEdit={setEditingEntry}
                           isAdmin={isAdmin}
                         />
@@ -342,79 +329,21 @@ export default function Entries() {
           } : null}
         />
 
-        {/* Payment Modal */}
-        <Dialog open={paymentModalOpen} onOpenChange={setPaymentModalOpen}>
-          <DialogContent className="max-w-md">
-            <DialogHeader>
-              <DialogTitle>Registrar Pagamento</DialogTitle>
-              <DialogDescription>
-                {paymentTarget?.nome_cliente} — {paymentTarget?.item_name || paymentTarget?.description}
-              </DialogDescription>
-            </DialogHeader>
-
-            <div className="space-y-3 py-2">
-              {loadingParcelas ? (
-                <div className="flex justify-center py-4">
-                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                </div>
-              ) : parcelas.length > 0 ? (
-                <>
-                  <p className="text-sm text-muted-foreground">Selecione as parcelas a pagar:</p>
-                  {parcelas.map(p => (
-                    <label
-                      key={p.id}
-                      className={cn(
-                        "flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors",
-                        selectedParcelas.has(p.id)
-                          ? "border-primary bg-primary/5"
-                          : "border-border hover:border-primary/30"
-                      )}
-                    >
-                      <Checkbox
-                        checked={selectedParcelas.has(p.id)}
-                        onCheckedChange={() => toggleParcela(p.id)}
-                      />
-                      <div className="flex-1">
-                        <p className="text-sm font-medium">
-                          {p.schedule_type === 'installment' ? 'Parcela' : 'Mês'} {p.installment_number}/{p.installments_total}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          Venc: {format(parseISO(p.due_date), 'dd/MM/yyyy')}
-                        </p>
-                      </div>
-                      <span className="font-semibold text-sm">{formatCurrency(p.amount)}</span>
-                    </label>
-                  ))}
-                  <div className="flex justify-between items-center pt-2 border-t border-border">
-                    <span className="text-sm text-muted-foreground">Total selecionado:</span>
-                    <span className="font-bold text-foreground">{formatCurrency(selectedTotal)}</span>
-                  </div>
-                </>
-              ) : (
-                <div className="text-center py-4">
-                  <p className="text-sm text-muted-foreground">
-                    Confirmar pagamento de {paymentTarget ? formatCurrency(paymentTarget.total_pendente) : ''}?
-                  </p>
-                </div>
-              )}
-            </div>
-
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setPaymentModalOpen(false)}>
-                Cancelar
-              </Button>
-              <Button
-                onClick={handleConfirmPayment}
-                disabled={parcelas.length > 0 && selectedParcelas.size === 0}
-                loading={markSchedulesPaid.isPending || markTransactionPaid.isPending}
-                loadingText="Salvando..."
-              >
-                <CheckCircle className="mr-2 h-4 w-4" />
-                Confirmar Pagamento
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+        {/* Quitar Modal */}
+        <QuitarParcelaModal
+          open={quitarModalOpen}
+          onOpenChange={setQuitarModalOpen}
+          title={quitarTarget?.nome_cliente || ''}
+          subtitle={quitarTarget?.item_name || quitarTarget?.description || undefined}
+          parcelas={parcelas}
+          isLoadingParcelas={loadingParcelas}
+          singleTransactionId={parcelas.length === 0 ? quitarTarget?.id_master : undefined}
+          singleTransactionAmount={quitarTarget?.total_pendente}
+          onConfirmQuitar={handleConfirmQuitar}
+          onConfirmEstornar={isAdmin ? handleEstornar : undefined}
+          isSubmitting={markSchedulesPaid.isPending || markTransactionPaid.isPending}
+          isAdmin={isAdmin}
+        />
       </div>
     </AppLayout>
   );
@@ -569,7 +498,7 @@ function LancamentoCard({ lanc, onPayment, onEdit, isAdmin }: LancamentoCardProp
           <Pencil className="mr-1.5 h-4 w-4" />
           Editar
         </Button>
-        {!isPago && (
+        {!isPago ? (
           <Button
             variant="outline"
             size="sm"
@@ -577,7 +506,17 @@ function LancamentoCard({ lanc, onPayment, onEdit, isAdmin }: LancamentoCardProp
             className="flex-1 border-success text-success hover:bg-success hover:text-success-foreground"
           >
             <DollarSign className="mr-2 h-4 w-4" />
-            Registrar Pagamento
+            Quitar
+          </Button>
+        ) : isAdmin && lanc.qtd_parcelas_total > 1 && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => onPayment(lanc)}
+            className="text-muted-foreground hover:text-destructive"
+          >
+            <RotateCcw className="mr-1.5 h-4 w-4" />
+            Estornar
           </Button>
         )}
       </div>

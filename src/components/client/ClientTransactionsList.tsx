@@ -1,40 +1,182 @@
-import { useMemo } from 'react';
-import { useTransactions, Transaction } from '@/hooks/useTransactions';
+import { useState, useMemo } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { formatCurrency } from '@/lib/formatters';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Receipt, Package, Scissors, ArrowUpCircle, ArrowDownCircle } from 'lucide-react';
+import {
+  Receipt, Package, Scissors, ArrowUpCircle, ArrowDownCircle,
+  ChevronDown, ChevronUp, Clock, CheckCircle, AlertTriangle, Filter
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue
+} from '@/components/ui/select';
 import EntryStatusBadge from '@/components/EntryStatusBadge';
+import QuitarParcelaModal, { type QuitarPayload, type ParcelaItem } from '@/components/QuitarParcelaModal';
+import { useLancamentos } from '@/hooks/useLancamentos';
+import { toast } from 'sonner';
 
 interface ClientTransactionsListProps {
   clientId: string;
 }
 
+interface TransactionWithSchedules {
+  id: string;
+  date: string;
+  description: string | null;
+  item_name: string | null;
+  item_type: string | null;
+  amount: number;
+  quantity: number;
+  status: string;
+  payment_method: string;
+  type: string;
+  category: string | null;
+  due_date: string | null;
+  payment_date: string | null;
+  schedules: ParcelaItem[];
+}
+
 export default function ClientTransactionsList({ clientId }: ClientTransactionsListProps) {
-  const { transactions, isLoading } = useTransactions();
+  const { user, accountId, isAdmin } = useAuth();
+  const queryClient = useQueryClient();
+  const { markSchedulesPaid, revertSchedule } = useLancamentos();
 
-  const clientTransactions = useMemo(() => {
-    return transactions
-      .filter(t => t.client_id === clientId)
-      .sort((a, b) => b.date.localeCompare(a.date));
-  }, [transactions, clientId]);
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [expandedTxn, setExpandedTxn] = useState<string | null>(null);
+  const [showFilters, setShowFilters] = useState(false);
 
+  // Quitar modal
+  const [quitarOpen, setQuitarOpen] = useState(false);
+  const [quitarTxn, setQuitarTxn] = useState<TransactionWithSchedules | null>(null);
+
+  // Fetch ALL transactions for this client (no month filter)
+  const { data: transactions = [], isLoading } = useQuery({
+    queryKey: ['client-transactions', clientId, accountId],
+    queryFn: async (): Promise<TransactionWithSchedules[]> => {
+      // Get transactions
+      const { data: txns, error: txnErr } = await supabase
+        .from('transactions')
+        .select('id, date, description, amount, quantity, status, payment_method, type, category, due_date, payment_date, service_product_id')
+        .eq('client_id', clientId)
+        .order('date', { ascending: false });
+
+      if (txnErr) throw txnErr;
+      if (!txns || txns.length === 0) return [];
+
+      // Get service/product names
+      const spIds = txns.map(t => t.service_product_id).filter(Boolean);
+      let spMap: Record<string, { name: string; type: string }> = {};
+      if (spIds.length > 0) {
+        const { data: sps } = await supabase
+          .from('services_products')
+          .select('id, name, type')
+          .in('id', spIds as string[]);
+        if (sps) {
+          spMap = Object.fromEntries(sps.map(sp => [sp.id, { name: sp.name, type: sp.type }]));
+        }
+      }
+
+      // Get all schedules for these transactions
+      const txnIds = txns.map(t => t.id);
+      const { data: schedules } = await supabase
+        .from('entry_schedules')
+        .select('id, entry_id, installment_number, installments_total, due_date, amount, status, schedule_type, paid_at')
+        .in('entry_id', txnIds)
+        .order('installment_number', { ascending: true });
+
+      const schedulesByEntry: Record<string, ParcelaItem[]> = {};
+      (schedules || []).forEach(s => {
+        if (!schedulesByEntry[s.entry_id]) schedulesByEntry[s.entry_id] = [];
+        schedulesByEntry[s.entry_id].push({ ...s, amount: Number(s.amount) });
+      });
+
+      return txns.map(t => ({
+        id: t.id,
+        date: t.date,
+        description: t.description,
+        item_name: t.service_product_id && spMap[t.service_product_id]?.name || null,
+        item_type: t.service_product_id && spMap[t.service_product_id]?.type || null,
+        amount: Number(t.amount),
+        quantity: t.quantity,
+        status: t.status,
+        payment_method: t.payment_method,
+        type: t.type,
+        category: t.category,
+        due_date: t.due_date,
+        payment_date: t.payment_date,
+        schedules: schedulesByEntry[t.id] || [],
+      }));
+    },
+    enabled: !!user && !!accountId && !!clientId,
+  });
+
+  // Filter
+  const filtered = useMemo(() => {
+    if (statusFilter === 'all') return transactions;
+    if (statusFilter === 'pendente') return transactions.filter(t => {
+      if (t.schedules.length > 0) return t.schedules.some(s => s.status === 'pendente');
+      return t.status === 'pendente';
+    });
+    if (statusFilter === 'pago') return transactions.filter(t => {
+      if (t.schedules.length > 0) return t.schedules.every(s => s.status === 'pago');
+      return t.status === 'pago';
+    });
+    return transactions;
+  }, [transactions, statusFilter]);
+
+  // Totals
   const totals = useMemo(() => {
-    return clientTransactions.reduce(
+    return transactions.reduce(
       (acc, t) => {
         if (t.type === 'entrada') {
           acc.entradas += t.amount;
-          if (t.status === 'pago') acc.recebido += t.amount;
-          else acc.pendente += t.amount;
-        } else {
-          acc.saidas += t.amount;
+          if (t.schedules.length > 0) {
+            acc.recebido += t.schedules.filter(s => s.status === 'pago').reduce((s, p) => s + p.amount, 0);
+            acc.pendente += t.schedules.filter(s => s.status === 'pendente').reduce((s, p) => s + p.amount, 0);
+          } else {
+            if (t.status === 'pago') acc.recebido += t.amount;
+            else acc.pendente += t.amount;
+          }
         }
         return acc;
       },
-      { entradas: 0, saidas: 0, recebido: 0, pendente: 0 }
+      { entradas: 0, recebido: 0, pendente: 0 }
     );
-  }, [clientTransactions]);
+  }, [transactions]);
+
+  const handleOpenQuitar = (txn: TransactionWithSchedules) => {
+    setQuitarTxn(txn);
+    setQuitarOpen(true);
+  };
+
+  const handleConfirmQuitar = (payload: QuitarPayload) => {
+    if (payload.scheduleIds.length > 0) {
+      markSchedulesPaid.mutate(payload, {
+        onSuccess: () => {
+          setQuitarOpen(false);
+          queryClient.invalidateQueries({ queryKey: ['client-transactions', clientId] });
+        },
+      });
+    }
+  };
+
+  const handleEstornar = (scheduleId: string) => {
+    revertSchedule.mutate(scheduleId, {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ['client-transactions', clientId] });
+        // Refresh parcelas in the modal
+        if (quitarTxn) {
+          const updated = transactions.find(t => t.id === quitarTxn.id);
+          if (updated) setQuitarTxn(updated);
+        }
+      },
+    });
+  };
 
   if (isLoading) {
     return (
@@ -44,7 +186,7 @@ export default function ClientTransactionsList({ clientId }: ClientTransactionsL
     );
   }
 
-  if (clientTransactions.length === 0) {
+  if (transactions.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
         <Receipt size={40} className="mb-3 opacity-50" />
@@ -67,71 +209,160 @@ export default function ClientTransactionsList({ clientId }: ClientTransactionsL
         </div>
       </div>
 
-      {/* Transactions List */}
-      <div className="space-y-2">
+      {/* Filters */}
+      <div className="flex items-center justify-between">
         <h4 className="text-sm font-medium text-foreground">
-          Histórico ({clientTransactions.length} lançamentos)
+          Histórico ({filtered.length} lançamentos)
         </h4>
-        
-        {clientTransactions.map((transaction) => (
-          <TransactionCard key={transaction.id} transaction={transaction} />
-        ))}
+        <Button variant="ghost" size="sm" onClick={() => setShowFilters(!showFilters)}>
+          <Filter className="h-4 w-4 mr-1" />
+          Filtros
+        </Button>
       </div>
-    </div>
-  );
-}
 
-interface TransactionCardProps {
-  transaction: Transaction;
-}
+      {showFilters && (
+        <div className="flex gap-2">
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-[140px]">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos</SelectItem>
+              <SelectItem value="pendente">Pendentes</SelectItem>
+              <SelectItem value="pago">Pagos</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      )}
 
-function TransactionCard({ transaction }: TransactionCardProps) {
-  const isEntrada = transaction.type === 'entrada';
-  
-  const getCategoryIcon = () => {
-    if (transaction.category === 'servico') return <Scissors size={18} />;
-    if (transaction.category === 'produto') return <Package size={18} />;
-    return isEntrada ? <ArrowUpCircle size={18} /> : <ArrowDownCircle size={18} />;
-  };
+      {/* Transactions */}
+      <div className="space-y-2">
+        {filtered.map(txn => {
+          const isExpanded = expandedTxn === txn.id;
+          const hasSchedules = txn.schedules.length > 0;
+          const paidCount = txn.schedules.filter(s => s.status === 'pago').length;
+          const pendingCount = txn.schedules.filter(s => s.status === 'pendente').length;
+          const isEntrada = txn.type === 'entrada';
+          const overdue = txn.schedules.some(s => {
+            if (s.status === 'pago') return false;
+            return new Date(s.due_date + 'T00:00:00') < new Date(new Date().toISOString().split('T')[0] + 'T00:00:00');
+          });
 
-  const getCategoryLabel = () => {
-    const labels = { servico: 'Serviço', produto: 'Produto', outro: 'Outro' };
-    return labels[transaction.category] || 'Outro';
-  };
+          return (
+            <div key={txn.id} className="bg-card rounded-lg border border-border overflow-hidden">
+              {/* Main row */}
+              <div
+                className={cn("p-3 flex items-center gap-3 cursor-pointer hover:bg-accent/30 transition-colors", overdue && "border-l-4 border-l-destructive")}
+                onClick={() => setExpandedTxn(isExpanded ? null : txn.id)}
+              >
+                <div className={cn(
+                  'w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0',
+                  txn.item_type === 'servico' ? 'bg-primary/10 text-primary' : 'bg-accent text-accent-foreground'
+                )}>
+                  {txn.item_type === 'servico' ? <Scissors size={18} /> : <Package size={18} />}
+                </div>
 
-  return (
-    <div className="bg-card rounded-lg border border-border p-3 flex items-center gap-3">
-      <div className={cn(
-        'w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0',
-        isEntrada ? 'bg-success/10 text-success' : 'bg-destructive/10 text-destructive'
-      )}>
-        {getCategoryIcon()}
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-foreground text-sm truncate">
+                    {txn.item_name || txn.description || 'Item não informado'}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {format(parseISO(txn.date), 'dd MMM yyyy', { locale: ptBR })}
+                    {txn.quantity > 1 && ` • ${txn.quantity}x`}
+                    {hasSchedules && ` • ${paidCount}/${txn.schedules.length} pagas`}
+                  </p>
+                </div>
+
+                <div className="text-right flex flex-col items-end gap-1 shrink-0">
+                  <p className={cn("font-semibold text-sm", isEntrada ? "text-foreground" : "text-destructive")}>
+                    {formatCurrency(txn.amount)}
+                  </p>
+                  {overdue && (
+                    <span className="text-xs font-medium px-2 py-0.5 rounded-full text-destructive bg-destructive/10">
+                      Atrasado
+                    </span>
+                  )}
+                  {!overdue && (
+                    <EntryStatusBadge
+                      status={(hasSchedules ? (pendingCount > 0 ? 'pendente' : 'pago') : txn.status) as 'pago' | 'pendente'}
+                      dueDate={txn.due_date}
+                      paymentDate={txn.payment_date}
+                      size="sm"
+                    />
+                  )}
+                </div>
+                {hasSchedules && (
+                  isExpanded ? <ChevronUp size={16} className="text-muted-foreground shrink-0" /> : <ChevronDown size={16} className="text-muted-foreground shrink-0" />
+                )}
+              </div>
+
+              {/* Expanded: Schedule timeline */}
+              {isExpanded && hasSchedules && (
+                <div className="border-t border-border px-3 py-2 space-y-1.5 bg-muted/30">
+                  <div className="flex items-center justify-between mb-1">
+                    <p className="text-xs font-medium text-muted-foreground">Timeline de Parcelas</p>
+                    {pendingCount > 0 && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={(e) => { e.stopPropagation(); handleOpenQuitar(txn); }}
+                        className="text-xs h-7 border-success text-success hover:bg-success hover:text-success-foreground"
+                      >
+                        <CheckCircle className="mr-1 h-3 w-3" />
+                        Quitar
+                      </Button>
+                    )}
+                  </div>
+                  {txn.schedules.map(s => {
+                    const isPago = s.status === 'pago';
+                    const isOverdue = !isPago && new Date(s.due_date + 'T00:00:00') < new Date(new Date().toISOString().split('T')[0] + 'T00:00:00');
+                    return (
+                      <div key={s.id} className={cn(
+                        "flex items-center gap-2 p-2 rounded-md text-xs",
+                        isPago ? "bg-success/5" : isOverdue ? "bg-destructive/5" : "bg-background"
+                      )}>
+                        {isPago ? (
+                          <CheckCircle className="h-3.5 w-3.5 text-success shrink-0" />
+                        ) : isOverdue ? (
+                          <AlertTriangle className="h-3.5 w-3.5 text-destructive shrink-0" />
+                        ) : (
+                          <Clock className="h-3.5 w-3.5 text-warning shrink-0" />
+                        )}
+                        <span className="font-medium">
+                          {s.schedule_type === 'installment' ? 'Parcela' : 'Mês'} {s.installment_number}/{s.installments_total}
+                        </span>
+                        <span className="text-muted-foreground">
+                          {format(parseISO(s.due_date), 'dd/MM/yyyy')}
+                        </span>
+                        <span className="ml-auto font-semibold">{formatCurrency(s.amount)}</span>
+                        <span className={cn(
+                          "px-1.5 py-0.5 rounded text-[10px] font-medium",
+                          isPago ? "bg-success/10 text-success" : isOverdue ? "bg-destructive/10 text-destructive" : "bg-warning/10 text-warning"
+                        )}>
+                          {isPago ? 'Pago' : isOverdue ? 'Atrasado' : 'Pendente'}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
-      
-      <div className="flex-1 min-w-0">
-        <p className="font-medium text-foreground text-sm truncate">
-          {transaction.description || transaction.item_name || getCategoryLabel()}
-        </p>
-        <p className="text-xs text-muted-foreground">
-          {format(parseISO(transaction.date), "dd MMM yyyy", { locale: ptBR })}
-          {transaction.quantity > 1 && ` • ${transaction.quantity}x`}
-        </p>
-      </div>
-      
-      <div className="text-right flex flex-col items-end gap-1">
-        <p className={cn(
-          "font-semibold text-sm",
-          isEntrada ? "text-foreground" : "text-destructive"
-        )}>
-          {isEntrada ? '+' : '-'} {formatCurrency(transaction.amount)}
-        </p>
-        <EntryStatusBadge 
-          status={transaction.status}
-          dueDate={transaction.due_date}
-          paymentDate={transaction.payment_date}
-          size="sm"
-        />
-      </div>
+
+      {/* Quitar Modal */}
+      <QuitarParcelaModal
+        open={quitarOpen}
+        onOpenChange={setQuitarOpen}
+        title={quitarTxn?.item_name || quitarTxn?.description || ''}
+        parcelas={quitarTxn?.schedules || []}
+        isLoadingParcelas={false}
+        onConfirmQuitar={handleConfirmQuitar}
+        onConfirmEstornar={isAdmin ? handleEstornar : undefined}
+        isSubmitting={markSchedulesPaid.isPending}
+        isAdmin={isAdmin}
+      />
     </div>
   );
 }
