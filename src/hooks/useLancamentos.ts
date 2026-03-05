@@ -34,6 +34,7 @@ export interface ParcelaPendente {
   amount: number;
   status: string;
   schedule_type: string;
+  paid_at?: string | null;
 }
 
 export function useLancamentos() {
@@ -76,29 +77,45 @@ export function useLancamentos() {
     staleTime: 0,
   });
 
-  // Fetch pending installments for a specific transaction (for payment modal)
-  const fetchParcelasPendentes = async (entryId: string): Promise<ParcelaPendente[]> => {
+  // Fetch ALL installments for a specific transaction (for quitar modal)
+  const fetchParcelasAll = async (entryId: string): Promise<ParcelaPendente[]> => {
     const { data, error } = await supabase
       .from('entry_schedules')
-      .select('id, entry_id, installment_number, installments_total, due_date, amount, status, schedule_type')
+      .select('id, entry_id, installment_number, installments_total, due_date, amount, status, schedule_type, paid_at')
       .eq('entry_id', entryId)
-      .eq('status', 'pendente')
       .order('installment_number', { ascending: true });
 
     if (error) throw error;
     return (data || []).map(s => ({ ...s, amount: Number(s.amount) }));
   };
 
-  // Mark selected schedules as paid
+  // Mark selected schedules as paid with payment details
   const markSchedulesPaid = useMutation({
-    mutationFn: async (scheduleIds: string[]) => {
+    mutationFn: async (payload: {
+      scheduleIds: string[];
+      payment_method?: string;
+      amount_paid?: number;
+      payment_date?: string;
+      payment_notes?: string;
+    }) => {
+      const updates: Record<string, unknown> = {
+        status: 'pago',
+        paid_at: payload.payment_date
+          ? new Date(payload.payment_date + 'T12:00:00').toISOString()
+          : new Date().toISOString(),
+      };
+      if (payload.payment_method) updates.payment_method_used = payload.payment_method;
+      if (payload.payment_notes) updates.payment_notes = payload.payment_notes;
+      if (payload.amount_paid) updates.amount_paid = payload.amount_paid;
+      if (user?.id) {
+        updates.edited_by = user.id;
+        updates.edited_at = new Date().toISOString();
+      }
+
       const { error } = await supabase
         .from('entry_schedules')
-        .update({
-          status: 'pago',
-          paid_at: new Date().toISOString(),
-        })
-        .in('id', scheduleIds);
+        .update(updates)
+        .in('id', payload.scheduleIds);
 
       if (error) throw error;
     },
@@ -197,7 +214,7 @@ export function useLancamentos() {
     isLoading,
     error,
     isAdmin,
-    fetchParcelasPendentes,
+    fetchParcelasAll,
     markSchedulesPaid,
     markTransactionPaid,
     revertSchedule,

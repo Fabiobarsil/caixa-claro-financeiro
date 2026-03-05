@@ -83,6 +83,7 @@ export type Database = {
         Row: {
           account_id: string
           amount: number
+          amount_paid: number | null
           created_at: string
           due_date: string
           edited_at: string | null
@@ -92,6 +93,8 @@ export type Database = {
           installment_number: number
           installments_total: number
           paid_at: string | null
+          payment_method_used: string | null
+          payment_notes: string | null
           previous_status: string | null
           schedule_type: Database["public"]["Enums"]["schedule_type"]
           status: Database["public"]["Enums"]["entry_status"]
@@ -101,6 +104,7 @@ export type Database = {
         Insert: {
           account_id: string
           amount: number
+          amount_paid?: number | null
           created_at?: string
           due_date: string
           edited_at?: string | null
@@ -110,6 +114,8 @@ export type Database = {
           installment_number?: number
           installments_total?: number
           paid_at?: string | null
+          payment_method_used?: string | null
+          payment_notes?: string | null
           previous_status?: string | null
           schedule_type: Database["public"]["Enums"]["schedule_type"]
           status?: Database["public"]["Enums"]["entry_status"]
@@ -119,6 +125,7 @@ export type Database = {
         Update: {
           account_id?: string
           amount?: number
+          amount_paid?: number | null
           created_at?: string
           due_date?: string
           edited_at?: string | null
@@ -128,6 +135,8 @@ export type Database = {
           installment_number?: number
           installments_total?: number
           paid_at?: string | null
+          payment_method_used?: string | null
+          payment_notes?: string | null
           previous_status?: string | null
           schedule_type?: Database["public"]["Enums"]["schedule_type"]
           status?: Database["public"]["Enums"]["entry_status"]
@@ -692,6 +701,13 @@ export type Database = {
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "webhook_events_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "v_subscriptions_panel"
+            referencedColumns: ["id"]
+          },
         ]
       }
       webhook_requests: {
@@ -791,6 +807,265 @@ export type Database = {
           account_id: string | null
           profit_m: number | null
           recommended_prolabore: number | null
+        }
+        Relationships: []
+      }
+      v_subscriptions: {
+        Row: {
+          account_id: string | null
+          created_at: string | null
+          current_period_end: string | null
+          current_period_start: string | null
+          first_activity_date: string | null
+          id: string | null
+          plan_type: string | null
+          stripe_customer_id: string | null
+          stripe_subscription_id: string | null
+          subscription_status: string | null
+          trial_days_used: number | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          account_id?: string | null
+          created_at?: string | null
+          current_period_end?: string | null
+          current_period_start?: string | null
+          first_activity_date?: string | null
+          id?: string | null
+          plan_type?: string | null
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          subscription_status?: string | null
+          trial_days_used?: number | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          account_id?: string | null
+          created_at?: string | null
+          current_period_end?: string | null
+          current_period_start?: string | null
+          first_activity_date?: string | null
+          id?: string | null
+          plan_type?: string | null
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          subscription_status?: string | null
+          trial_days_used?: number | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subscriptions_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      v_subscriptions_panel: {
+        Row: {
+          account_id: string | null
+          avatar_url: string | null
+          company_name: string | null
+          cpf: string | null
+          created_at: string | null
+          email: string | null
+          first_activity_at: string | null
+          id: string | null
+          is_active: boolean | null
+          is_system_admin: boolean | null
+          name: string | null
+          next_billing_date: string | null
+          onboarding_done: boolean | null
+          paid_until: string | null
+          phone: string | null
+          plan_type: string | null
+          selected_plan: string | null
+          subscription_expiration_date: string | null
+          subscription_plan: string | null
+          subscription_source: string | null
+          subscription_start_date: string | null
+          subscription_status: string | null
+          terms_accepted_at: string | null
+          trial_days: number | null
+          trial_end_date: string | null
+          trial_start_date: string | null
+          updated_at: string | null
+          user_id: string | null
+          vacation_end: string | null
+          vacation_start: string | null
+        }
+        Insert: {
+          account_id?: string | null
+          avatar_url?: string | null
+          company_name?: string | null
+          cpf?: string | null
+          created_at?: string | null
+          email?: string | null
+          first_activity_at?: string | null
+          id?: string | null
+          is_active?: boolean | null
+          is_system_admin?: boolean | null
+          name?: string | null
+          next_billing_date?: string | null
+          onboarding_done?: boolean | null
+          paid_until?: string | null
+          phone?: string | null
+          plan_type?: string | null
+          selected_plan?: string | null
+          subscription_expiration_date?: string | null
+          subscription_plan?: string | null
+          subscription_source?: string | null
+          subscription_start_date?: string | null
+          subscription_status?: string | null
+          terms_accepted_at?: string | null
+          trial_days?: number | null
+          trial_end_date?: string | null
+          trial_start_date?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+          vacation_end?: string | null
+          vacation_start?: string | null
+        }
+        Update: {
+          account_id?: string | null
+          avatar_url?: string | null
+          company_name?: string | null
+          cpf?: string | null
+          created_at?: string | null
+          email?: string | null
+          first_activity_at?: string | null
+          id?: string | null
+          is_active?: boolean | null
+          is_system_admin?: boolean | null
+          name?: string | null
+          next_billing_date?: string | null
+          onboarding_done?: boolean | null
+          paid_until?: string | null
+          phone?: string | null
+          plan_type?: string | null
+          selected_plan?: string | null
+          subscription_expiration_date?: string | null
+          subscription_plan?: string | null
+          subscription_source?: string | null
+          subscription_start_date?: string | null
+          subscription_status?: string | null
+          terms_accepted_at?: string | null
+          trial_days?: number | null
+          trial_end_date?: string | null
+          trial_start_date?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+          vacation_end?: string | null
+          vacation_start?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profiles_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      v_webhook_events: {
+        Row: {
+          created_at: string | null
+          email: string | null
+          email_sent: boolean | null
+          email_type: string | null
+          error_message: string | null
+          expiration_date_applied: string | null
+          id: string | null
+          normalized_event: string | null
+          normalized_plan: string | null
+          profile_id: string | null
+          raw_event: string | null
+          raw_product: string | null
+          subscription_status_applied: string | null
+          success: boolean | null
+        }
+        Insert: {
+          created_at?: string | null
+          email?: string | null
+          email_sent?: boolean | null
+          email_type?: string | null
+          error_message?: string | null
+          expiration_date_applied?: string | null
+          id?: string | null
+          normalized_event?: string | null
+          normalized_plan?: string | null
+          profile_id?: string | null
+          raw_event?: string | null
+          raw_product?: string | null
+          subscription_status_applied?: string | null
+          success?: boolean | null
+        }
+        Update: {
+          created_at?: string | null
+          email?: string | null
+          email_sent?: boolean | null
+          email_type?: string | null
+          error_message?: string | null
+          expiration_date_applied?: string | null
+          id?: string | null
+          normalized_event?: string | null
+          normalized_plan?: string | null
+          profile_id?: string | null
+          raw_event?: string | null
+          raw_product?: string | null
+          subscription_status_applied?: string | null
+          success?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "webhook_events_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "webhook_events_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "v_subscriptions_panel"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      v_webhook_requests: {
+        Row: {
+          created_at: string | null
+          headers: Json | null
+          id: string | null
+          raw_body: string | null
+          reason: string | null
+          source: string | null
+          status_code: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          headers?: Json | null
+          id?: string | null
+          raw_body?: string | null
+          reason?: string | null
+          source?: string | null
+          status_code?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          headers?: Json | null
+          id?: string | null
+          raw_body?: string | null
+          reason?: string | null
+          source?: string | null
+          status_code?: number | null
         }
         Relationships: []
       }
