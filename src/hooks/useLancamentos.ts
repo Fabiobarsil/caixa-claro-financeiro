@@ -125,6 +125,7 @@ export function useLancamentos() {
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       queryClient.invalidateQueries({ queryKey: ['financial-snapshot'] });
+      queryClient.invalidateQueries({ queryKey: ['cobrancas'] });
       toast.success('Pagamento registrado!');
     },
     onError: (error: Error) => {
@@ -148,6 +149,7 @@ export function useLancamentos() {
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       queryClient.invalidateQueries({ queryKey: ['financial-snapshot'] });
+      queryClient.invalidateQueries({ queryKey: ['cobrancas'] });
       toast.success('Pagamento registrado!');
     },
     onError: (error: Error) => {
@@ -175,6 +177,7 @@ export function useLancamentos() {
       queryClient.invalidateQueries({ queryKey: ['lancamentos-consolidados'] });
       queryClient.invalidateQueries({ queryKey: ['entry_schedules'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['cobrancas'] });
       toast.success('Revertido para pendente');
     },
     onError: (error: Error) => {
