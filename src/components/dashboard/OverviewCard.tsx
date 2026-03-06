@@ -18,7 +18,7 @@ export default function OverviewCard({ snapshot }: OverviewCardProps) {
     { name: 'Saiu', value: saiu || 0.01 },
   ];
 
-  const COLORS = ['#22c55e', '#ef4444'];
+  const COLORS = ['hsl(152, 60%, 38%)', 'hsl(4, 72%, 52%)'];
 
   return (
     <SectionCard title="Visão Geral" subtitle="Entrou × Saiu neste mês">
@@ -26,30 +26,30 @@ export default function OverviewCard({ snapshot }: OverviewCardProps) {
         {/* Left: metrics */}
         <div className="space-y-4">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-full bg-[#22c55e]/10 flex items-center justify-center">
-              <ArrowDownCircle size={16} className="text-[#22c55e]" />
+            <div className="w-8 h-8 rounded-full bg-success/10 flex items-center justify-center">
+              <ArrowDownCircle size={16} className="text-success" />
             </div>
             <div>
               <p className="text-xs text-muted-foreground">Entrou</p>
-              <p className="text-sm font-bold text-[#22c55e]">{formatCurrency(entrou)}</p>
+              <p className="text-sm font-bold text-success">{formatCurrency(entrou)}</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-full bg-[#ef4444]/10 flex items-center justify-center">
-              <ArrowUpCircle size={16} className="text-[#ef4444]" />
+            <div className="w-8 h-8 rounded-full bg-expense/10 flex items-center justify-center">
+              <ArrowUpCircle size={16} className="text-expense" />
             </div>
             <div>
               <p className="text-xs text-muted-foreground">Saiu</p>
-              <p className="text-sm font-bold text-[#ef4444]">{formatCurrency(saiu)}</p>
+              <p className="text-sm font-bold text-expense">{formatCurrency(saiu)}</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-full bg-blue-500/10 flex items-center justify-center">
-              <Wallet size={16} className="text-blue-500" />
+            <div className="w-8 h-8 rounded-full bg-profit/10 flex items-center justify-center">
+              <Wallet size={16} className="text-profit" />
             </div>
             <div>
               <p className="text-xs text-muted-foreground">Sobrou</p>
-              <p className={`text-sm font-bold ${sobrou >= 0 ? 'text-blue-500' : 'text-[#ef4444]'}`}>
+              <p className={`text-sm font-bold ${sobrou >= 0 ? 'text-profit' : 'text-expense'}`}>
                 {formatCurrency(sobrou)}
               </p>
             </div>

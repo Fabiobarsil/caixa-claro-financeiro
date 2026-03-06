@@ -58,7 +58,7 @@ export default function GlobalHeader({ className }: GlobalHeaderProps) {
 
   return (
     <header className={cn(
-      "flex items-center justify-between py-3 px-4 lg:px-6 bg-card border-b border-border",
+      "flex items-center justify-between py-3 px-4 lg:px-6 bg-card/80 backdrop-blur-sm border-b border-border sticky top-0 z-30",
       className
     )}>
       {/* Left: Logo + Dashboard shortcut */}
@@ -120,7 +120,7 @@ export default function GlobalHeader({ className }: GlobalHeaderProps) {
               className="flex items-center gap-1 px-2 py-1.5 rounded-lg hover:bg-secondary transition-colors"
               aria-label="Menu do usuário"
             >
-              <Avatar className="w-8 h-8">
+              <Avatar className="w-9 h-9">
                 {avatarUrl ? <AvatarImage src={avatarUrl} alt={user?.name} /> : null}
                 <AvatarFallback className="bg-primary/20 text-primary font-medium text-sm">
                   {user?.name?.charAt(0).toUpperCase() || 'G'}

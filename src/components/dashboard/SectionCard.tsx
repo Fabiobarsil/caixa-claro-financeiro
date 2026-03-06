@@ -29,7 +29,7 @@ export default function SectionCard({
 }: SectionCardProps) {
   return (
     <div className={cn(
-      'bg-card rounded-2xl border border-border shadow-sm',
+      'bg-card rounded-xl border border-border shadow-card',
       className
     )}>
       {(title || action || headerContent) && (
