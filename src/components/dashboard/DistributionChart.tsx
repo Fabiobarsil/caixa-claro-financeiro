@@ -58,16 +58,16 @@ export default function DistributionChart({
 
   if (total === 0) {
     return (
-      <SectionCard title={`Despesas por Categoria | ${monthLabel}`}>
-        <div className="flex items-center justify-center h-48 text-muted-foreground text-sm">
-          Sem despesas neste mês
+      <SectionCard title={`Despesas por Categoria | ${monthLabel}`} className="border-border/60 shadow-none bg-card/80">
+        <div className="flex items-center justify-center py-6 text-muted-foreground text-sm">
+          Sem despesas registradas neste mês.
         </div>
       </SectionCard>
     );
   }
 
   return (
-    <SectionCard title={`Despesas por Categoria | ${monthLabel}`}>
+    <SectionCard title={`Despesas por Categoria | ${monthLabel}`} className="border-border/60 shadow-none bg-card/80">
       <div className="h-44">
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
