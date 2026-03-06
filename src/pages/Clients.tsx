@@ -35,7 +35,7 @@ export default function Clients() {
             <p className="text-sm text-muted-foreground">{clients.length} clientes cadastrados</p>
           </div>
           
-          <Button size="icon" className="rounded-full" onClick={handleCreateClient}>
+          <Button variant="success" size="icon" className="rounded-full" onClick={handleCreateClient}>
             <Plus size={20} />
           </Button>
         </div>
@@ -57,15 +57,15 @@ export default function Clients() {
 
         {/* Empty State */}
         {!isLoading && clients.length === 0 && (
-          <div className="text-center py-12 animate-fade-in">
-            <User className="mx-auto h-12 w-12 text-muted-foreground/50 mb-4" />
+          <div className="text-center py-16 animate-fade-in">
+            <User className="mx-auto h-12 w-12 text-muted-foreground/40 mb-4" />
             <h3 className="text-lg font-medium text-foreground mb-2">
-              Você ainda não cadastrou nenhum cliente.
+              Nenhum cliente cadastrado
             </h3>
-            <p className="text-sm text-muted-foreground mb-4 max-w-xs mx-auto">
+            <p className="text-sm text-muted-foreground mb-5 max-w-xs mx-auto">
               Clientes ajudam a organizar seus recebimentos e histórico financeiro.
             </p>
-            <Button onClick={handleCreateClient}>
+            <Button variant="success" onClick={handleCreateClient}>
               <Plus className="mr-2 h-4 w-4" />
               Adicionar cliente
             </Button>
