@@ -72,11 +72,11 @@ function ReceivableCard({ item, onReceber }: { item: Receivable; onReceber: () =
         </span>
       </div>
 
-      <div className="flex items-center gap-2 pt-1">
+      <div className="flex justify-end items-center gap-2 pt-1">
         <Button
           onClick={onReceber}
           size="sm"
-          className="flex-1 bg-success hover:bg-success/90 text-success-foreground"
+          variant="success"
         >
           <HandCoins className="mr-1.5 h-4 w-4" />
           Receber

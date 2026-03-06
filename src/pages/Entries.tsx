@@ -493,7 +493,7 @@ function LancamentoCard({ lanc, onPayment, onEdit, isAdmin }: LancamentoCardProp
       )}
 
       {/* Actions */}
-      <div className="flex gap-2">
+      <div className="flex justify-end gap-2">
         <Button variant="outline" size="sm" onClick={() => onEdit(lanc)} className="text-muted-foreground hover:text-foreground">
           <Pencil className="mr-1.5 h-3.5 w-3.5" />
           Editar
@@ -503,7 +503,6 @@ function LancamentoCard({ lanc, onPayment, onEdit, isAdmin }: LancamentoCardProp
             variant="success"
             size="sm"
             onClick={() => onPayment(lanc)}
-            className="flex-1"
           >
             <DollarSign className="mr-1.5 h-3.5 w-3.5" />
             Quitar
