@@ -2,130 +2,130 @@
 @tailwind components;
 @tailwind utilities;
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700;14..32,800&display=swap');
 
 @layer base {
   :root {
-    /* Brand Colors */
-    --background: 210 20% 98%;
-    --foreground: 220 20% 10%;
+    /* Brand Colors - Clean SaaS palette */
+    --background: 216 20% 97%;
+    --foreground: 222 20% 12%;
 
     --card: 0 0% 100%;
-    --card-foreground: 220 20% 10%;
+    --card-foreground: 222 20% 12%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 220 20% 10%;
+    --popover-foreground: 222 20% 12%;
 
-    /* Primary - Clean Blue (Trust & Clarity) */
-    --primary: 210 100% 50%;
+    /* Primary - Trustworthy Blue */
+    --primary: 213 94% 48%;
     --primary-foreground: 0 0% 100%;
 
     /* Secondary */
-    --secondary: 210 20% 96%;
-    --secondary-foreground: 220 20% 20%;
+    --secondary: 216 18% 96%;
+    --secondary-foreground: 222 18% 22%;
 
     /* Muted */
-    --muted: 210 15% 95%;
-    --muted-foreground: 220 10% 45%;
+    --muted: 216 14% 94%;
+    --muted-foreground: 222 10% 48%;
 
     /* Accent */
-    --accent: 210 100% 96%;
-    --accent-foreground: 210 100% 40%;
+    --accent: 213 94% 96%;
+    --accent-foreground: 213 94% 38%;
 
-    /* Destructive - Soft Red for Expenses */
-    --destructive: 0 72% 51%;
+    /* Destructive */
+    --destructive: 4 72% 52%;
     --destructive-foreground: 0 0% 100%;
 
-    /* Financial Colors */
-    --success: 152 69% 40%;
+    /* Financial Semantic Colors */
+    --success: 152 60% 38%;
     --success-foreground: 0 0% 100%;
-    --success-light: 152 69% 95%;
+    --success-light: 152 50% 95%;
     
     --warning: 38 92% 50%;
     --warning-foreground: 0 0% 100%;
-    --warning-light: 38 92% 95%;
+    --warning-light: 38 80% 95%;
     
-    --expense: 0 72% 55%;
+    --expense: 4 72% 52%;
     --expense-foreground: 0 0% 100%;
-    --expense-light: 0 72% 97%;
+    --expense-light: 4 60% 97%;
     
-    --profit: 200 80% 40%;
+    --profit: 213 80% 42%;
     --profit-foreground: 0 0% 100%;
-    --profit-light: 200 80% 95%;
+    --profit-light: 213 70% 96%;
 
     /* UI Elements */
-    --border: 210 20% 90%;
-    --input: 210 20% 90%;
-    --ring: 210 100% 50%;
+    --border: 216 18% 91%;
+    --input: 216 18% 91%;
+    --ring: 213 94% 48%;
 
-    --radius: 0.75rem;
+    --radius: 0.5rem;
 
-    /* Sidebar - Dark premium style */
-    --sidebar-background: 220 25% 12%;
-    --sidebar-foreground: 210 20% 85%;
-    --sidebar-primary: 152 69% 50%;
+    /* Sidebar - Dark premium */
+    --sidebar-background: 222 28% 11%;
+    --sidebar-foreground: 216 18% 85%;
+    --sidebar-primary: 152 60% 48%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 220 20% 18%;
+    --sidebar-accent: 222 22% 16%;
     --sidebar-accent-foreground: 0 0% 100%;
-    --sidebar-border: 220 20% 18%;
-    --sidebar-ring: 152 69% 50%;
+    --sidebar-border: 222 22% 16%;
+    --sidebar-ring: 152 60% 48%;
 
-    /* Shadows */
-    --shadow-sm: 0 1px 2px 0 hsl(220 20% 10% / 0.03);
-    --shadow-md: 0 4px 6px -1px hsl(220 20% 10% / 0.05), 0 2px 4px -2px hsl(220 20% 10% / 0.05);
-    --shadow-lg: 0 10px 15px -3px hsl(220 20% 10% / 0.08), 0 4px 6px -4px hsl(220 20% 10% / 0.05);
-    --shadow-card: 0 2px 8px -2px hsl(220 20% 10% / 0.08);
+    /* Elevation Shadows */
+    --shadow-sm: 0 1px 2px 0 hsl(222 20% 12% / 0.04);
+    --shadow-md: 0 4px 8px -2px hsl(222 20% 12% / 0.06), 0 2px 4px -2px hsl(222 20% 12% / 0.04);
+    --shadow-lg: 0 12px 24px -4px hsl(222 20% 12% / 0.08), 0 4px 8px -4px hsl(222 20% 12% / 0.04);
+    --shadow-card: 0 1px 3px 0 hsl(222 20% 12% / 0.06), 0 1px 2px -1px hsl(222 20% 12% / 0.04);
   }
 
   .dark {
-    --background: 220 20% 8%;
-    --foreground: 210 20% 98%;
+    --background: 222 24% 7%;
+    --foreground: 216 18% 96%;
 
-    --card: 220 20% 12%;
-    --card-foreground: 210 20% 98%;
+    --card: 222 22% 11%;
+    --card-foreground: 216 18% 96%;
 
-    --popover: 220 20% 12%;
-    --popover-foreground: 210 20% 98%;
+    --popover: 222 22% 11%;
+    --popover-foreground: 216 18% 96%;
 
-    --primary: 210 100% 55%;
+    --primary: 213 94% 55%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 220 20% 18%;
-    --secondary-foreground: 210 20% 90%;
+    --secondary: 222 20% 16%;
+    --secondary-foreground: 216 18% 90%;
 
-    --muted: 220 15% 20%;
-    --muted-foreground: 220 10% 60%;
+    --muted: 222 18% 18%;
+    --muted-foreground: 222 10% 58%;
 
-    --accent: 210 100% 20%;
-    --accent-foreground: 210 100% 70%;
+    --accent: 213 80% 18%;
+    --accent-foreground: 213 80% 72%;
 
-    --destructive: 0 62% 45%;
+    --destructive: 4 62% 48%;
     --destructive-foreground: 0 0% 100%;
 
-    --success: 152 69% 45%;
-    --success-light: 152 69% 15%;
+    --success: 152 60% 42%;
+    --success-light: 152 50% 14%;
     
-    --warning: 38 92% 55%;
-    --warning-light: 38 92% 15%;
+    --warning: 38 92% 52%;
+    --warning-light: 38 80% 14%;
     
-    --expense: 0 72% 50%;
-    --expense-light: 0 72% 15%;
+    --expense: 4 72% 48%;
+    --expense-light: 4 60% 14%;
     
-    --profit: 200 80% 50%;
-    --profit-light: 200 80% 15%;
+    --profit: 213 80% 50%;
+    --profit-light: 213 70% 14%;
 
-    --border: 220 20% 20%;
-    --input: 220 20% 20%;
-    --ring: 210 100% 55%;
+    --border: 222 20% 18%;
+    --input: 222 20% 18%;
+    --ring: 213 94% 55%;
 
-    --sidebar-background: 220 20% 8%;
-    --sidebar-foreground: 210 20% 90%;
-    --sidebar-primary: 210 100% 55%;
+    --sidebar-background: 222 24% 7%;
+    --sidebar-foreground: 216 18% 88%;
+    --sidebar-primary: 213 94% 55%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 220 15% 15%;
-    --sidebar-accent-foreground: 210 20% 90%;
-    --sidebar-border: 220 20% 18%;
-    --sidebar-ring: 210 100% 55%;
+    --sidebar-accent: 222 18% 14%;
+    --sidebar-accent-foreground: 216 18% 90%;
+    --sidebar-border: 222 20% 16%;
+    --sidebar-ring: 213 94% 55%;
   }
 }
 

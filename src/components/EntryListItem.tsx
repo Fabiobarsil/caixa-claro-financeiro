@@ -11,7 +11,7 @@ export default function EntryListItem({ entry, onClick }: EntryListItemProps) {
   return (
     <div
       onClick={onClick}
-      className="flex items-center justify-between p-3 bg-card rounded-lg border border-border hover:border-primary/30 hover:shadow-sm transition-all duration-150 cursor-pointer active:scale-[0.99] active:opacity-90"
+      className="flex items-center justify-between py-3 px-4 bg-card rounded-xl border border-border hover:border-primary/25 hover:shadow-md transition-all duration-150 cursor-pointer active:scale-[0.99] active:opacity-90 min-h-[52px]"
     >
       <div className="flex-1 min-w-0">
         <p className="font-medium text-foreground truncate">{entry.clientName}</p>

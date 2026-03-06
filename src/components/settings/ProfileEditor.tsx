@@ -102,17 +102,17 @@ export default function ProfileEditor() {
   if (!user) return null;
 
   return (
-    <div className="bg-card rounded-xl border border-border mb-6">
-      <div className="p-4 border-b border-border">
-        <p className="font-medium text-foreground">Meu Perfil</p>
-        <p className="text-sm text-muted-foreground">Edite suas informações pessoais</p>
+    <div className="bg-card rounded-xl border border-border shadow-card mb-6">
+      <div className="p-5 border-b border-border">
+        <p className="text-base font-semibold text-foreground">Meu Perfil</p>
+        <p className="text-sm text-muted-foreground mt-0.5">Edite suas informações pessoais</p>
       </div>
 
-      <div className="p-4 space-y-5">
+      <div className="p-5 space-y-6">
         {/* Avatar */}
-        <div className="flex flex-col items-center gap-3">
+        <div className="flex flex-col items-center gap-4">
           <div className="relative">
-            <Avatar className="h-20 w-20">
+            <Avatar className="h-24 w-24 ring-2 ring-border ring-offset-2 ring-offset-background">
               {avatarPreview ? (
                 <AvatarImage src={avatarPreview} alt={user.name} />
               ) : null}
@@ -139,7 +139,14 @@ export default function ProfileEditor() {
             onChange={handleAvatarSelect}
           />
 
-          <p className="text-xs text-muted-foreground">Toque no ícone para alterar a foto</p>
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploading}
+            className="text-xs text-primary font-medium hover:underline disabled:opacity-50"
+          >
+            Alterar foto
+          </button>
         </div>
 
         {/* Name */}
@@ -168,7 +175,7 @@ export default function ProfileEditor() {
         <Button
           onClick={handleSave}
           disabled={saving || !name.trim()}
-          className="w-full"
+          className="w-full sm:w-auto sm:ml-auto sm:flex"
         >
           {saving ? <Loader2 size={16} className="mr-2 animate-spin" /> : <Save size={16} className="mr-2" />}
           Salvar Alterações
