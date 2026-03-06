@@ -142,9 +142,9 @@ export default function Entries() {
           </div>
           <div className="flex items-center gap-2">
             <MonthSelector value={monthPeriod} onChange={handleMonthChange} />
-            <Button onClick={() => navigate('/lancamentos/novo')} className="hidden lg:flex">
+            <Button variant="success" onClick={() => navigate('/lancamentos/novo')} className="hidden lg:flex">
               <Plus className="mr-2 h-4 w-4" />
-              Novo
+              Novo Lançamento
             </Button>
           </div>
         </div>
@@ -232,13 +232,13 @@ export default function Entries() {
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
             </div>
           ) : lancamentos.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-              <Receipt size={48} className="mb-4 opacity-50" />
-              <p className="text-center font-medium text-foreground">Ainda não há lançamentos registrados.</p>
+            <div className="flex flex-col items-center justify-center py-16 text-muted-foreground animate-fade-in">
+              <Receipt size={48} className="mb-4 opacity-40" />
+              <p className="text-center font-medium text-foreground text-lg">Nenhum lançamento encontrado</p>
               <p className="text-sm text-center mt-1 max-w-xs">
                 Registre serviços prestados, produtos vendidos ou parcelas a receber.
               </p>
-              <Button className="mt-4" onClick={() => navigate('/lancamentos/novo')}>
+              <Button variant="success" className="mt-5" onClick={() => navigate('/lancamentos/novo')}>
                 <Plus className="mr-2 h-4 w-4" />
                 Criar primeiro lançamento
               </Button>
@@ -494,28 +494,28 @@ function LancamentoCard({ lanc, onPayment, onEdit, isAdmin }: LancamentoCardProp
 
       {/* Actions */}
       <div className="flex gap-2">
-        <Button variant="ghost" size="sm" onClick={() => onEdit(lanc)} className="text-muted-foreground hover:text-primary">
-          <Pencil className="mr-1.5 h-4 w-4" />
+        <Button variant="outline" size="sm" onClick={() => onEdit(lanc)} className="text-muted-foreground hover:text-foreground">
+          <Pencil className="mr-1.5 h-3.5 w-3.5" />
           Editar
         </Button>
         {!isPago ? (
           <Button
-            variant="outline"
+            variant="success"
             size="sm"
             onClick={() => onPayment(lanc)}
-            className="flex-1 border-success text-success hover:bg-success hover:text-success-foreground"
+            className="flex-1"
           >
-            <DollarSign className="mr-2 h-4 w-4" />
+            <DollarSign className="mr-1.5 h-3.5 w-3.5" />
             Quitar
           </Button>
         ) : isAdmin && lanc.qtd_parcelas_total > 1 && (
           <Button
-            variant="ghost"
+            variant="outline"
             size="sm"
             onClick={() => onPayment(lanc)}
-            className="text-muted-foreground hover:text-destructive"
+            className="text-muted-foreground hover:text-destructive hover:border-destructive/30"
           >
-            <RotateCcw className="mr-1.5 h-4 w-4" />
+            <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
             Estornar
           </Button>
         )}

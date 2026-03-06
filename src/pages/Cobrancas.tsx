@@ -185,10 +185,10 @@ export default function Cobrancas() {
             <Loader2 className="animate-spin text-muted-foreground" size={32} />
           </div>
         ) : sortedItems.length === 0 ? (
-          <div className="text-center py-16 text-muted-foreground">
-            <CheckCircle2 className="mx-auto mb-3 text-success" size={40} />
-            <p className="font-medium">Nenhuma cobrança vencida!</p>
-            <p className="text-sm mt-1">Todos os pagamentos estão em dia.</p>
+          <div className="text-center py-16 text-muted-foreground animate-fade-in">
+            <CheckCircle2 className="mx-auto mb-4 text-success" size={48} />
+            <p className="font-medium text-foreground text-lg">Tudo em dia!</p>
+            <p className="text-sm mt-1">Nenhuma cobrança vencida encontrada neste período.</p>
           </div>
         ) : (
           <div className="space-y-3">

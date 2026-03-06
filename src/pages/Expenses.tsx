@@ -251,12 +251,14 @@ export default function Expenses() {
             <h1 className="text-xl font-bold text-foreground">Despesas</h1>
             <p className="text-sm text-muted-foreground">Controle de gastos</p>
           </div>
-          <button 
+          <Button
+            variant="success"
+            size="icon"
+            className="rounded-full"
             onClick={handleOpenCreateModal}
-            className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-primary-foreground"
           >
             <Plus size={20} />
-          </button>
+          </Button>
         </div>
 
         {/* Summary Card */}
@@ -307,16 +309,16 @@ export default function Expenses() {
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
           </div>
         ) : filteredExpenses.length === 0 ? (
-          <div className="text-center py-12">
-            <MoreHorizontal className="mx-auto h-12 w-12 text-muted-foreground/50 mb-4" />
+          <div className="text-center py-16 animate-fade-in">
+            <MoreHorizontal className="mx-auto h-12 w-12 text-muted-foreground/40 mb-4" />
             <h3 className="text-lg font-medium text-foreground mb-2">
-              {activeTab === 'todas' ? 'Sem despesas registradas.' : 'Nenhuma despesa neste filtro.'}
+              {activeTab === 'todas' ? 'Nenhuma despesa registrada' : 'Nenhuma despesa neste filtro'}
             </h3>
-            <p className="text-sm text-muted-foreground mb-4 max-w-xs mx-auto">
+            <p className="text-sm text-muted-foreground mb-5 max-w-xs mx-auto">
               Registrar despesas ajuda a entender seu lucro real.
             </p>
             {activeTab === 'todas' && (
-              <Button onClick={handleOpenCreateModal}>
+              <Button variant="success" onClick={handleOpenCreateModal}>
                 <Plus className="mr-2 h-4 w-4" />
                 Registrar despesa
               </Button>
@@ -570,8 +572,8 @@ function ExpenseForm({
           )}
         </div>
         <div className="flex gap-3">
-          <Button variant="ghost" onClick={onCancel}>Cancelar</Button>
-          <Button onClick={onSubmit} disabled={isPending}>
+          <Button variant="outline" onClick={onCancel}>Cancelar</Button>
+          <Button variant="success" onClick={onSubmit} disabled={isPending}>
             {isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
             Salvar
           </Button>

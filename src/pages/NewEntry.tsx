@@ -460,7 +460,7 @@ export default function NewEntry() {
           {/* Footer Actions */}
           <div className="p-5 border-t border-border flex items-center justify-end gap-3">
             <Button
-              variant="ghost"
+              variant="outline"
               onClick={() => navigate(-1)}
               disabled={isSubmitting}
             >
@@ -469,9 +469,8 @@ export default function NewEntry() {
             
             {status === 'pendente' && billingType === 'single' && (
               <Button
-                variant="outline"
+                variant="success"
                 onClick={() => handleSubmit(true)}
-                className="border-success text-success hover:bg-success hover:text-success-foreground"
                 disabled={isSubmitting}
               >
                 <Check className="mr-2 h-4 w-4" />
@@ -480,6 +479,7 @@ export default function NewEntry() {
             )}
             
             <Button
+              variant="success"
               onClick={() => handleSubmit(false)}
               disabled={isSubmitting}
             >
