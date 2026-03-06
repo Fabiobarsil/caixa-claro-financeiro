@@ -171,6 +171,7 @@ export default function Dashboard() {
                   value={hasActiveContext ? filteredSnapshot.recebido : snapshot.recebido}
                   icon={ArrowDownCircle}
                   variant="success"
+                  onClick={!hasActiveContext ? () => navigate(`/lancamentos?status=pagos&y=${monthPeriod.year}&m=${monthPeriod.month}`) : undefined}
                   tooltip="Total de entradas pagas no mês."
                   subtitle={hasActiveContext ? `Filtrado: ${activeContextLabel}` : monthLabel}
                 />
@@ -179,7 +180,7 @@ export default function Dashboard() {
                   value={hasActiveContext ? filteredSnapshot.a_receber : (snapshot.a_receber + snapshot.em_atraso)}
                   icon={Wallet}
                   variant="info"
-                  onClick={!hasActiveContext ? () => navigate('/lancamentos?status=pendente_geral') : undefined}
+                  onClick={!hasActiveContext ? () => navigate(`/cobrancas?y=${monthPeriod.year}&m=${monthPeriod.month}`) : undefined}
                   tooltip="Entradas pendentes (a vencer + atrasadas) no mês."
                   subtitle={hasActiveContext ? `Filtrado: ${activeContextLabel}` : monthLabel}
                 />
@@ -188,6 +189,7 @@ export default function Dashboard() {
                   value={hasActiveContext ? filteredSnapshot.despesas_pagas : snapshot.despesas_pagas}
                   icon={TrendingDown}
                   variant="expense"
+                  onClick={!hasActiveContext ? () => navigate(`/despesas?y=${monthPeriod.year}&m=${monthPeriod.month}`) : undefined}
                   tooltip="Total de despesas do mês."
                   subtitle={hasActiveContext ? `Filtrado: ${activeContextLabel}` : monthLabel}
                 />
