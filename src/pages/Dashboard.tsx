@@ -204,12 +204,24 @@ export default function Dashboard() {
               </div>
             </section>
 
-            {/* Visão Geral: Entrou x Saiu */}
+            {/* 2️⃣ Ação Imediata: Próximos Prazos + Vencimentos Críticos */}
+            <section className="mb-6">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-2">
+                  <UpcomingDeadlines items={criticalDueDates} />
+                </div>
+                <div className="lg:col-span-1">
+                  <CriticalDueDates items={criticalDueDates} />
+                </div>
+              </div>
+            </section>
+
+            {/* 3️⃣ Diagnóstico: Visão Geral */}
             <section className="mb-6">
               <OverviewCard snapshot={snapshot} />
             </section>
 
-            {/* Projeção e Risco */}
+            {/* 4️⃣ Projeção Futura */}
             <section className="mb-6">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <FinancialProjection
@@ -221,23 +233,9 @@ export default function Dashboard() {
               </div>
             </section>
 
-            {/* Vencimentos Críticos */}
-            <section className="mb-6">
-              <CriticalDueDates items={criticalDueDates} />
-            </section>
-
-            {/* Próximos Prazos - uses same criticalDueDates but filters to future */}
-            <section className="mb-6">
-              <UpcomingDeadlines items={criticalDueDates} />
-            </section>
-
-            {/* Charts */}
+            {/* 5️⃣ Informações Complementares */}
             <section className="mb-6">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <DistributionChart 
-                  expensesByCategory={expensesByCategory}
-                  monthLabel={monthLabel}
-                />
                 <FinancialEvolutionChart 
                   data={chartData}
                   activeContext={evolutionContext}
@@ -246,25 +244,29 @@ export default function Dashboard() {
                   semesterData={semesterData || []}
                   semesterLoading={semesterLoading}
                 />
+                <DistributionChart 
+                  expensesByCategory={expensesByCategory}
+                  monthLabel={monthLabel}
+                />
               </div>
             </section>
 
-            {/* Resumo & Calendar */}
+            {/* Resumo & Calendário (menor destaque) */}
             <section className="mb-6">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <SectionCard title={`Resumo | ${monthLabel}`}>
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between py-3 border-b border-border">
+                <SectionCard title={`Resumo | ${monthLabel}`} className="border-border/60 shadow-none bg-card/80">
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between py-2 border-b border-border/50">
                       <span className="text-sm text-muted-foreground">Total de atendimentos</span>
-                      <span className="text-lg font-semibold text-foreground">{snapshot.total_atendimentos}</span>
+                      <span className="text-base font-semibold text-foreground">{snapshot.total_atendimentos}</span>
                     </div>
-                    <div className="flex items-center justify-between py-3 border-b border-border">
+                    <div className="flex items-center justify-between py-2 border-b border-border/50">
                       <span className="text-sm text-muted-foreground">Ticket médio</span>
-                      <span className="text-lg font-semibold text-foreground">{formatCurrency(snapshot.ticket_medio)}</span>
+                      <span className="text-base font-semibold text-foreground">{formatCurrency(snapshot.ticket_medio)}</span>
                     </div>
-                    <div className="flex items-center justify-between py-3">
+                    <div className="flex items-center justify-between py-2">
                       <span className="text-sm text-muted-foreground">Previsão de Saldo</span>
-                      <span className="text-lg font-semibold text-foreground">
+                      <span className="text-base font-semibold text-foreground">
                         {formatCurrency((snapshot.recebido + snapshot.a_receber) - (snapshot.despesas_pagas + snapshot.despesas_a_vencer))}
                       </span>
                     </div>
