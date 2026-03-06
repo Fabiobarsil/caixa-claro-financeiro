@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { format, eachDayOfInterval, parseISO, lastDayOfMonth } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 import type { MonthPeriod } from '@/components/dashboard/TimeWindowSelector';
 
 // ============================================
@@ -109,7 +110,7 @@ export function useFinancialSnapshot(monthPeriod: MonthPeriod): UseFinancialSnap
     const now = new Date();
     const todayUtc = now.toISOString().slice(0, 10);
     const todayMidnight = new Date(todayUtc + 'T00:00:00Z');
-    const label = format(first, "MMMM/yyyy");
+    const label = format(first, "MMMM/yyyy", { locale: ptBR }).replace(/^\w/, c => c.toUpperCase());
 
     return {
       startDate: startStr,
