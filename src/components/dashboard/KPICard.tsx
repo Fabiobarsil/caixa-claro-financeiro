@@ -16,64 +16,79 @@ interface KPICardProps {
 const variantStyles = {
   success: {
     bg: 'bg-success-light',
-    border: 'border-success/15',
-    icon: 'bg-success text-success-foreground',
+    border: 'border-success/20',
+    hoverBorder: 'hover:border-success/40',
+    icon: 'bg-success/15 text-success',
     value: 'text-success',
   },
   info: {
     bg: 'bg-profit-light',
-    border: 'border-profit/15',
-    icon: 'bg-profit text-profit-foreground',
+    border: 'border-profit/20',
+    hoverBorder: 'hover:border-profit/40',
+    icon: 'bg-profit/15 text-profit',
     value: 'text-profit',
   },
   expense: {
     bg: 'bg-expense-light',
-    border: 'border-expense/15',
-    icon: 'bg-expense text-expense-foreground',
+    border: 'border-expense/20',
+    hoverBorder: 'hover:border-expense/40',
+    icon: 'bg-expense/15 text-expense',
     value: 'text-expense',
   },
   neutral: {
-    bg: 'bg-secondary',
+    bg: 'bg-card',
     border: 'border-border',
-    icon: 'bg-foreground/80 text-background',
+    hoverBorder: 'hover:border-foreground/25',
+    icon: 'bg-foreground/10 text-foreground',
     value: 'text-foreground',
   },
 };
 
 export default function KPICard({ title, value, icon: Icon, variant, onClick, tooltip, subtitle }: KPICardProps) {
   const styles = variantStyles[variant];
-  const Component = onClick ? 'button' : 'div';
 
   return (
-    <Component
+    <div
       onClick={onClick}
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
       className={cn(
-        'rounded-xl p-5 border transition-all duration-150 w-full text-left group',
-        'shadow-card hover:shadow-md',
-        'hover:border-primary/25 hover:-translate-y-0.5',
-        'active:scale-[0.99] active:opacity-95',
+        'rounded-xl p-5 border transition-all duration-200 w-full text-left cursor-pointer',
+        'shadow-card hover:shadow-lg hover:-translate-y-0.5',
+        'active:scale-[0.98] active:shadow-card',
         styles.bg,
         styles.border,
-        onClick && 'cursor-pointer'
+        styles.hoverBorder,
       )}
     >
-      <CertusCardHeader
-        title={title}
-        helpText={tooltip}
-        icon={
-          <div className={cn('w-9 h-9 rounded-lg flex items-center justify-center', styles.icon)}>
-            <Icon size={18} />
-          </div>
-        }
-        className="mb-3"
-        titleClassName="text-xs font-medium uppercase tracking-wider text-muted-foreground"
-      />
+      {/* Header: title left, icon right */}
+      <div className="flex items-start justify-between mb-3">
+        <div className="flex items-center gap-1.5">
+          <span className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+            {title}
+          </span>
+          {tooltip && (
+            <CertusCardHeader
+              title=""
+              helpText={tooltip}
+              className="inline-flex"
+            />
+          )}
+        </div>
+        <div className={cn('w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0', styles.icon)}>
+          <Icon size={18} strokeWidth={2} />
+        </div>
+      </div>
+
+      {/* Value */}
       <p className={cn('text-[28px] font-bold tracking-tight leading-none', styles.value)}>
         {formatCurrency(value)}
       </p>
+
+      {/* Subtitle / period */}
       {subtitle && (
-        <p className="text-[11px] text-muted-foreground mt-2">{subtitle}</p>
+        <p className="text-[11px] text-muted-foreground/70 mt-2 font-medium">{subtitle}</p>
       )}
-    </Component>
+    </div>
   );
 }
