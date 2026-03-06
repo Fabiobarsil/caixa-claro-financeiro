@@ -204,23 +204,17 @@ export default function Dashboard() {
               </div>
             </section>
 
-            {/* 2️⃣ Ação Imediata: Próximos Prazos + Vencimentos Críticos */}
+            {/* 2️⃣ Ação Imediata + Diagnóstico */}
             <section className="mb-6">
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div className="lg:col-span-2">
-                  <UpcomingDeadlines items={criticalDueDates} />
-                </div>
-                <div className="lg:col-span-1">
-                  <CriticalDueDates items={criticalDueDates} />
-                </div>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <UpcomingDeadlines items={criticalDueDates} />
+                <OverviewCard snapshot={snapshot} />
               </div>
             </section>
 
-            {/* 3️⃣ Diagnóstico: Visão Geral */}
-            <section className="mb-6">
-              <OverviewCard snapshot={snapshot} />
-            </section>
-
+            {/* 3️⃣ Vencimentos Críticos + Projeção Futura */}
+            <CriticalDueDates items={criticalDueDates} />
+            
             {/* 4️⃣ Projeção Futura */}
             <section className="mb-6">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
