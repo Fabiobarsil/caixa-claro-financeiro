@@ -30,6 +30,7 @@ import AdminSubscriptions from "./pages/AdminSubscriptions";
 import LGPD from "./pages/LGPD";
 import Welcome from "./pages/Welcome";
 import Cobrancas from "./pages/Cobrancas";
+import Reports from "./pages/Reports";
 
 // Component to show configuration error
 function SupabaseConfigError() {
@@ -210,6 +211,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <Cobrancas />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/relatorios"
+        element={
+          <ProtectedRoute>
+            <Reports />
           </ProtectedRoute>
         }
       />
