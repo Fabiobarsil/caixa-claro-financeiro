@@ -44,14 +44,14 @@ export default function Reports() {
 
   // Build unified rows from lancamentos (consolidated view) + include expenses via lancamentos
   const rows: ReportRow[] = useMemo(() => {
-    // Use transactions directly for a flat list with client names
+    // Use due_date (vencimento) as the reference date for period filtering; fallback to date
     return transactions.map(t => ({
       id: t.id,
       cliente: t.client_name || 'Sem cliente',
       descricao: t.item_name || t.description || '-',
       valor: t.amount,
       forma_pagamento: PAYMENT_LABELS[t.payment_method] || t.payment_method,
-      data: t.date,
+      data: t.due_date || t.date,
       status: t.status === 'pago' ? 'Pago' : 'Pendente',
       tipo: t.type === 'entrada' ? 'receita' : 'despesa',
     }));
