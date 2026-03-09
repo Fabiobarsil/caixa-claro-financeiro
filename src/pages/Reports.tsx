@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import AppLayout from '@/components/AppLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -8,8 +9,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { FileText, Download, Search, Filter, Loader2 } from 'lucide-react';
 import { useTransactions } from '@/hooks/useTransactions';
-import { useEntrySchedules } from '@/hooks/useEntrySchedules';
-import { useLancamentos } from '@/hooks/useLancamentos';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 import { formatCurrency } from '@/lib/formatters';
 import ReportSummaryCards from '@/components/reports/ReportSummaryCards';
 import BillingStatusCards from '@/components/reports/BillingStatusCards';
@@ -34,14 +35,27 @@ interface ReportRow {
   forma_pagamento: string;
   payment_method_key: string;
   data: string;
-  status: string;
+  status: 'Pago' | 'Pendente' | 'Atrasado';
   tipo: 'receita' | 'despesa';
 }
 
 export default function Reports() {
+  const { user, accountId } = useAuth();
   const { transactions, isLoading: txLoading } = useTransactions();
-  const { allSchedules, isLoading: schedLoading } = useEntrySchedules();
-  const { lancamentos, isLoading: lancLoading } = useLancamentos();
+
+  // Fetch ALL expenses (not limited to current month like useExpenses)
+  const { data: allExpenses = [], isLoading: expLoading } = useQuery({
+    queryKey: ['report-expenses', accountId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('expenses')
+        .select('*')
+        .order('date', { ascending: false });
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!user?.id && !!accountId,
+  });
 
   const [search, setSearch] = useState('');
   const [periodFilter, setPeriodFilter] = useState('all');
@@ -50,20 +64,46 @@ export default function Reports() {
 
   const today = new Date().toISOString().split('T')[0];
 
-  // Build unified rows
+  // Build unified rows from transactions + expenses
   const rows: ReportRow[] = useMemo(() => {
-    return transactions.map(t => ({
-      id: t.id,
-      cliente: t.client_name || 'Sem cliente',
-      descricao: t.item_name || t.description || '-',
-      valor: t.amount,
-      forma_pagamento: PAYMENT_LABELS[t.payment_method] || t.payment_method,
-      payment_method_key: t.payment_method,
-      data: t.due_date || t.date,
-      status: t.status === 'pago' ? 'Pago' : 'Pendente',
-      tipo: t.type === 'entrada' ? 'receita' : 'despesa',
+    const txRows: ReportRow[] = transactions.map(t => {
+      const dueDate = t.due_date || t.date;
+      let status: ReportRow['status'];
+      if (t.status === 'pago') {
+        status = 'Pago';
+      } else if (dueDate < today) {
+        status = 'Atrasado';
+      } else {
+        status = 'Pendente';
+      }
+
+      return {
+        id: t.id,
+        cliente: t.client_name || 'Sem cliente',
+        descricao: t.item_name || t.description || '-',
+        valor: t.amount,
+        forma_pagamento: PAYMENT_LABELS[t.payment_method] || t.payment_method,
+        payment_method_key: t.payment_method,
+        data: dueDate,
+        status,
+        tipo: t.type === 'entrada' ? 'receita' as const : 'despesa' as const,
+      };
+    });
+
+    const expRows: ReportRow[] = allExpenses.map(e => ({
+      id: e.id,
+      cliente: e.category || 'Despesa',
+      descricao: e.notes || e.category || '-',
+      valor: e.value,
+      forma_pagamento: '-',
+      payment_method_key: '',
+      data: e.date,
+      status: e.status === 'pago' ? 'Pago' as const : (e.date < today ? 'Atrasado' as const : 'Pendente' as const),
+      tipo: 'despesa' as const,
     }));
-  }, [transactions]);
+
+    return [...txRows, ...expRows];
+  }, [transactions, allExpenses, today]);
 
   // Available periods
   const periods = useMemo(() => {
@@ -72,7 +112,7 @@ export default function Reports() {
     return Array.from(set).sort().reverse();
   }, [rows]);
 
-  // Filtered rows
+  // Filtered rows (single source of truth for ALL sections)
   const filtered = useMemo(() => {
     return rows.filter(r => {
       const matchSearch = search === '' ||
@@ -84,32 +124,29 @@ export default function Reports() {
     });
   }, [rows, search, periodFilter, statusFilter]);
 
-  // 1) Summary
+  // 1) Summary — derived from filtered
   const summary = useMemo(() => {
     let recebido = 0, aReceber = 0, despesas = 0;
     filtered.forEach(r => {
       if (r.tipo === 'receita' && r.status === 'Pago') recebido += r.valor;
-      if (r.tipo === 'receita' && r.status !== 'Pago') aReceber += r.valor;
+      if (r.tipo === 'receita' && (r.status === 'Pendente' || r.status === 'Atrasado')) aReceber += r.valor;
       if (r.tipo === 'despesa') despesas += r.valor;
     });
     return { recebido, aReceber, despesas };
   }, [filtered]);
 
-  // 2) Billing status (use entry_schedules for overdue detection)
+  // 2) Billing status — derived from filtered (receitas only)
   const billingStatus = useMemo(() => {
-    const periodRows = periodFilter === 'all'
-      ? rows.filter(r => r.tipo === 'receita')
-      : rows.filter(r => r.tipo === 'receita' && r.data.startsWith(periodFilter));
-
+    const receitas = filtered.filter(r => r.tipo === 'receita');
     const pagos = { count: 0, total: 0 };
     const pendentes = { count: 0, total: 0 };
     const atrasados = { count: 0, total: 0 };
 
-    periodRows.forEach(r => {
+    receitas.forEach(r => {
       if (r.status === 'Pago') {
         pagos.count++;
         pagos.total += r.valor;
-      } else if (r.data < today) {
+      } else if (r.status === 'Atrasado') {
         atrasados.count++;
         atrasados.total += r.valor;
       } else {
@@ -118,29 +155,31 @@ export default function Reports() {
       }
     });
     return { pagos, pendentes, atrasados };
-  }, [rows, periodFilter, today]);
+  }, [filtered]);
 
-  // 3) Cash flow by day
+  // 3) Cash flow by day — entradas = receitas pagas, saidas = despesas
   const cashFlowData = useMemo(() => {
     const dayMap: Record<string, { entradas: number; saidas: number }> = {};
     filtered.forEach(r => {
       const day = r.data.substring(8, 10).replace(/^0/, '');
       if (!dayMap[day]) dayMap[day] = { entradas: 0, saidas: 0 };
-      if (r.tipo === 'receita') dayMap[day].entradas += r.valor;
-      else dayMap[day].saidas += r.valor;
+      if (r.tipo === 'receita' && r.status === 'Pago') dayMap[day].entradas += r.valor;
+      if (r.tipo === 'despesa') dayMap[day].saidas += r.valor;
     });
     return Object.entries(dayMap)
       .sort(([a], [b]) => Number(a) - Number(b))
       .map(([day, vals]) => ({ day, ...vals }));
   }, [filtered]);
 
-  // 4) Payment origins
+  // 4) Payment origins — only status Pago
   const paymentOrigins = useMemo(() => {
     const map: Record<string, number> = {};
-    filtered.filter(r => r.tipo === 'receita' && r.status === 'Pago').forEach(r => {
-      const key = r.forma_pagamento;
-      map[key] = (map[key] || 0) + r.valor;
-    });
+    filtered
+      .filter(r => r.tipo === 'receita' && r.status === 'Pago' && r.payment_method_key)
+      .forEach(r => {
+        const key = r.forma_pagamento;
+        map[key] = (map[key] || 0) + r.valor;
+      });
     const colors = ['hsl(var(--primary))', 'hsl(var(--success))', 'hsl(var(--warning))', 'hsl(var(--destructive))', 'hsl(var(--profit))'];
     return Object.entries(map).map(([name, value], i) => ({
       name,
@@ -149,12 +188,14 @@ export default function Reports() {
     }));
   }, [filtered]);
 
-  // 5) Client ranking
+  // 5) Client ranking — only pagamentos confirmados (receitas pagas)
   const clientRanking = useMemo(() => {
     const map: Record<string, number> = {};
-    filtered.filter(r => r.tipo === 'receita' && r.status === 'Pago').forEach(r => {
-      map[r.cliente] = (map[r.cliente] || 0) + r.valor;
-    });
+    filtered
+      .filter(r => r.tipo === 'receita' && r.status === 'Pago')
+      .forEach(r => {
+        map[r.cliente] = (map[r.cliente] || 0) + r.valor;
+      });
     return Object.entries(map)
       .map(([name, total]) => ({ name, total }))
       .sort((a, b) => b.total - a.total);
@@ -182,7 +223,7 @@ export default function Reports() {
 
   const exportPDF = () => window.print();
 
-  const isLoading = txLoading || lancLoading || schedLoading;
+  const isLoading = txLoading || expLoading;
 
   const formatMonth = (ym: string) => {
     const [y, m] = ym.split('-');
@@ -243,6 +284,7 @@ export default function Reports() {
                   <SelectItem value="all">Todos os status</SelectItem>
                   <SelectItem value="Pago">Pago</SelectItem>
                   <SelectItem value="Pendente">Pendente</SelectItem>
+                  <SelectItem value="Atrasado">Atrasado</SelectItem>
                 </SelectContent>
               </Select>
               <Button onClick={applyFilters} className="w-full">
@@ -317,10 +359,13 @@ export default function Reports() {
                             {new Date(row.data + 'T00:00:00').toLocaleDateString('pt-BR')}
                           </TableCell>
                           <TableCell>
-                            <Badge variant={row.status === 'Pago' ? 'default' : 'secondary'}
-                              className={row.status === 'Pago'
-                                ? 'bg-success/15 text-success border-success/30 hover:bg-success/20'
-                                : 'bg-warning/15 text-warning border-warning/30 hover:bg-warning/20'
+                            <Badge variant="secondary"
+                              className={
+                                row.status === 'Pago'
+                                  ? 'bg-success/15 text-success border-success/30 hover:bg-success/20'
+                                  : row.status === 'Atrasado'
+                                    ? 'bg-destructive/15 text-destructive border-destructive/30 hover:bg-destructive/20'
+                                    : 'bg-warning/15 text-warning border-warning/30 hover:bg-warning/20'
                               }
                             >
                               {row.status}
