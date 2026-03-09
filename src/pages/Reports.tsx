@@ -6,12 +6,16 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { FileText, Download, Search, Filter } from 'lucide-react';
+import { FileText, Download, Search, Filter, Loader2 } from 'lucide-react';
 import { useTransactions } from '@/hooks/useTransactions';
-import { useExpenses } from '@/hooks/useExpenses';
+import { useEntrySchedules } from '@/hooks/useEntrySchedules';
 import { useLancamentos } from '@/hooks/useLancamentos';
 import { formatCurrency } from '@/lib/formatters';
-import { Loader2 } from 'lucide-react';
+import ReportSummaryCards from '@/components/reports/ReportSummaryCards';
+import BillingStatusCards from '@/components/reports/BillingStatusCards';
+import CashFlowChart from '@/components/reports/CashFlowChart';
+import PaymentOriginChart from '@/components/reports/PaymentOriginChart';
+import ClientRanking from '@/components/reports/ClientRanking';
 
 const PAYMENT_LABELS: Record<string, string> = {
   pix: 'Pix',
@@ -28,6 +32,7 @@ interface ReportRow {
   descricao: string;
   valor: number;
   forma_pagamento: string;
+  payment_method_key: string;
   data: string;
   status: string;
   tipo: 'receita' | 'despesa';
@@ -35,6 +40,7 @@ interface ReportRow {
 
 export default function Reports() {
   const { transactions, isLoading: txLoading } = useTransactions();
+  const { allSchedules, isLoading: schedLoading } = useEntrySchedules();
   const { lancamentos, isLoading: lancLoading } = useLancamentos();
 
   const [search, setSearch] = useState('');
@@ -42,28 +48,27 @@ export default function Reports() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [page, setPage] = useState(1);
 
-  // Build unified rows from lancamentos (consolidated view) + include expenses via lancamentos
+  const today = new Date().toISOString().split('T')[0];
+
+  // Build unified rows
   const rows: ReportRow[] = useMemo(() => {
-    // Use due_date (vencimento) as the reference date for period filtering; fallback to date
     return transactions.map(t => ({
       id: t.id,
       cliente: t.client_name || 'Sem cliente',
       descricao: t.item_name || t.description || '-',
       valor: t.amount,
       forma_pagamento: PAYMENT_LABELS[t.payment_method] || t.payment_method,
+      payment_method_key: t.payment_method,
       data: t.due_date || t.date,
       status: t.status === 'pago' ? 'Pago' : 'Pendente',
       tipo: t.type === 'entrada' ? 'receita' : 'despesa',
     }));
   }, [transactions]);
 
-  // Available periods from data
+  // Available periods
   const periods = useMemo(() => {
     const set = new Set<string>();
-    rows.forEach(r => {
-      const month = r.data.substring(0, 7); // YYYY-MM
-      set.add(month);
-    });
+    rows.forEach(r => set.add(r.data.substring(0, 7)));
     return Array.from(set).sort().reverse();
   }, [rows]);
 
@@ -79,11 +84,9 @@ export default function Reports() {
     });
   }, [rows, search, periodFilter, statusFilter]);
 
-  // Summary
+  // 1) Summary
   const summary = useMemo(() => {
-    let recebido = 0;
-    let aReceber = 0;
-    let despesas = 0;
+    let recebido = 0, aReceber = 0, despesas = 0;
     filtered.forEach(r => {
       if (r.tipo === 'receita' && r.status === 'Pago') recebido += r.valor;
       if (r.tipo === 'receita' && r.status !== 'Pago') aReceber += r.valor;
@@ -92,14 +95,77 @@ export default function Reports() {
     return { recebido, aReceber, despesas };
   }, [filtered]);
 
+  // 2) Billing status (use entry_schedules for overdue detection)
+  const billingStatus = useMemo(() => {
+    const periodRows = periodFilter === 'all'
+      ? rows.filter(r => r.tipo === 'receita')
+      : rows.filter(r => r.tipo === 'receita' && r.data.startsWith(periodFilter));
+
+    const pagos = { count: 0, total: 0 };
+    const pendentes = { count: 0, total: 0 };
+    const atrasados = { count: 0, total: 0 };
+
+    periodRows.forEach(r => {
+      if (r.status === 'Pago') {
+        pagos.count++;
+        pagos.total += r.valor;
+      } else if (r.data < today) {
+        atrasados.count++;
+        atrasados.total += r.valor;
+      } else {
+        pendentes.count++;
+        pendentes.total += r.valor;
+      }
+    });
+    return { pagos, pendentes, atrasados };
+  }, [rows, periodFilter, today]);
+
+  // 3) Cash flow by day
+  const cashFlowData = useMemo(() => {
+    const dayMap: Record<string, { entradas: number; saidas: number }> = {};
+    filtered.forEach(r => {
+      const day = r.data.substring(8, 10).replace(/^0/, '');
+      if (!dayMap[day]) dayMap[day] = { entradas: 0, saidas: 0 };
+      if (r.tipo === 'receita') dayMap[day].entradas += r.valor;
+      else dayMap[day].saidas += r.valor;
+    });
+    return Object.entries(dayMap)
+      .sort(([a], [b]) => Number(a) - Number(b))
+      .map(([day, vals]) => ({ day, ...vals }));
+  }, [filtered]);
+
+  // 4) Payment origins
+  const paymentOrigins = useMemo(() => {
+    const map: Record<string, number> = {};
+    filtered.filter(r => r.tipo === 'receita' && r.status === 'Pago').forEach(r => {
+      const key = r.forma_pagamento;
+      map[key] = (map[key] || 0) + r.valor;
+    });
+    const colors = ['hsl(var(--primary))', 'hsl(var(--success))', 'hsl(var(--warning))', 'hsl(var(--destructive))', 'hsl(var(--profit))'];
+    return Object.entries(map).map(([name, value], i) => ({
+      name,
+      value,
+      color: colors[i % colors.length],
+    }));
+  }, [filtered]);
+
+  // 5) Client ranking
+  const clientRanking = useMemo(() => {
+    const map: Record<string, number> = {};
+    filtered.filter(r => r.tipo === 'receita' && r.status === 'Pago').forEach(r => {
+      map[r.cliente] = (map[r.cliente] || 0) + r.valor;
+    });
+    return Object.entries(map)
+      .map(([name, total]) => ({ name, total }))
+      .sort((a, b) => b.total - a.total);
+  }, [filtered]);
+
   // Pagination
   const totalPages = Math.max(1, Math.ceil(filtered.length / PER_PAGE));
   const paginatedRows = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE);
 
-  // Reset page on filter change
   const applyFilters = () => setPage(1);
 
-  // Export CSV
   const exportCSV = () => {
     const header = 'Cliente,Descrição,Valor,Pagamento,Data,Status,Tipo\n';
     const csvRows = filtered.map(r =>
@@ -114,10 +180,9 @@ export default function Reports() {
     URL.revokeObjectURL(url);
   };
 
-  // Export PDF (print)
   const exportPDF = () => window.print();
 
-  const isLoading = txLoading || lancLoading;
+  const isLoading = txLoading || lancLoading || schedLoading;
 
   const formatMonth = (ym: string) => {
     const [y, m] = ym.split('-');
@@ -159,7 +224,7 @@ export default function Reports() {
                   className="pl-9"
                 />
               </div>
-              <Select value={periodFilter} onValueChange={setPeriodFilter}>
+              <Select value={periodFilter} onValueChange={v => { setPeriodFilter(v); setPage(1); }}>
                 <SelectTrigger>
                   <SelectValue placeholder="Período" />
                 </SelectTrigger>
@@ -170,7 +235,7 @@ export default function Reports() {
                   ))}
                 </SelectContent>
               </Select>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <Select value={statusFilter} onValueChange={v => { setStatusFilter(v); setPage(1); }}>
                 <SelectTrigger>
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
@@ -188,102 +253,109 @@ export default function Reports() {
           </CardContent>
         </Card>
 
-        {/* Summary Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <Card>
-            <CardContent className="pt-5 pb-5">
-              <p className="text-sm text-muted-foreground mb-1">Recebido</p>
-              <p className="text-2xl font-bold text-success">{formatCurrency(summary.recebido)}</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-5 pb-5">
-              <p className="text-sm text-muted-foreground mb-1">A Receber</p>
-              <p className="text-2xl font-bold text-primary">{formatCurrency(summary.aReceber)}</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-5 pb-5">
-              <p className="text-sm text-muted-foreground mb-1">Despesas</p>
-              <p className="text-2xl font-bold text-destructive">{formatCurrency(summary.despesas)}</p>
-            </CardContent>
-          </Card>
-        </div>
+        {isLoading ? (
+          <div className="flex items-center justify-center py-16">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          </div>
+        ) : (
+          <>
+            {/* 1) Summary Cards */}
+            <ReportSummaryCards
+              recebido={summary.recebido}
+              aReceber={summary.aReceber}
+              despesas={summary.despesas}
+            />
 
-        {/* Table */}
-        <Card>
-          <CardContent className="p-0">
-            {isLoading ? (
-              <div className="flex items-center justify-center py-12">
-                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-              </div>
-            ) : paginatedRows.length === 0 ? (
-              <div className="text-center py-12 text-muted-foreground text-sm">
-                Nenhum lançamento encontrado para os filtros selecionados.
-              </div>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Cliente</TableHead>
-                    <TableHead className="hidden sm:table-cell">Descrição</TableHead>
-                    <TableHead>Valor</TableHead>
-                    <TableHead className="hidden md:table-cell">Pagamento</TableHead>
-                    <TableHead className="hidden sm:table-cell">Data</TableHead>
-                    <TableHead>Status</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {paginatedRows.map(row => (
-                    <TableRow key={row.id}>
-                      <TableCell className="font-medium">{row.cliente}</TableCell>
-                      <TableCell className="hidden sm:table-cell text-muted-foreground">{row.descricao}</TableCell>
-                      <TableCell className={row.tipo === 'despesa' ? 'text-destructive' : ''}>
-                        {row.tipo === 'despesa' ? '- ' : ''}{formatCurrency(row.valor)}
-                      </TableCell>
-                      <TableCell className="hidden md:table-cell text-muted-foreground">{row.forma_pagamento}</TableCell>
-                      <TableCell className="hidden sm:table-cell text-muted-foreground">
-                        {new Date(row.data + 'T00:00:00').toLocaleDateString('pt-BR')}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={row.status === 'Pago' ? 'default' : 'secondary'}
-                          className={row.status === 'Pago' 
-                            ? 'bg-success/15 text-success border-success/30 hover:bg-success/20' 
-                            : 'bg-warning/15 text-warning border-warning/30 hover:bg-warning/20'
-                          }
+            {/* 2) Billing Status + 4) Payment Origins */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <BillingStatusCards
+                pagos={billingStatus.pagos}
+                pendentes={billingStatus.pendentes}
+                atrasados={billingStatus.atrasados}
+              />
+              <PaymentOriginChart data={paymentOrigins} />
+            </div>
+
+            {/* 3) Cash Flow Chart */}
+            <CashFlowChart data={cashFlowData} />
+
+            {/* 5) Client Ranking */}
+            <ClientRanking clients={clientRanking} />
+
+            {/* 6) Detail Table */}
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base font-semibold">Lançamentos Detalhados</CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
+                {paginatedRows.length === 0 ? (
+                  <div className="text-center py-12 text-muted-foreground text-sm">
+                    Nenhum lançamento encontrado para os filtros selecionados.
+                  </div>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Cliente</TableHead>
+                        <TableHead className="hidden sm:table-cell">Descrição</TableHead>
+                        <TableHead>Valor</TableHead>
+                        <TableHead className="hidden md:table-cell">Pagamento</TableHead>
+                        <TableHead className="hidden sm:table-cell">Data</TableHead>
+                        <TableHead>Status</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {paginatedRows.map(row => (
+                        <TableRow key={row.id}>
+                          <TableCell className="font-medium">{row.cliente}</TableCell>
+                          <TableCell className="hidden sm:table-cell text-muted-foreground">{row.descricao}</TableCell>
+                          <TableCell className={row.tipo === 'despesa' ? 'text-destructive' : ''}>
+                            {row.tipo === 'despesa' ? '- ' : ''}{formatCurrency(row.valor)}
+                          </TableCell>
+                          <TableCell className="hidden md:table-cell text-muted-foreground">{row.forma_pagamento}</TableCell>
+                          <TableCell className="hidden sm:table-cell text-muted-foreground">
+                            {new Date(row.data + 'T00:00:00').toLocaleDateString('pt-BR')}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant={row.status === 'Pago' ? 'default' : 'secondary'}
+                              className={row.status === 'Pago'
+                                ? 'bg-success/15 text-success border-success/30 hover:bg-success/20'
+                                : 'bg-warning/15 text-warning border-warning/30 hover:bg-warning/20'
+                              }
+                            >
+                              {row.status}
+                            </Badge>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+
+                {totalPages > 1 && (
+                  <div className="flex items-center justify-between px-4 py-3 border-t border-border">
+                    <p className="text-xs text-muted-foreground">
+                      {filtered.length} resultado{filtered.length !== 1 ? 's' : ''}
+                    </p>
+                    <div className="flex gap-1">
+                      {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
+                        <Button
+                          key={p}
+                          variant={p === page ? 'default' : 'outline'}
+                          size="sm"
+                          className="h-8 w-8 p-0"
+                          onClick={() => setPage(p)}
                         >
-                          {row.status}
-                        </Badge>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
-
-            {/* Pagination */}
-            {totalPages > 1 && (
-              <div className="flex items-center justify-between px-4 py-3 border-t border-border">
-                <p className="text-xs text-muted-foreground">
-                  {filtered.length} resultado{filtered.length !== 1 ? 's' : ''}
-                </p>
-                <div className="flex gap-1">
-                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
-                    <Button
-                      key={p}
-                      variant={p === page ? 'default' : 'outline'}
-                      size="sm"
-                      className="h-8 w-8 p-0"
-                      onClick={() => setPage(p)}
-                    >
-                      {p}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                          {p}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </>
+        )}
       </div>
     </AppLayout>
   );
