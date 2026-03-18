@@ -276,7 +276,7 @@ export default function Reports() {
 
   const exportPDF = () => window.print();
 
-  const isLoading = txLoading || expLoading;
+  const isLoading = txLoading || expLoading || schedLoading;
 
   const formatMonth = (ym: string) => {
     const [y, m] = ym.split('-');
