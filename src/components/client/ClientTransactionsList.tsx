@@ -6,19 +6,17 @@ import { formatCurrency } from '@/lib/formatters';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
-  Receipt, Package, Scissors, ArrowUpCircle, ArrowDownCircle,
+  Receipt, Package, Scissors,
   ChevronDown, ChevronUp, Clock, CheckCircle, AlertTriangle, Filter
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue
 } from '@/components/ui/select';
 import EntryStatusBadge from '@/components/EntryStatusBadge';
 import QuitarParcelaModal, { type QuitarPayload, type ParcelaItem } from '@/components/QuitarParcelaModal';
 import { useLancamentos } from '@/hooks/useLancamentos';
-import { toast } from 'sonner';
 
 interface ClientTransactionsListProps {
   clientId: string;
@@ -58,7 +56,6 @@ export default function ClientTransactionsList({ clientId }: ClientTransactionsL
   const { data: transactions = [], isLoading } = useQuery({
     queryKey: ['client-transactions', clientId, accountId],
     queryFn: async (): Promise<TransactionWithSchedules[]> => {
-      // Get transactions
       const { data: txns, error: txnErr } = await supabase
         .from('transactions')
         .select('id, date, description, amount, quantity, status, payment_method, type, category, due_date, payment_date, service_product_id')
@@ -68,7 +65,6 @@ export default function ClientTransactionsList({ clientId }: ClientTransactionsL
       if (txnErr) throw txnErr;
       if (!txns || txns.length === 0) return [];
 
-      // Get service/product names
       const spIds = txns.map(t => t.service_product_id).filter(Boolean);
       let spMap: Record<string, { name: string; type: string }> = {};
       if (spIds.length > 0) {
@@ -76,23 +72,39 @@ export default function ClientTransactionsList({ clientId }: ClientTransactionsL
           .from('services_products')
           .select('id, name, type')
           .in('id', spIds as string[]);
+
         if (sps) {
           spMap = Object.fromEntries(sps.map(sp => [sp.id, { name: sp.name, type: sp.type }]));
         }
       }
 
-      // Get all schedules for these transactions
+      // Paginado para não truncar em 1000 registros e não perder parcelas
       const txnIds = txns.map(t => t.id);
-      const { data: schedules } = await supabase
-        .from('entry_schedules')
-        .select('id, entry_id, installment_number, installments_total, due_date, amount, status, schedule_type, paid_at')
-        .in('entry_id', txnIds)
-        .order('installment_number', { ascending: true });
+      const allSchedules: ParcelaItem[] = [];
+      const PAGE_SIZE = 1000;
+      let from = 0;
+
+      while (true) {
+        const { data: page, error: schedulesError } = await supabase
+          .from('entry_schedules')
+          .select('id, entry_id, installment_number, installments_total, due_date, amount, status, schedule_type, paid_at')
+          .in('entry_id', txnIds)
+          .order('installment_number', { ascending: true })
+          .range(from, from + PAGE_SIZE - 1);
+
+        if (schedulesError) throw schedulesError;
+        if (!page || page.length === 0) break;
+
+        allSchedules.push(...page.map(s => ({ ...s, amount: Number(s.amount) })));
+
+        if (page.length < PAGE_SIZE) break;
+        from += PAGE_SIZE;
+      }
 
       const schedulesByEntry: Record<string, ParcelaItem[]> = {};
-      (schedules || []).forEach(s => {
+      allSchedules.forEach(s => {
         if (!schedulesByEntry[s.entry_id]) schedulesByEntry[s.entry_id] = [];
-        schedulesByEntry[s.entry_id].push({ ...s, amount: Number(s.amount) });
+        schedulesByEntry[s.entry_id].push(s);
       });
 
       return txns.map(t => ({
@@ -115,31 +127,29 @@ export default function ClientTransactionsList({ clientId }: ClientTransactionsL
     enabled: !!user && !!accountId && !!clientId,
   });
 
-  // Filter
   const filtered = useMemo(() => {
     if (statusFilter === 'all') return transactions;
     if (statusFilter === 'pendente') return transactions.filter(t => {
-      if (t.schedules.length > 0) return t.schedules.some(s => s.status === 'pendente');
-      return t.status === 'pendente';
+      if (t.schedules.length > 0) return t.schedules.some(s => !isPaidStatus(s.status));
+      return !isPaidStatus(t.status);
     });
     if (statusFilter === 'pago') return transactions.filter(t => {
-      if (t.schedules.length > 0) return t.schedules.every(s => s.status === 'pago');
-      return t.status === 'pago';
+      if (t.schedules.length > 0) return t.schedules.every(s => isPaidStatus(s.status));
+      return isPaidStatus(t.status);
     });
     return transactions;
   }, [transactions, statusFilter]);
 
-  // Totals
   const totals = useMemo(() => {
     return transactions.reduce(
       (acc, t) => {
         if (t.type === 'entrada') {
           acc.entradas += t.amount;
           if (t.schedules.length > 0) {
-            acc.recebido += t.schedules.filter(s => s.status === 'pago').reduce((s, p) => s + p.amount, 0);
-            acc.pendente += t.schedules.filter(s => s.status === 'pendente').reduce((s, p) => s + p.amount, 0);
+            acc.recebido += t.schedules.filter(s => isPaidStatus(s.status)).reduce((s, p) => s + p.amount, 0);
+            acc.pendente += t.schedules.filter(s => !isPaidStatus(s.status)).reduce((s, p) => s + p.amount, 0);
           } else {
-            if (t.status === 'pago') acc.recebido += t.amount;
+            if (isPaidStatus(t.status)) acc.recebido += t.amount;
             else acc.pendente += t.amount;
           }
         }
@@ -169,7 +179,6 @@ export default function ClientTransactionsList({ clientId }: ClientTransactionsL
     revertSchedule.mutate(scheduleId, {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: ['client-transactions', clientId] });
-        // Refresh parcelas in the modal
         if (quitarTxn) {
           const updated = transactions.find(t => t.id === quitarTxn.id);
           if (updated) setQuitarTxn(updated);
@@ -197,7 +206,6 @@ export default function ClientTransactionsList({ clientId }: ClientTransactionsL
 
   return (
     <div className="space-y-4">
-      {/* Summary */}
       <div className="grid grid-cols-2 gap-3">
         <div className="bg-success/10 rounded-lg p-3">
           <p className="text-xs text-muted-foreground mb-1">Total Recebido</p>
@@ -209,7 +217,6 @@ export default function ClientTransactionsList({ clientId }: ClientTransactionsL
         </div>
       </div>
 
-      {/* Filters */}
       <div className="flex items-center justify-between">
         <h4 className="text-sm font-medium text-foreground">
           Histórico ({filtered.length} lançamentos)
@@ -235,32 +242,43 @@ export default function ClientTransactionsList({ clientId }: ClientTransactionsL
         </div>
       )}
 
-      {/* Transactions */}
       <div className="space-y-2">
         {filtered.map(txn => {
           const isExpanded = expandedTxn === txn.id;
           const hasSchedules = txn.schedules.length > 0;
-          const paidCount = txn.schedules.filter(s => s.status === 'pago').length;
-          const openSchedules = txn.schedules.filter(s => s.status !== 'pago');
+          const paidSchedules = txn.schedules.filter(s => isPaidStatus(s.status));
+          const openSchedules = txn.schedules.filter(s => !isPaidStatus(s.status));
+          const paidCount = paidSchedules.length;
           const pendingCount = openSchedules.length;
           const isEntrada = txn.type === 'entrada';
+
           const today = new Date();
           today.setHours(0, 0, 0, 0);
-          const overdue = openSchedules.some(s => new Date(s.due_date + 'T00:00:00') < today);
+
+          // Regra de negócio: atraso somente em parcelas abertas (não pagas)
+          const overdue = openSchedules.some(s => new Date(`${s.due_date}T00:00:00`) < today);
+
           const nextOpenSchedule = openSchedules
             .slice()
             .sort((a, b) => a.due_date.localeCompare(b.due_date))[0];
-          const effectiveDueDate = hasSchedules ? nextOpenSchedule?.due_date ?? null : txn.due_date;
+
+          const effectiveDueDate = hasSchedules
+            ? (nextOpenSchedule?.due_date ?? null)
+            : txn.due_date;
+
           const effectivePaymentDate = hasSchedules
-            ? txn.schedules
-                .filter(s => s.status === 'pago' && s.paid_at)
+            ? paidSchedules
+                .filter(s => s.paid_at)
                 .slice()
                 .sort((a, b) => (b.paid_at || '').localeCompare(a.paid_at || ''))[0]?.paid_at ?? null
             : txn.payment_date;
- 
+
+          const effectiveStatus: 'pago' | 'pendente' = hasSchedules
+            ? (pendingCount > 0 ? 'pendente' : 'pago')
+            : (isPaidStatus(txn.status) ? 'pago' : 'pendente');
+
           return (
             <div key={txn.id} className="bg-card rounded-lg border border-border overflow-hidden">
-              {/* Main row */}
               <div
                 className={cn("p-3 flex items-center gap-3 cursor-pointer hover:bg-accent/30 transition-colors", overdue && "border-l-4 border-l-destructive")}
                 onClick={() => setExpandedTxn(isExpanded ? null : txn.id)}
@@ -271,7 +289,7 @@ export default function ClientTransactionsList({ clientId }: ClientTransactionsL
                 )}>
                   {txn.item_type === 'servico' ? <Scissors size={18} /> : <Package size={18} />}
                 </div>
- 
+
                 <div className="flex-1 min-w-0">
                   <p className="font-medium text-foreground text-sm truncate">
                     {txn.item_name || txn.description || 'Item não informado'}
@@ -282,7 +300,7 @@ export default function ClientTransactionsList({ clientId }: ClientTransactionsL
                     {hasSchedules && ` • ${paidCount}/${txn.schedules.length} pagas`}
                   </p>
                 </div>
- 
+
                 <div className="text-right flex flex-col items-end gap-1 shrink-0">
                   <p className={cn("font-semibold text-sm", isEntrada ? "text-foreground" : "text-destructive")}>
                     {formatCurrency(txn.amount)}
@@ -294,7 +312,7 @@ export default function ClientTransactionsList({ clientId }: ClientTransactionsL
                   )}
                   {!overdue && (
                     <EntryStatusBadge
-                      status={(hasSchedules ? (pendingCount > 0 ? 'pendente' : 'pago') : txn.status) as 'pago' | 'pendente'}
+                      status={effectiveStatus}
                       dueDate={effectiveDueDate}
                       paymentDate={effectivePaymentDate}
                       size="sm"
@@ -306,7 +324,6 @@ export default function ClientTransactionsList({ clientId }: ClientTransactionsL
                 )}
               </div>
 
-              {/* Expanded: Schedule timeline */}
               {isExpanded && hasSchedules && (
                 <div className="border-t border-border px-3 py-2 space-y-1.5 bg-muted/30">
                   <div className="flex items-center justify-between mb-1">
@@ -324,8 +341,8 @@ export default function ClientTransactionsList({ clientId }: ClientTransactionsL
                     )}
                   </div>
                   {txn.schedules.map(s => {
-                    const isPago = s.status === 'pago';
-                    const isOverdue = !isPago && new Date(s.due_date + 'T00:00:00') < new Date(new Date().toISOString().split('T')[0] + 'T00:00:00');
+                    const isPago = isPaidStatus(s.status);
+                    const isOverdue = !isPago && new Date(`${s.due_date}T00:00:00`) < today;
                     return (
                       <div key={s.id} className={cn(
                         "flex items-center gap-2 p-2 rounded-md text-xs",
@@ -361,7 +378,6 @@ export default function ClientTransactionsList({ clientId }: ClientTransactionsL
         })}
       </div>
 
-      {/* Quitar Modal */}
       <QuitarParcelaModal
         open={quitarOpen}
         onOpenChange={setQuitarOpen}
@@ -375,4 +391,9 @@ export default function ClientTransactionsList({ clientId }: ClientTransactionsL
       />
     </div>
   );
+}
+
+function isPaidStatus(status: string | null | undefined): boolean {
+  const normalized = (status || '').toLowerCase();
+  return normalized === 'pago' || normalized === 'paid';
 }
