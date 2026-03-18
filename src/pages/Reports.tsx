@@ -78,30 +78,69 @@ export default function Reports() {
 
   const today = new Date().toISOString().split('T')[0];
 
-  // Build unified rows from transactions + expenses
+  // Build unified rows from transactions (schedule-level) + expenses
   const rows: ReportRow[] = useMemo(() => {
-    const txRows: ReportRow[] = transactions.map(t => {
-      const dueDate = t.due_date || t.date;
-      let status: ReportRow['status'];
-      if (t.status === 'pago') {
-        status = 'Pago';
-      } else if (dueDate < today) {
-        status = 'Atrasado';
-      } else {
-        status = 'Pendente';
-      }
+    // Group schedules by entry_id
+    const schedulesByEntry = new Map<string, typeof allSchedules>();
+    allSchedules.forEach(s => {
+      const list = schedulesByEntry.get(s.entry_id) || [];
+      list.push(s);
+      schedulesByEntry.set(s.entry_id, list);
+    });
 
-      return {
-        id: t.id,
-        cliente: t.client_name || 'Sem cliente',
-        descricao: t.item_name || t.description || '-',
-        valor: t.amount,
-        forma_pagamento: PAYMENT_LABELS[t.payment_method] || t.payment_method,
-        payment_method_key: t.payment_method,
-        data: dueDate,
-        status,
-        tipo: t.type === 'entrada' ? 'receita' as const : 'despesa' as const,
-      };
+    const txRows: ReportRow[] = [];
+
+    transactions.forEach(t => {
+      const schedules = schedulesByEntry.get(t.id);
+
+      if (schedules && schedules.length > 0) {
+        // Use individual schedule rows — each parcela has its own status/due_date
+        schedules.forEach(s => {
+          let status: ReportRow['status'];
+          if (s.status === 'pago') {
+            status = 'Pago';
+          } else if (s.due_date < today) {
+            status = 'Atrasado';
+          } else {
+            status = 'Pendente';
+          }
+
+          txRows.push({
+            id: s.id,
+            cliente: t.client_name || 'Sem cliente',
+            descricao: `${t.item_name || t.description || '-'} (${s.installment_number}/${s.installments_total})`,
+            valor: Number(s.amount),
+            forma_pagamento: PAYMENT_LABELS[t.payment_method] || t.payment_method,
+            payment_method_key: t.payment_method,
+            data: s.due_date,
+            status,
+            tipo: t.type === 'entrada' ? 'receita' as const : 'despesa' as const,
+          });
+        });
+      } else {
+        // Single transaction without schedules
+        const dueDate = t.due_date || t.date;
+        let status: ReportRow['status'];
+        if (t.status === 'pago') {
+          status = 'Pago';
+        } else if (dueDate < today) {
+          status = 'Atrasado';
+        } else {
+          status = 'Pendente';
+        }
+
+        txRows.push({
+          id: t.id,
+          cliente: t.client_name || 'Sem cliente',
+          descricao: t.item_name || t.description || '-',
+          valor: t.amount,
+          forma_pagamento: PAYMENT_LABELS[t.payment_method] || t.payment_method,
+          payment_method_key: t.payment_method,
+          data: dueDate,
+          status,
+          tipo: t.type === 'entrada' ? 'receita' as const : 'despesa' as const,
+        });
+      }
     });
 
     const expRows: ReportRow[] = allExpenses.map(e => ({
@@ -117,7 +156,7 @@ export default function Reports() {
     }));
 
     return [...txRows, ...expRows];
-  }, [transactions, allExpenses, today]);
+  }, [transactions, allSchedules, allExpenses, today]);
 
   // Available periods
   const periods = useMemo(() => {
