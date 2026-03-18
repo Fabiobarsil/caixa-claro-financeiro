@@ -241,13 +241,23 @@ export default function ClientTransactionsList({ clientId }: ClientTransactionsL
           const isExpanded = expandedTxn === txn.id;
           const hasSchedules = txn.schedules.length > 0;
           const paidCount = txn.schedules.filter(s => s.status === 'pago').length;
-          const pendingCount = txn.schedules.filter(s => s.status === 'pendente').length;
+          const openSchedules = txn.schedules.filter(s => s.status !== 'pago');
+          const pendingCount = openSchedules.length;
           const isEntrada = txn.type === 'entrada';
-          const overdue = txn.schedules.some(s => {
-            if (s.status === 'pago') return false;
-            return new Date(s.due_date + 'T00:00:00') < new Date(new Date().toISOString().split('T')[0] + 'T00:00:00');
-          });
-
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          const overdue = openSchedules.some(s => new Date(s.due_date + 'T00:00:00') < today);
+          const nextOpenSchedule = openSchedules
+            .slice()
+            .sort((a, b) => a.due_date.localeCompare(b.due_date))[0];
+          const effectiveDueDate = hasSchedules ? nextOpenSchedule?.due_date ?? null : txn.due_date;
+          const effectivePaymentDate = hasSchedules
+            ? txn.schedules
+                .filter(s => s.status === 'pago' && s.paid_at)
+                .slice()
+                .sort((a, b) => (b.paid_at || '').localeCompare(a.paid_at || ''))[0]?.paid_at ?? null
+            : txn.payment_date;
+ 
           return (
             <div key={txn.id} className="bg-card rounded-lg border border-border overflow-hidden">
               {/* Main row */}
@@ -261,7 +271,7 @@ export default function ClientTransactionsList({ clientId }: ClientTransactionsL
                 )}>
                   {txn.item_type === 'servico' ? <Scissors size={18} /> : <Package size={18} />}
                 </div>
-
+ 
                 <div className="flex-1 min-w-0">
                   <p className="font-medium text-foreground text-sm truncate">
                     {txn.item_name || txn.description || 'Item não informado'}
@@ -272,7 +282,7 @@ export default function ClientTransactionsList({ clientId }: ClientTransactionsL
                     {hasSchedules && ` • ${paidCount}/${txn.schedules.length} pagas`}
                   </p>
                 </div>
-
+ 
                 <div className="text-right flex flex-col items-end gap-1 shrink-0">
                   <p className={cn("font-semibold text-sm", isEntrada ? "text-foreground" : "text-destructive")}>
                     {formatCurrency(txn.amount)}
@@ -285,8 +295,8 @@ export default function ClientTransactionsList({ clientId }: ClientTransactionsL
                   {!overdue && (
                     <EntryStatusBadge
                       status={(hasSchedules ? (pendingCount > 0 ? 'pendente' : 'pago') : txn.status) as 'pago' | 'pendente'}
-                      dueDate={txn.due_date}
-                      paymentDate={txn.payment_date}
+                      dueDate={effectiveDueDate}
+                      paymentDate={effectivePaymentDate}
                       size="sm"
                     />
                   )}
