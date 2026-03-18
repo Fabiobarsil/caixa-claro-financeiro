@@ -57,6 +57,20 @@ export default function Reports() {
     enabled: !!user?.id && !!accountId,
   });
 
+  // Fetch ALL entry_schedules for granular parcela-level status
+  const { data: allSchedules = [], isLoading: schedLoading } = useQuery({
+    queryKey: ['report-schedules', accountId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('entry_schedules')
+        .select('*')
+        .order('due_date', { ascending: false });
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!user?.id && !!accountId,
+  });
+
   const [search, setSearch] = useState('');
   const [periodFilter, setPeriodFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
