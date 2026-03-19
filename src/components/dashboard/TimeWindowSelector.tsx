@@ -29,9 +29,7 @@ export default function MonthSelector({ value, onChange, className }: MonthSelec
     onChange({ year: next.getFullYear(), month: next.getMonth() });
   };
 
-  // Don't allow navigating beyond current month
-  const now = new Date();
-  const isCurrentMonth = value.year === now.getFullYear() && value.month === now.getMonth();
+  // Allow navigating to any registered period
 
   return (
     <div className={cn('flex items-center gap-1', className)}>
@@ -51,7 +49,7 @@ export default function MonthSelector({ value, onChange, className }: MonthSelec
         size="icon"
         className="h-8 w-8"
         onClick={goToNextMonth}
-        disabled={isCurrentMonth}
+        disabled={false}
       >
         <ChevronRight className="h-4 w-4" />
       </Button>
