@@ -49,7 +49,7 @@ export default function MonthSelector({ value, onChange, className }: MonthSelec
         size="icon"
         className="h-8 w-8"
         onClick={goToNextMonth}
-        disabled={isCurrentMonth}
+        disabled={false}
       >
         <ChevronRight className="h-4 w-4" />
       </Button>
