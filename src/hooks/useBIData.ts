@@ -173,7 +173,10 @@ export function useBIData(timeWindow: TimeWindow) {
         if (transaction.status === 'pago') {
           const paymentDate = transaction.payment_date || transaction.date;
           const point = chartDataMap.get(paymentDate);
-          if (point) point.received += Number(transaction.amount);
+          if (point) {
+            const paid = Number(transaction.amount_paid ?? 0);
+            point.received += paid > 0 ? paid : Number(transaction.amount);
+          }
         } else if (transaction.due_date) {
           const dueDate = new Date(transaction.due_date);
           dueDate.setHours(0, 0, 0, 0);
