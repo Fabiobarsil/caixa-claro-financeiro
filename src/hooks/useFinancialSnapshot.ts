@@ -342,7 +342,10 @@ export function useFinancialSnapshot(monthPeriod: MonthPeriod): UseFinancialSnap
         const paymentDate = transaction.payment_date;
         if (!paymentDate) return;
         const point = dailyData.get(paymentDate);
-        if (point) point.recebido += Number(transaction.amount ?? 0);
+        if (point) {
+          const paid = Number(transaction.amount_paid ?? 0);
+          point.recebido += paid > 0 ? paid : Number(transaction.amount ?? 0);
+        }
       });
 
       paidSchedulesInMonth.forEach(schedule => {

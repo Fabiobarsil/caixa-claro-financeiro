@@ -324,7 +324,10 @@ export function useDashboard(selectedMonth?: string) {
       paidStandaloneInMonth.forEach(transaction => {
         if (!transaction.payment_date) return;
         const point = chartDataMap.get(transaction.payment_date);
-        if (point) point.received += Number(transaction.amount ?? 0);
+        if (point) {
+          const paid = Number(transaction.amount_paid ?? 0);
+          point.received += paid > 0 ? paid : Number(transaction.amount ?? 0);
+        }
       });
 
       // Aggregate pending schedules in month by due_date
