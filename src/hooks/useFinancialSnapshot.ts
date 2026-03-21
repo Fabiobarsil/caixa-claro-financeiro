@@ -146,7 +146,7 @@ export function useFinancialSnapshot(monthPeriod: MonthPeriod): UseFinancialSnap
       // 1. Transactions avulsas (sem entry_schedules) pagas no mês
       const { data: paidStandaloneTx, error: paidTxError } = await supabase
         .from('transactions')
-        .select('id, amount')
+        .select('id, amount, payment_date')
         .eq('account_id', accountId!)
         .eq('type', 'entrada')
         .eq('status', 'pago')
