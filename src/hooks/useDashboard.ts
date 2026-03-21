@@ -75,7 +75,7 @@ export function useDashboard(selectedMonth?: string) {
       const todayStr = format(today, 'yyyy-MM-dd');
       const next30DaysStr = format(addDays(today, 30), 'yyyy-MM-dd');
 
-      // Fetch transactions for the month
+      // Fetch transactions for the month (by date for listing, separate paid query by payment_date)
       const { data: transactionsData, error: transactionsError } = await supabase
         .from('transactions')
         .select('*')
@@ -84,6 +84,17 @@ export function useDashboard(selectedMonth?: string) {
         .order('date', { ascending: false });
 
       if (transactionsError) throw transactionsError;
+
+      // Fetch paid transactions by payment_date in month (for accurate "Recebido")
+      const { data: paidByPaymentDate, error: paidTxError } = await supabase
+        .from('transactions')
+        .select('id, amount, payment_date')
+        .eq('type', 'entrada')
+        .eq('status', 'pago')
+        .gte('payment_date', startDate)
+        .lte('payment_date', endDate);
+
+      if (paidTxError) throw paidTxError;
 
       // Fetch expenses for the month
       const { data: expensesData, error: expensesError } = await supabase
@@ -94,7 +105,7 @@ export function useDashboard(selectedMonth?: string) {
 
       if (expensesError) throw expensesError;
 
-      // Fetch entry schedules with due_date in month (for metrics)
+      // Fetch entry schedules with due_date in month (for pending/overdue metrics)
       const { data: schedulesInMonth, error: schedulesError } = await supabase
         .from('entry_schedules')
         .select('*')
@@ -102,6 +113,18 @@ export function useDashboard(selectedMonth?: string) {
         .lte('due_date', endDate);
 
       if (schedulesError) throw schedulesError;
+
+      // Fetch entry schedules PAID in month (by paid_at, for accurate "Recebido")
+      const startDatetime = `${startDate}T00:00:00`;
+      const endDatetime = `${endDate}T23:59:59.999`;
+      const { data: paidSchedulesInMonth, error: paidSchError } = await supabase
+        .from('entry_schedules')
+        .select('*')
+        .eq('status', 'pago')
+        .gte('paid_at', startDatetime)
+        .lte('paid_at', endDatetime);
+
+      if (paidSchError) throw paidSchError;
 
       // Fetch ALL pending schedules globally (for global receivables)
       const { data: allPendingSchedules, error: allPendingError } = await supabase
