@@ -213,10 +213,8 @@ export function useFinancialSnapshot(monthPeriod: MonthPeriod): UseFinancialSnap
         .filter(r => r.status === 'pendente' && r.competencia && r.competencia < todayStr)
         .reduce((s, r) => s + Number(r.valor ?? 0), 0);
 
-      // LUCRO REAL — regime de competência, sem filtro por status
-      const totalReceitas = receitas.reduce((s, r) => s + Number(r.valor ?? 0), 0);
-      const totalDespesas = despesas.reduce((s, r) => s + Number(r.valor ?? 0), 0);
-      const lucroReal = totalReceitas - totalDespesas;
+      // LUCRO REAL — somente valores pagos: Recebido - Despesas Pagas
+      const lucroReal = recebido - despesasPagas;
 
       const totalEntradas = recebido + aReceber + emAtraso;
       const totalSaidas = despesasPagas + despesasAVencer + despesasEmAtraso;
