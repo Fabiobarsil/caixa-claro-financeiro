@@ -34,7 +34,8 @@ interface ReportRow {
   valor: number;
   forma_pagamento: string;
   payment_method_key: string;
-  data: string;
+  data: string;           // due_date or date (for display/period filter)
+  payment_date: string | null; // actual payment date (for Recebido calc)
   status: 'Pago' | 'Pendente' | 'Atrasado';
   tipo: 'receita' | 'despesa';
 }
