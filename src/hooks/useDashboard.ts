@@ -136,10 +136,12 @@ export function useDashboard(selectedMonth?: string) {
 
       // Fetch ALL transaction_ids that have any schedules (to know which transactions to exclude)
       const transactionIds = (transactionsData || []).map(e => e.id);
+      const paidTxIds = (paidByPaymentDate || []).map(e => e.id);
+      const allRelevantIds = [...new Set([...transactionIds, ...paidTxIds])];
       const { data: allSchedulesForTransactions } = await supabase
         .from('entry_schedules')
         .select('entry_id')
-        .in('entry_id', transactionIds.length > 0 ? transactionIds : ['']);
+        .in('entry_id', allRelevantIds.length > 0 ? allRelevantIds : ['']);
 
       // Set of transaction_ids that have schedules
       const transactionIdsWithSchedules = new Set(
@@ -176,21 +178,21 @@ export function useDashboard(selectedMonth?: string) {
       });
 
       const schedules = (schedulesInMonth || []) as ScheduleRow[];
+      const paidSchedules = (paidSchedulesInMonth || []) as ScheduleRow[];
       const globalSchedules = (allPendingSchedules || []) as ScheduleRow[];
 
       // Transactions WITHOUT any schedules (use transaction values)
       const transactionsWithoutSchedules = transactions.filter(e => !transactionIdsWithSchedules.has(e.id));
 
-      // ===== RECEBIDO (Received) =====
-      // Paid transactions without schedules
-      const paidTransactionsValue = transactionsWithoutSchedules
-        .filter(e => e.status === 'pago')
-        .reduce((sum, e) => sum + e.value, 0);
+      // ===== RECEBIDO (Received) — REGIME DE CAIXA =====
+      // Paid standalone transactions by payment_date in month
+      const paidStandaloneInMonth = (paidByPaymentDate || []).filter(t => !transactionIdsWithSchedules.has(t.id));
+      const paidTransactionsValue = paidStandaloneInMonth
+        .reduce((sum, e) => sum + Number(e.amount ?? 0), 0);
 
-      // Paid schedules in this month (source of truth for installments)
-      const paidSchedulesValue = schedules
-        .filter(s => s.status === 'pago')
-        .reduce((sum, s) => sum + Number(s.amount), 0);
+      // Paid schedules by paid_at in month (use amount_paid when available)
+      const paidSchedulesValue = paidSchedules
+        .reduce((sum, s) => sum + Number(s.amount_paid ?? s.amount ?? 0), 0);
 
       const received = paidTransactionsValue + paidSchedulesValue;
 
