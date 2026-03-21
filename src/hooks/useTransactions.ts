@@ -50,7 +50,8 @@ export function useTransactions() {
       // Fetch clients for names (also filtered by RLS)
       const { data: clients } = await supabase
         .from('clients')
-        .select('id, name');
+        .select('id, name')
+        .eq('account_id', accountId!);
 
       // Fetch services/products for names (also filtered by RLS)
       const { data: items } = await supabase
