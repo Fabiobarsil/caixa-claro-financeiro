@@ -78,6 +78,7 @@ export default function Entries() {
   const filteredAtrasados = filterBySearch(atrasados);
   const filteredVence7 = filterBySearch(vencemEm7Dias);
   const filteredFuturos = filterBySearch(futuros);
+  const filteredParciais = filterBySearch(parcialmentePagos);
   const filteredPagos = filterBySearch(pagos);
 
   // Open quitar modal
