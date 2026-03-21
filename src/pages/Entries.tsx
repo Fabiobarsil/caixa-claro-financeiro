@@ -81,6 +81,10 @@ export default function Entries() {
   const filteredParciais = filterBySearch(parcialmentePagos);
   const filteredPagos = filterBySearch(pagos);
 
+  // Determine if a lancamento has installments (should never update parent transaction directly)
+  const hasInstallments = (lanc: LancamentoConsolidado) =>
+    lanc.qtd_parcelas_total > 1 || lanc.qtd_parcelas_pendentes > 0 || lanc.qtd_parcelas_pagas > 0;
+
   // Open quitar modal
   const openQuitarModal = async (lanc: LancamentoConsolidado) => {
     setQuitarTarget(lanc);
@@ -88,13 +92,15 @@ export default function Entries() {
     setLoadingParcelas(true);
 
     try {
-      if (lanc.qtd_parcelas_total > 1 || lanc.qtd_parcelas_pendentes > 0) {
+      if (hasInstallments(lanc)) {
         const result = await fetchParcelasAll(lanc.id_master);
         setParcelas(result);
       } else {
         setParcelas([]);
       }
     } catch {
+      // If lancamento has installments but fetch failed, keep modal open with error state
+      // Do NOT fallback to single-transaction mode
       setParcelas([]);
     } finally {
       setLoadingParcelas(false);
@@ -104,14 +110,20 @@ export default function Entries() {
   const handleConfirmQuitar = (payload: QuitarPayload) => {
     if (!quitarTarget) return;
 
+    // REGRA CRÍTICA: Transações com parcelas NUNCA devem ter o status da transaction atualizado diretamente.
+    // O pagamento deve ocorrer EXCLUSIVAMENTE na tabela entry_schedules.
+    const lancHasInstallments = hasInstallments(quitarTarget);
+
     if (payload.scheduleIds.length > 0) {
+      // Pagamento de parcelas individuais — atualiza apenas entry_schedules
       markSchedulesPaid.mutate(payload, {
         onSuccess: () => {
           setQuitarModalOpen(false);
           setQuitarTarget(null);
         },
       });
-    } else {
+    } else if (!lancHasInstallments) {
+      // Pagamento de transação avulsa (sem parcelas) — pode atualizar a transaction
       markTransactionPaid.mutate(quitarTarget.id_master, {
         onSuccess: () => {
           setQuitarModalOpen(false);
@@ -119,6 +131,7 @@ export default function Entries() {
         },
       });
     }
+    // Se tem parcelas mas scheduleIds está vazio, não faz nada (proteção contra erro)
   };
 
   const handleEstornar = (scheduleId: string) => {
@@ -360,8 +373,8 @@ export default function Entries() {
           subtitle={quitarTarget?.item_name || quitarTarget?.description || undefined}
           parcelas={parcelas}
           isLoadingParcelas={loadingParcelas}
-          singleTransactionId={parcelas.length === 0 ? quitarTarget?.id_master : undefined}
-          singleTransactionAmount={quitarTarget?.total_pendente}
+          singleTransactionId={parcelas.length === 0 && quitarTarget && !hasInstallments(quitarTarget) ? quitarTarget.id_master : undefined}
+          singleTransactionAmount={quitarTarget && !hasInstallments(quitarTarget) ? quitarTarget.total_pendente : undefined}
           onConfirmQuitar={handleConfirmQuitar}
           onConfirmEstornar={isAdmin ? handleEstornar : undefined}
           isSubmitting={markSchedulesPaid.isPending || markTransactionPaid.isPending}
