@@ -67,6 +67,7 @@ export function useEntrySchedules(entryId?: string) {
       let query = supabase
         .from('entry_schedules')
         .select('*')
+        .eq('account_id', accountId!)
         .order('installment_number', { ascending: true });
       
       if (entryId) {
