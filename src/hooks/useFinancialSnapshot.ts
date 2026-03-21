@@ -178,7 +178,7 @@ export function useFinancialSnapshot(monthPeriod: MonthPeriod): UseFinancialSnap
 
       const { data: paidSchedules, error: paidSchError } = await supabase
         .from('entry_schedules')
-        .select('id, amount')
+        .select('id, amount, amount_paid')
         .eq('account_id', accountId!)
         .eq('status', 'pago')
         .gte('paid_at', startDatetime)
@@ -186,8 +186,9 @@ export function useFinancialSnapshot(monthPeriod: MonthPeriod): UseFinancialSnap
 
       if (paidSchError) throw paidSchError;
 
+      // Usar amount_paid (valor efetivamente pago) quando disponível, senão amount da parcela
       const recebidoSchedules = (paidSchedules || [])
-        .reduce((sum, s) => sum + Number(s.amount ?? 0), 0);
+        .reduce((sum, s) => sum + Number(s.amount_paid ?? s.amount ?? 0), 0);
 
       // RECEBIDO TOTAL — regime de caixa
       const recebido = recebidoStandalone + recebidoSchedules;
