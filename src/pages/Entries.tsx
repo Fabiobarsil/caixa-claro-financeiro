@@ -131,6 +131,11 @@ export default function Entries() {
     });
   };
 
+  // Revert standalone transaction
+  const handleRevertTransaction = (lanc: LancamentoConsolidado) => {
+    revertTransaction.mutate(lanc.id_master);
+  };
+
   return (
     <AppLayout>
       <div className="flex flex-col h-full">
