@@ -73,17 +73,32 @@ export default function QuitarParcelaModal({
   const pendentes = parcelas.filter(p => p.status === 'pendente');
   const pagas = parcelas.filter(p => p.status === 'pago');
 
+  const getDefaultSelectedIds = () => {
+    if (pendentes.length === 0) return new Set<string>();
+
+    const nextDueInstallment = [...pendentes].sort((a, b) => {
+      if (a.installment_number !== b.installment_number) {
+        return a.installment_number - b.installment_number;
+      }
+      return a.due_date.localeCompare(b.due_date);
+    })[0];
+
+    return new Set<string>([nextDueInstallment.id]);
+  };
+
   // Reset state when modal opens
   useEffect(() => {
     if (open) {
-      setSelectedIds(new Set(pendentes.map(p => p.id)));
+      // Regra: em lançamentos parcelados, a quitação padrão deve ser individual.
+      // Selecionamos apenas a próxima parcela pendente por padrão.
+      setSelectedIds(getDefaultSelectedIds());
       setPaymentMethod('pix');
       setPaymentDate(format(new Date(), 'yyyy-MM-dd'));
       setNotes('');
       setCustomAmount('');
       setEstornarTarget(null);
     }
-  }, [open, parcelas.length]);
+  }, [open, parcelas]);
 
   const selectedTotal = pendentes
     .filter(p => selectedIds.has(p.id))
@@ -189,10 +204,21 @@ export default function QuitarParcelaModal({
                 {(pendentes.length > 0 || singleTransactionId) && (
                   <div className="space-y-3 border-t border-border pt-3">
                     {pendentes.length > 0 && (
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-muted-foreground">Total selecionado:</span>
-                        <span className="font-bold text-foreground">{formatCurrency(selectedTotal)}</span>
-                      </div>
+                      <>
+                        <div className="rounded-lg border border-warning/30 bg-warning/10 px-3 py-2">
+                          <p className="text-xs font-medium text-foreground">
+                            Por padrão, apenas a próxima parcela pendente é selecionada.
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Marque outras parcelas somente se quiser quitar mais de uma de uma vez.
+                          </p>
+                        </div>
+
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-muted-foreground">Total selecionado:</span>
+                          <span className="font-bold text-foreground">{formatCurrency(selectedTotal)}</span>
+                        </div>
+                      </>
                     )}
 
                     <div>
@@ -207,7 +233,7 @@ export default function QuitarParcelaModal({
                         onChange={e => setCustomAmount(e.target.value)}
                         className="mt-1"
                       />
-                      <p className="text-xs text-muted-foreground mt-0.5">Deixe vazio para usar o valor da parcela</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">Deixe vazio para usar o valor das parcelas selecionadas</p>
                     </div>
 
                     <div>

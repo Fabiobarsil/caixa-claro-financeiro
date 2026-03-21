@@ -50,11 +50,16 @@ function distributeAmount(total: number, count: number): number[] {
 /**
  * Calculate due date for each installment
  */
-function calculateDueDate(firstDueDate: string, index: number, intervalDays: number): string {
-  // Parse date components directly to avoid timezone issues
+function calculateDueDate(firstDueDate: string, index: number, intervalDays: number, scheduleType?: ScheduleType): string {
   const [year, month, day] = firstDueDate.split('-').map(Number);
-  const date = new Date(year, month - 1, day); // Local date, no UTC shift
-  date.setDate(date.getDate() + (index * intervalDays));
+  const date = new Date(year, month - 1, day);
+
+  if (scheduleType === 'monthly_package') {
+    date.setMonth(date.getMonth() + index);
+  } else {
+    date.setDate(date.getDate() + (index * intervalDays));
+  }
+
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, '0');
   const d = String(date.getDate()).padStart(2, '0');
@@ -123,7 +128,7 @@ export function useEntrySchedules(entryId?: string) {
         schedule_type: input.schedule_type,
         installment_number: index + 1,
         installments_total: input.installments_total,
-        due_date: calculateDueDate(input.first_due_date, index, input.interval_days),
+        due_date: calculateDueDate(input.first_due_date, index, input.interval_days, input.schedule_type),
         status: 'pendente' as const,
         amount,
       }));
