@@ -32,7 +32,7 @@ function formatPaymentMethod(method: string | null): string {
 export default function Entries() {
   const navigate = useNavigate();
   const {
-    lancamentos, atrasados, vencemEm7Dias, futuros, pagos, inconsistentes,
+    lancamentos, atrasados, vencemEm7Dias, futuros, pagos, parcialmentePagos, inconsistentes,
     isLoading, isAdmin, fetchParcelasAll,
     markSchedulesPaid, markTransactionPaid, revertSchedule, revertTransaction,
   } = useLancamentos();
