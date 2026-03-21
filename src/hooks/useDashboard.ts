@@ -52,6 +52,7 @@ interface ScheduleRow {
   paid_at: string | null;
   status: string;
   amount: number;
+  amount_paid: number | null;
 }
 
 export function useDashboard(selectedMonth?: string) {
