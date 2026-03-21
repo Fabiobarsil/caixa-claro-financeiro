@@ -126,7 +126,7 @@ export function useFinancialSnapshot(monthPeriod: MonthPeriod): UseFinancialSnap
     queryFn: async () => {
       console.log('[FinancialSnapshot] Buscando v_financial_competencia:', { startDate, endDate, accountId });
 
-      // Busca principal na view
+      // Busca principal na view (para competência: pendentes, despesas, etc.)
       const { data: rows, error: rowsError } = await supabase
         .from('v_financial_competencia')
         .select('account_id, competencia, valor, origem_id, status, tipo, categoria, origem, master_id')
@@ -137,6 +137,62 @@ export function useFinancialSnapshot(monthPeriod: MonthPeriod): UseFinancialSnap
       if (rowsError) throw rowsError;
 
       const allRows = (rows || []) as (ViewRow & { master_id?: string | null })[];
+
+      // ============================================
+      // RECEBIDO — REGIME DE CAIXA (payment_date / paid_at)
+      // Busca separada: somente itens pagos COM data de pagamento NO mês
+      // ============================================
+
+      // 1. Transactions avulsas (sem entry_schedules) pagas no mês
+      const { data: paidStandaloneTx, error: paidTxError } = await supabase
+        .from('transactions')
+        .select('id, amount')
+        .eq('account_id', accountId!)
+        .eq('type', 'entrada')
+        .eq('status', 'pago')
+        .gte('payment_date', startDate)
+        .lte('payment_date', endDate);
+
+      if (paidTxError) throw paidTxError;
+
+      // Filtrar apenas as que NÃO possuem entry_schedules
+      const standaloneIds = (paidStandaloneTx || []).map(t => t.id);
+      let standaloneWithoutSchedules = paidStandaloneTx || [];
+
+      if (standaloneIds.length > 0) {
+        const { data: schedulesForTx } = await supabase
+          .from('entry_schedules')
+          .select('entry_id')
+          .in('entry_id', standaloneIds);
+
+        const idsWithSchedules = new Set((schedulesForTx || []).map(s => s.entry_id));
+        standaloneWithoutSchedules = (paidStandaloneTx || []).filter(t => !idsWithSchedules.has(t.id));
+      }
+
+      const recebidoStandalone = standaloneWithoutSchedules
+        .reduce((sum, t) => sum + Number(t.amount ?? 0), 0);
+
+      // 2. Entry_schedules pagas no mês (paid_at no período)
+      const startDatetime = `${startDate}T00:00:00`;
+      const endDatetime = `${endDate}T23:59:59.999`;
+
+      const { data: paidSchedules, error: paidSchError } = await supabase
+        .from('entry_schedules')
+        .select('id, amount')
+        .eq('account_id', accountId!)
+        .eq('status', 'pago')
+        .gte('paid_at', startDatetime)
+        .lte('paid_at', endDatetime);
+
+      if (paidSchError) throw paidSchError;
+
+      const recebidoSchedules = (paidSchedules || [])
+        .reduce((sum, s) => sum + Number(s.amount ?? 0), 0);
+
+      // RECEBIDO TOTAL — regime de caixa
+      const recebido = recebidoStandalone + recebidoSchedules;
+
+      console.log('[FinancialSnapshot] Recebido caixa:', { recebidoStandalone, recebidoSchedules, recebido });
 
       // Buscar nomes dos clientes para as receitas pendentes (vencimentos críticos)
       const pendingReceitas = allRows.filter(r => r.tipo === 'receita' && r.status === 'pendente');
@@ -182,11 +238,6 @@ export function useFinancialSnapshot(monthPeriod: MonthPeriod): UseFinancialSnap
       const receitas = allRows.filter(r => r.tipo === 'receita');
       const despesas = allRows.filter(r => r.tipo === 'despesa');
 
-      // RECEBIDO — receitas pagas
-      const recebido = receitas
-        .filter(r => r.status === 'pago')
-        .reduce((s, r) => s + Number(r.valor ?? 0), 0);
-
       // A_RECEBER — receitas pendentes com competência >= hoje
       const aReceber = receitas
         .filter(r => r.status === 'pendente' && r.competencia && r.competencia >= todayStr)
@@ -197,8 +248,8 @@ export function useFinancialSnapshot(monthPeriod: MonthPeriod): UseFinancialSnap
         .filter(r => r.status === 'pendente' && r.competencia && r.competencia < todayStr)
         .reduce((s, r) => s + Number(r.valor ?? 0), 0);
 
-      // ATENDIMENTOS — receitas pagas (contagem)
-      const totalAtendimentos = receitas.filter(r => r.status === 'pago').length;
+      // ATENDIMENTOS — contagem de itens pagos no mês (caixa)
+      const totalAtendimentos = standaloneWithoutSchedules.length + (paidSchedules || []).length;
 
       // DESPESAS — split por status
       const despesasPagas = despesas
