@@ -129,7 +129,7 @@ export default function Cobrancas() {
     if (payload.scheduleIds.length > 0) {
       await markSchedulesPaid.mutateAsync(payload);
     } else if (modalItem) {
-      await markTransactionPaid.mutateAsync(modalItem.id);
+      await markTransactionPaid.mutateAsync({ transactionId: modalItem.id, paymentDate: payload.payment_date });
     }
     setModalOpen(false);
   }, [markSchedulesPaid, markTransactionPaid, modalItem]);
