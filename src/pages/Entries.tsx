@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils';
 import {
   Search, Loader2, Receipt, Package, Scissors, CheckCircle,
   ChevronDown, ChevronUp, Plus, DollarSign, TrendingUp,
-  TrendingDown, Clock, AlertTriangle, Pencil, RotateCcw, AlertCircle
+  TrendingDown, Clock, AlertTriangle, Pencil, RotateCcw, AlertCircle, CircleDashed
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
