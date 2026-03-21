@@ -112,6 +112,7 @@ export function useDashboard(selectedMonth?: string) {
       const { data: schedulesInMonth, error: schedulesError } = await supabase
         .from('entry_schedules')
         .select('*')
+        .eq('account_id', accountId!)
         .gte('due_date', startDate)
         .lte('due_date', endDate);
 
