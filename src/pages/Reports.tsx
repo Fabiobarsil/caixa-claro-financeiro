@@ -34,7 +34,8 @@ interface ReportRow {
   valor: number;
   forma_pagamento: string;
   payment_method_key: string;
-  data: string;
+  data: string;           // due_date or date (for display/period filter)
+  payment_date: string | null; // actual payment date (for Recebido calc)
   status: 'Pago' | 'Pendente' | 'Atrasado';
   tipo: 'receita' | 'despesa';
 }
@@ -43,13 +44,14 @@ export default function Reports() {
   const { user, accountId } = useAuth();
   const { transactions, isLoading: txLoading } = useTransactions();
 
-  // Fetch ALL expenses (not limited to current month like useExpenses)
+  // Fetch ALL expenses with account_id filter
   const { data: allExpenses = [], isLoading: expLoading } = useQuery({
     queryKey: ['report-expenses', accountId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('expenses')
         .select('*')
+        .eq('account_id', accountId!)
         .order('date', { ascending: false });
       if (error) throw error;
       return data || [];
@@ -57,13 +59,14 @@ export default function Reports() {
     enabled: !!user?.id && !!accountId,
   });
 
-  // Fetch ALL entry_schedules for granular parcela-level status
+  // Fetch ALL entry_schedules with account_id filter
   const { data: allSchedules = [], isLoading: schedLoading } = useQuery({
     queryKey: ['report-schedules', accountId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('entry_schedules')
         .select('*')
+        .eq('account_id', accountId!)
         .order('due_date', { ascending: false });
       if (error) throw error;
       return data || [];
@@ -72,7 +75,12 @@ export default function Reports() {
   });
 
   const [search, setSearch] = useState('');
-  const [periodFilter, setPeriodFilter] = useState('all');
+  // Default to current month (YYYY-MM)
+  const currentMonth = useMemo(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  }, []);
+  const [periodFilter, setPeriodFilter] = useState(currentMonth);
   const [statusFilter, setStatusFilter] = useState('all');
   const [page, setPage] = useState(1);
 
@@ -113,6 +121,7 @@ export default function Reports() {
             forma_pagamento: PAYMENT_LABELS[t.payment_method] || t.payment_method,
             payment_method_key: t.payment_method,
             data: s.due_date,
+            payment_date: s.paid_at ? s.paid_at.substring(0, 10) : null,
             status,
             tipo: t.type === 'entrada' ? 'receita' as const : 'despesa' as const,
           });
@@ -137,6 +146,7 @@ export default function Reports() {
           forma_pagamento: PAYMENT_LABELS[t.payment_method] || t.payment_method,
           payment_method_key: t.payment_method,
           data: dueDate,
+          payment_date: t.payment_date || null,
           status,
           tipo: t.type === 'entrada' ? 'receita' as const : 'despesa' as const,
         });
@@ -151,6 +161,7 @@ export default function Reports() {
       forma_pagamento: '-',
       payment_method_key: '',
       data: e.date,
+      payment_date: e.status === 'pago' ? e.date : null,
       status: e.status === 'pago' ? 'Pago' as const : (e.date < today ? 'Atrasado' as const : 'Pendente' as const),
       tipo: 'despesa' as const,
     }));
@@ -177,16 +188,21 @@ export default function Reports() {
     });
   }, [rows, search, periodFilter, statusFilter]);
 
-  // 1) Summary — derived from filtered
+  // 1) Summary — derived from filtered, Recebido uses payment_date (regime de caixa)
   const summary = useMemo(() => {
     let recebido = 0, aReceber = 0, despesas = 0;
     filtered.forEach(r => {
-      if (r.tipo === 'receita' && r.status === 'Pago') recebido += r.valor;
+      if (r.tipo === 'receita' && r.status === 'Pago') {
+        // Recebido: only count if payment_date falls within the selected period
+        if (periodFilter === 'all' || (r.payment_date && r.payment_date.startsWith(periodFilter))) {
+          recebido += r.valor;
+        }
+      }
       if (r.tipo === 'receita' && (r.status === 'Pendente' || r.status === 'Atrasado')) aReceber += r.valor;
       if (r.tipo === 'despesa') despesas += r.valor;
     });
     return { recebido, aReceber, despesas };
-  }, [filtered]);
+  }, [filtered, periodFilter]);
 
   // 2) Billing status — derived from filtered (receitas only)
   const billingStatus = useMemo(() => {
