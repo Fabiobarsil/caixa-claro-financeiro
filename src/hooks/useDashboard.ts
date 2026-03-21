@@ -135,6 +135,7 @@ export function useDashboard(selectedMonth?: string) {
       const { data: allPendingSchedules, error: allPendingError } = await supabase
         .from('entry_schedules')
         .select('*')
+        .eq('account_id', accountId!)
         .eq('status', 'pendente');
 
       if (allPendingError) throw allPendingError;
