@@ -186,8 +186,12 @@ export function useFinancialSnapshot(monthPeriod: MonthPeriod): UseFinancialSnap
 
       const paidStandaloneInMonth = standaloneWithoutSchedules;
 
+      // Usar amount_paid quando disponível (pagamento parcial), senão amount (totalmente pago)
       const recebidoStandalone = paidStandaloneInMonth
-        .reduce((sum, t) => sum + Number(t.amount ?? 0), 0);
+        .reduce((sum, t) => {
+          const paid = Number(t.amount_paid ?? 0);
+          return sum + (paid > 0 ? paid : Number(t.amount ?? 0));
+        }, 0);
 
       // 2. Entry_schedules pagas no mês (paid_at no período)
       const startDatetime = `${startDate}T00:00:00`;
