@@ -248,8 +248,8 @@ export function useFinancialSnapshot(monthPeriod: MonthPeriod): UseFinancialSnap
         .filter(r => r.status === 'pendente' && r.competencia && r.competencia < todayStr)
         .reduce((s, r) => s + Number(r.valor ?? 0), 0);
 
-      // ATENDIMENTOS — receitas pagas (contagem)
-      const totalAtendimentos = receitas.filter(r => r.status === 'pago').length;
+      // ATENDIMENTOS — contagem de itens pagos no mês (caixa)
+      const totalAtendimentos = standaloneWithoutSchedules.length + (paidSchedules || []).length;
 
       // DESPESAS — split por status
       const despesasPagas = despesas
