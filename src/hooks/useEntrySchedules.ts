@@ -303,7 +303,11 @@ export function getScheduleSummary(schedules: EntrySchedule[]) {
  * Calculate default due date (entry date + 30 days)
  */
 export function getDefaultDueDate(entryDate: string): string {
-  const date = new Date(entryDate);
+  const [year, month, day] = entryDate.split('-').map(Number);
+  const date = new Date(year, month - 1, day);
   date.setDate(date.getDate() + 30);
-  return date.toISOString().split('T')[0];
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
 }
