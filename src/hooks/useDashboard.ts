@@ -52,6 +52,7 @@ interface ScheduleRow {
   paid_at: string | null;
   status: string;
   amount: number;
+  amount_paid: number | null;
 }
 
 export function useDashboard(selectedMonth?: string) {
@@ -74,7 +75,7 @@ export function useDashboard(selectedMonth?: string) {
       const todayStr = format(today, 'yyyy-MM-dd');
       const next30DaysStr = format(addDays(today, 30), 'yyyy-MM-dd');
 
-      // Fetch transactions for the month
+      // Fetch transactions for the month (by date for listing, separate paid query by payment_date)
       const { data: transactionsData, error: transactionsError } = await supabase
         .from('transactions')
         .select('*')
@@ -83,6 +84,17 @@ export function useDashboard(selectedMonth?: string) {
         .order('date', { ascending: false });
 
       if (transactionsError) throw transactionsError;
+
+      // Fetch paid transactions by payment_date in month (for accurate "Recebido")
+      const { data: paidByPaymentDate, error: paidTxError } = await supabase
+        .from('transactions')
+        .select('id, amount, payment_date')
+        .eq('type', 'entrada')
+        .eq('status', 'pago')
+        .gte('payment_date', startDate)
+        .lte('payment_date', endDate);
+
+      if (paidTxError) throw paidTxError;
 
       // Fetch expenses for the month
       const { data: expensesData, error: expensesError } = await supabase
@@ -93,7 +105,7 @@ export function useDashboard(selectedMonth?: string) {
 
       if (expensesError) throw expensesError;
 
-      // Fetch entry schedules with due_date in month (for metrics)
+      // Fetch entry schedules with due_date in month (for pending/overdue metrics)
       const { data: schedulesInMonth, error: schedulesError } = await supabase
         .from('entry_schedules')
         .select('*')
@@ -101,6 +113,18 @@ export function useDashboard(selectedMonth?: string) {
         .lte('due_date', endDate);
 
       if (schedulesError) throw schedulesError;
+
+      // Fetch entry schedules PAID in month (by paid_at, for accurate "Recebido")
+      const startDatetime = `${startDate}T00:00:00`;
+      const endDatetime = `${endDate}T23:59:59.999`;
+      const { data: paidSchedulesInMonth, error: paidSchError } = await supabase
+        .from('entry_schedules')
+        .select('*')
+        .eq('status', 'pago')
+        .gte('paid_at', startDatetime)
+        .lte('paid_at', endDatetime);
+
+      if (paidSchError) throw paidSchError;
 
       // Fetch ALL pending schedules globally (for global receivables)
       const { data: allPendingSchedules, error: allPendingError } = await supabase
@@ -112,10 +136,12 @@ export function useDashboard(selectedMonth?: string) {
 
       // Fetch ALL transaction_ids that have any schedules (to know which transactions to exclude)
       const transactionIds = (transactionsData || []).map(e => e.id);
+      const paidTxIds = (paidByPaymentDate || []).map(e => e.id);
+      const allRelevantIds = [...new Set([...transactionIds, ...paidTxIds])];
       const { data: allSchedulesForTransactions } = await supabase
         .from('entry_schedules')
         .select('entry_id')
-        .in('entry_id', transactionIds.length > 0 ? transactionIds : ['']);
+        .in('entry_id', allRelevantIds.length > 0 ? allRelevantIds : ['']);
 
       // Set of transaction_ids that have schedules
       const transactionIdsWithSchedules = new Set(
@@ -152,21 +178,21 @@ export function useDashboard(selectedMonth?: string) {
       });
 
       const schedules = (schedulesInMonth || []) as ScheduleRow[];
+      const paidSchedules = (paidSchedulesInMonth || []) as ScheduleRow[];
       const globalSchedules = (allPendingSchedules || []) as ScheduleRow[];
 
       // Transactions WITHOUT any schedules (use transaction values)
       const transactionsWithoutSchedules = transactions.filter(e => !transactionIdsWithSchedules.has(e.id));
 
-      // ===== RECEBIDO (Received) =====
-      // Paid transactions without schedules
-      const paidTransactionsValue = transactionsWithoutSchedules
-        .filter(e => e.status === 'pago')
-        .reduce((sum, e) => sum + e.value, 0);
+      // ===== RECEBIDO (Received) — REGIME DE CAIXA =====
+      // Paid standalone transactions by payment_date in month
+      const paidStandaloneInMonth = (paidByPaymentDate || []).filter(t => !transactionIdsWithSchedules.has(t.id));
+      const paidTransactionsValue = paidStandaloneInMonth
+        .reduce((sum, e) => sum + Number(e.amount ?? 0), 0);
 
-      // Paid schedules in this month (source of truth for installments)
-      const paidSchedulesValue = schedules
-        .filter(s => s.status === 'pago')
-        .reduce((sum, s) => sum + Number(s.amount), 0);
+      // Paid schedules by paid_at in month (use amount_paid when available)
+      const paidSchedulesValue = paidSchedules
+        .reduce((sum, s) => sum + Number(s.amount_paid ?? s.amount ?? 0), 0);
 
       const received = paidTransactionsValue + paidSchedulesValue;
 
@@ -300,7 +326,7 @@ export function useDashboard(selectedMonth?: string) {
         if (schedule.status === 'pago' && schedule.paid_at) {
           const paidDate = format(new Date(schedule.paid_at), 'yyyy-MM-dd');
           const point = chartDataMap.get(paidDate);
-          if (point) point.received += Number(schedule.amount);
+          if (point) point.received += Number(schedule.amount_paid ?? schedule.amount);
         } else if (schedule.status === 'pendente') {
           const dueDate = new Date(schedule.due_date);
           dueDate.setHours(0, 0, 0, 0);
