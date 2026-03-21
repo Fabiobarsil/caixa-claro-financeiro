@@ -38,7 +38,7 @@ export default function Entries() {
   } = useLancamentos();
 
   const [search, setSearch] = useState('');
-  const [pagosExpanded, setPagosExpanded] = useState(false);
+  const [pagosExpanded, setPagosExpanded] = useState(true);
   const [editingEntry, setEditingEntry] = useState<LancamentoConsolidado | null>(null);
 
   // Quitar modal state
