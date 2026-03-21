@@ -88,7 +88,7 @@ export function useDashboard(selectedMonth?: string) {
       // Fetch paid transactions by payment_date in month (for accurate "Recebido")
       const { data: paidByPaymentDate, error: paidTxError } = await supabase
         .from('transactions')
-        .select('id, amount, payment_date')
+        .select('id, amount, amount_paid, payment_date')
         .eq('type', 'entrada')
         .eq('status', 'pago')
         .gte('payment_date', startDate)
