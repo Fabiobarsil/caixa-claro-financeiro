@@ -124,6 +124,7 @@ export function useDashboard(selectedMonth?: string) {
       const { data: paidSchedulesInMonth, error: paidSchError } = await supabase
         .from('entry_schedules')
         .select('*')
+        .eq('account_id', accountId!)
         .eq('status', 'pago')
         .gte('paid_at', startDatetime)
         .lte('paid_at', endDatetime);
