@@ -190,9 +190,9 @@ export function useDashboard(selectedMonth?: string) {
       const paidTransactionsValue = paidStandaloneInMonth
         .reduce((sum, e) => sum + Number(e.amount ?? 0), 0);
 
-      // Paid schedules by paid_at in month (use amount_paid when available)
+      // Paid schedules by paid_at in month (usar amount da parcela, não amount_paid que pode estar inflado)
       const paidSchedulesValue = paidSchedules
-        .reduce((sum, s) => sum + Number(s.amount_paid ?? s.amount ?? 0), 0);
+        .reduce((sum, s) => sum + Number(s.amount ?? 0), 0);
 
       const received = paidTransactionsValue + paidSchedulesValue;
 
