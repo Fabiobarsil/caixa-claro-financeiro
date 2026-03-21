@@ -90,6 +90,7 @@ export function useDashboard(selectedMonth?: string) {
       const { data: paidByPaymentDate, error: paidTxError } = await supabase
         .from('transactions')
         .select('id, amount, amount_paid, payment_date')
+        .eq('account_id', accountId!)
         .eq('type', 'entrada')
         .eq('status', 'pago')
         .gte('payment_date', startDate)
