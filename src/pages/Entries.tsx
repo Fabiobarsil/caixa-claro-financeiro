@@ -290,6 +290,19 @@ export default function Entries() {
                 defaultOpen
               />
 
+              {/* PARCIALMENTE PAGOS */}
+              <LancamentoGroup
+                title="Parcialmente pagos"
+                icon={<CircleDashed className="h-4 w-4 text-warning" />}
+                items={filteredParciais}
+                variant="warning"
+                onPayment={openQuitarModal}
+                onEdit={setEditingEntry}
+                onRevert={handleRevertTransaction}
+                isAdmin={isAdmin}
+                defaultOpen
+              />
+
               {/* PAGOS (collapsed by default) */}
               {filteredPagos.length > 0 && (
                 <div>
