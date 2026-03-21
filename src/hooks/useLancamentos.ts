@@ -227,7 +227,8 @@ export function useLancamentos() {
     const venc = new Date(l.proximo_vencimento + 'T00:00:00');
     return venc > in7Days;
   });
-  const pagos = lancamentos.filter(l => l.status_geral === 'PAGO');
+  // Inclui tanto totalmente pagos quanto parcialmente pagos (total_pago > 0)
+  const pagos = lancamentos.filter(l => l.status_geral === 'PAGO' || l.total_pago > 0);
   const inconsistentes = lancamentos.filter(l => l.inconsistente);
 
   return {
