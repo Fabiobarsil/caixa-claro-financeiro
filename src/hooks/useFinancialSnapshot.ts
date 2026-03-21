@@ -98,6 +98,7 @@ interface ViewRow {
 interface PaidTransactionRow {
   id: string;
   amount: number | null;
+  amount_paid: number | null;
   payment_date: string | null;
 }
 
@@ -159,7 +160,7 @@ export function useFinancialSnapshot(monthPeriod: MonthPeriod): UseFinancialSnap
       // 1. Transactions avulsas (sem entry_schedules) pagas no mês
       const { data: paidStandaloneTx, error: paidTxError } = await supabase
         .from('transactions')
-        .select('id, amount, payment_date')
+        .select('id, amount, amount_paid, payment_date')
         .eq('account_id', accountId!)
         .eq('type', 'entrada')
         .eq('status', 'pago')
@@ -185,8 +186,12 @@ export function useFinancialSnapshot(monthPeriod: MonthPeriod): UseFinancialSnap
 
       const paidStandaloneInMonth = standaloneWithoutSchedules;
 
+      // Usar amount_paid quando disponível (pagamento parcial), senão amount (totalmente pago)
       const recebidoStandalone = paidStandaloneInMonth
-        .reduce((sum, t) => sum + Number(t.amount ?? 0), 0);
+        .reduce((sum, t) => {
+          const paid = Number(t.amount_paid ?? 0);
+          return sum + (paid > 0 ? paid : Number(t.amount ?? 0));
+        }, 0);
 
       // 2. Entry_schedules pagas no mês (paid_at no período)
       const startDatetime = `${startDate}T00:00:00`;
@@ -337,7 +342,10 @@ export function useFinancialSnapshot(monthPeriod: MonthPeriod): UseFinancialSnap
         const paymentDate = transaction.payment_date;
         if (!paymentDate) return;
         const point = dailyData.get(paymentDate);
-        if (point) point.recebido += Number(transaction.amount ?? 0);
+        if (point) {
+          const paid = Number(transaction.amount_paid ?? 0);
+          point.recebido += paid > 0 ? paid : Number(transaction.amount ?? 0);
+        }
       });
 
       paidSchedulesInMonth.forEach(schedule => {
