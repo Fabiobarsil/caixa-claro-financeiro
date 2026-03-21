@@ -157,6 +157,29 @@ export function useLancamentos() {
     },
   });
 
+  // Revert a standalone transaction back to pending (admin only)
+  const revertTransaction = useMutation({
+    mutationFn: async (transactionId: string) => {
+      if (!isAdmin) throw new Error('Apenas administradores podem reverter');
+      const { error } = await supabase
+        .from('transactions')
+        .update({ status: 'pendente', payment_date: null })
+        .eq('id', transactionId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['lancamentos-consolidados'] });
+      queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['financial-snapshot'] });
+      queryClient.invalidateQueries({ queryKey: ['cobrancas'] });
+      toast.success('Pagamento revertido para pendente');
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Erro ao reverter pagamento');
+    },
+  });
+
   // Revert schedule to pending (admin only)
   const revertSchedule = useMutation({
     mutationFn: async (scheduleId: string) => {
@@ -221,5 +244,6 @@ export function useLancamentos() {
     markSchedulesPaid,
     markTransactionPaid,
     revertSchedule,
+    revertTransaction,
   };
 }
