@@ -244,5 +244,6 @@ export function useLancamentos() {
     markSchedulesPaid,
     markTransactionPaid,
     revertSchedule,
+    revertTransaction,
   };
 }
