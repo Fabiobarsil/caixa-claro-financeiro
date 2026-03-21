@@ -408,10 +408,11 @@ interface LancamentoCardProps {
   lanc: LancamentoConsolidado;
   onPayment: (lanc: LancamentoConsolidado) => void;
   onEdit: (lanc: LancamentoConsolidado) => void;
+  onRevert: (lanc: LancamentoConsolidado) => void;
   isAdmin: boolean;
 }
 
-function LancamentoCard({ lanc, onPayment, onEdit, isAdmin }: LancamentoCardProps) {
+function LancamentoCard({ lanc, onPayment, onEdit, onRevert, isAdmin }: LancamentoCardProps) {
   const isPago = lanc.status_geral === 'PAGO';
   const isAtrasado = lanc.status_geral === 'ATRASADO';
 
@@ -518,16 +519,30 @@ function LancamentoCard({ lanc, onPayment, onEdit, isAdmin }: LancamentoCardProp
             <DollarSign className="mr-1.5 h-3.5 w-3.5" />
             Quitar
           </Button>
-        ) : isAdmin && lanc.qtd_parcelas_total > 1 && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => onPayment(lanc)}
-            className="text-muted-foreground hover:text-destructive hover:border-destructive/30"
-          >
-            <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
-            Estornar
-          </Button>
+        ) : isAdmin && (
+          lanc.qtd_parcelas_total > 1 ? (
+            // Parceled: open modal to pick which installment to revert
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onPayment(lanc)}
+              className="text-muted-foreground hover:text-destructive hover:border-destructive/30"
+            >
+              <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
+              Estornar
+            </Button>
+          ) : (
+            // Standalone: revert directly
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onRevert(lanc)}
+              className="text-muted-foreground hover:text-destructive hover:border-destructive/30"
+            >
+              <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
+              Desfazer Pagamento
+            </Button>
+          )
         )}
       </div>
     </div>
