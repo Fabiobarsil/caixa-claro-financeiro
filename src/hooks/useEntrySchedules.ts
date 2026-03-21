@@ -51,9 +51,14 @@ function distributeAmount(total: number, count: number): number[] {
  * Calculate due date for each installment
  */
 function calculateDueDate(firstDueDate: string, index: number, intervalDays: number): string {
-  const date = new Date(firstDueDate);
+  // Parse date components directly to avoid timezone issues
+  const [year, month, day] = firstDueDate.split('-').map(Number);
+  const date = new Date(year, month - 1, day); // Local date, no UTC shift
   date.setDate(date.getDate() + (index * intervalDays));
-  return date.toISOString().split('T')[0];
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
 }
 
 export function useEntrySchedules(entryId?: string) {
