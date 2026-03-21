@@ -366,11 +366,12 @@ interface LancamentoGroupProps {
   variant: 'destructive' | 'warning' | 'primary';
   onPayment: (lanc: LancamentoConsolidado) => void;
   onEdit: (lanc: LancamentoConsolidado) => void;
+  onRevert: (lanc: LancamentoConsolidado) => void;
   isAdmin: boolean;
   defaultOpen?: boolean;
 }
 
-function LancamentoGroup({ title, icon, items, onPayment, onEdit, isAdmin, defaultOpen }: LancamentoGroupProps) {
+function LancamentoGroup({ title, icon, items, onPayment, onEdit, onRevert, isAdmin, defaultOpen }: LancamentoGroupProps) {
   const [open, setOpen] = useState(defaultOpen ?? true);
 
   if (items.length === 0) return null;
@@ -392,6 +393,7 @@ function LancamentoGroup({ title, icon, items, onPayment, onEdit, isAdmin, defau
               lanc={lanc}
               onPayment={onPayment}
               onEdit={onEdit}
+              onRevert={onRevert}
               isAdmin={isAdmin}
             />
           ))}
