@@ -83,6 +83,7 @@ export function useBIData(timeWindow: TimeWindow) {
       const { data: paidSchedulesInWindow, error: paidSchedulesError } = await supabase
         .from('entry_schedules')
         .select('*')
+        .eq('account_id', accountId!)
         .eq('status', 'pago')
         .gte('paid_at', startDate)
         .lte('paid_at', endDate + 'T23:59:59');
