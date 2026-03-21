@@ -205,9 +205,9 @@ export function useFinancialSnapshot(monthPeriod: MonthPeriod): UseFinancialSnap
 
       const paidSchedulesInMonth = (paidSchedules || []) as PaidScheduleRow[];
 
-      // Usar amount_paid (valor efetivamente pago) quando disponível, senão amount da parcela
+      // Usar amount da parcela (valor correto por parcela) — amount_paid pode conter o total do lote
       const recebidoSchedules = paidSchedulesInMonth
-        .reduce((sum, s) => sum + Number(s.amount_paid ?? s.amount ?? 0), 0);
+        .reduce((sum, s) => sum + Number(s.amount ?? 0), 0);
 
       // RECEBIDO TOTAL — regime de caixa
       const recebido = recebidoStandalone + recebidoSchedules;
@@ -344,7 +344,7 @@ export function useFinancialSnapshot(monthPeriod: MonthPeriod): UseFinancialSnap
         const paidDate = schedule.paid_at?.slice(0, 10);
         if (!paidDate) return;
         const point = dailyData.get(paidDate);
-        if (point) point.recebido += Number(schedule.amount_paid ?? schedule.amount ?? 0);
+        if (point) point.recebido += Number(schedule.amount ?? 0);
       });
 
       const chartData: ChartDataPoint[] = [];
