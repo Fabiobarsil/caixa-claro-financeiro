@@ -93,6 +93,7 @@ export function useBIData(timeWindow: TimeWindow) {
       const { data: pendingSchedules, error: pendingSchedulesError } = await supabase
         .from('entry_schedules')
         .select('*')
+        .eq('account_id', accountId!)
         .eq('status', 'pendente')
         .gte('due_date', startDate);
 

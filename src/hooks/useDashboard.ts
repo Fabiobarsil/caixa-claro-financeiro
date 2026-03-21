@@ -162,7 +162,8 @@ export function useDashboard(selectedMonth?: string) {
 
       const { data: items } = await supabase
         .from('services_products')
-        .select('id, name, type');
+        .select('id, name, type')
+        .eq('account_id', accountId!);
 
       const clientMap = new Map((clients || []).map(c => [c.id, c.name]));
       const itemMap = new Map((items || []).map(i => [i.id, { name: i.name, type: i.type }]));
