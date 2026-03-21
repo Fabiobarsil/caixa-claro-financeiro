@@ -188,16 +188,21 @@ export default function Reports() {
     });
   }, [rows, search, periodFilter, statusFilter]);
 
-  // 1) Summary — derived from filtered
+  // 1) Summary — derived from filtered, Recebido uses payment_date (regime de caixa)
   const summary = useMemo(() => {
     let recebido = 0, aReceber = 0, despesas = 0;
     filtered.forEach(r => {
-      if (r.tipo === 'receita' && r.status === 'Pago') recebido += r.valor;
+      if (r.tipo === 'receita' && r.status === 'Pago') {
+        // Recebido: only count if payment_date falls within the selected period
+        if (periodFilter === 'all' || (r.payment_date && r.payment_date.startsWith(periodFilter))) {
+          recebido += r.valor;
+        }
+      }
       if (r.tipo === 'receita' && (r.status === 'Pendente' || r.status === 'Atrasado')) aReceber += r.valor;
       if (r.tipo === 'despesa') despesas += r.valor;
     });
     return { recebido, aReceber, despesas };
-  }, [filtered]);
+  }, [filtered, periodFilter]);
 
   // 2) Billing status — derived from filtered (receitas only)
   const billingStatus = useMemo(() => {
