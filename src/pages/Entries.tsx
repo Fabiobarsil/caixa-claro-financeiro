@@ -310,6 +310,7 @@ export default function Entries() {
                           lanc={lanc}
                           onPayment={openQuitarModal}
                           onEdit={setEditingEntry}
+                          onRevert={handleRevertTransaction}
                           isAdmin={isAdmin}
                         />
                       ))}
