@@ -104,9 +104,61 @@ interface PaidTransactionRow {
 
 interface PaidScheduleRow {
   id: string;
+  entry_id: string;
   amount: number | null;
   amount_paid: number | null;
   paid_at: string | null;
+}
+
+const toCents = (value: number | null | undefined) => Math.round(Number(value ?? 0) * 100);
+const fromCents = (value: number) => value / 100;
+
+function getEffectivePaidScheduleRowCents(schedule: PaidScheduleRow): number {
+  const amountCents = toCents(schedule.amount);
+  const amountPaidCents = toCents(schedule.amount_paid);
+
+  if (amountPaidCents > 0) {
+    return Math.min(amountPaidCents, amountCents);
+  }
+
+  return amountCents;
+}
+
+function calculatePaidSchedulesCash(schedules: PaidScheduleRow[]) {
+  const groups = new Map<string, PaidScheduleRow[]>();
+
+  schedules.forEach((schedule) => {
+    if (!schedule.paid_at) return;
+    const key = `${schedule.entry_id}::${schedule.paid_at}`;
+    const existing = groups.get(key) || [];
+    existing.push(schedule);
+    groups.set(key, existing);
+  });
+
+  const byDateCents = new Map<string, number>();
+  let totalCents = 0;
+
+  groups.forEach((group) => {
+    const paidAt = group[0]?.paid_at;
+    if (!paidAt) return;
+
+    const paidDate = paidAt.slice(0, 10);
+    const totalAmountCents = group.reduce((sum, item) => sum + toCents(item.amount), 0);
+    const repeatedPositivePaidValues = [...new Set(group.map((item) => toCents(item.amount_paid)).filter((value) => value > 0))];
+
+    const groupReceivedCents =
+      group.length > 1 && repeatedPositivePaidValues.length === 1
+        ? Math.min(repeatedPositivePaidValues[0], totalAmountCents)
+        : group.reduce((sum, item) => sum + getEffectivePaidScheduleRowCents(item), 0);
+
+    totalCents += groupReceivedCents;
+    byDateCents.set(paidDate, (byDateCents.get(paidDate) || 0) + groupReceivedCents);
+  });
+
+  return {
+    total: fromCents(totalCents),
+    byDate: new Map(Array.from(byDateCents.entries()).map(([date, value]) => [date, fromCents(value)])),
+  };
 }
 
 /**
@@ -199,7 +251,7 @@ export function useFinancialSnapshot(monthPeriod: MonthPeriod): UseFinancialSnap
 
       const { data: paidSchedules, error: paidSchError } = await supabase
         .from('entry_schedules')
-        .select('id, amount, amount_paid, paid_at')
+        .select('id, entry_id, amount, amount_paid, paid_at')
         .eq('account_id', accountId!)
         .eq('status', 'pago')
         .not('paid_at', 'is', null)
@@ -209,10 +261,7 @@ export function useFinancialSnapshot(monthPeriod: MonthPeriod): UseFinancialSnap
       if (paidSchError) throw paidSchError;
 
       const paidSchedulesInMonth = (paidSchedules || []) as PaidScheduleRow[];
-
-      // Usar amount da parcela (valor correto por parcela) — amount_paid pode conter o total do lote
-      const recebidoSchedules = paidSchedulesInMonth
-        .reduce((sum, s) => sum + Number(s.amount ?? 0), 0);
+      const { total: recebidoSchedules, byDate: receivedSchedulesByDate } = calculatePaidSchedulesCash(paidSchedulesInMonth);
 
       // RECEBIDO TOTAL — regime de caixa
       const recebido = recebidoStandalone + recebidoSchedules;
@@ -348,11 +397,9 @@ export function useFinancialSnapshot(monthPeriod: MonthPeriod): UseFinancialSnap
         }
       });
 
-      paidSchedulesInMonth.forEach(schedule => {
-        const paidDate = schedule.paid_at?.slice(0, 10);
-        if (!paidDate) return;
+      receivedSchedulesByDate.forEach((receivedValue, paidDate) => {
         const point = dailyData.get(paidDate);
-        if (point) point.recebido += Number(schedule.amount ?? 0);
+        if (point) point.recebido += receivedValue;
       });
 
       const chartData: ChartDataPoint[] = [];

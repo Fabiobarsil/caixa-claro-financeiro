@@ -82,6 +82,7 @@ export function useLancamentos() {
     const { data, error } = await supabase
       .from('entry_schedules')
       .select('id, entry_id, installment_number, installments_total, due_date, amount, status, schedule_type, paid_at')
+      .eq('account_id', accountId!)
       .eq('entry_id', entryId)
       .order('installment_number', { ascending: true });
 
@@ -98,24 +99,43 @@ export function useLancamentos() {
       payment_date?: string;
       payment_notes?: string;
     }) => {
-      const updates: Record<string, unknown> = {
-        status: 'pago',
-        paid_at: payload.payment_date
-          ? new Date(payload.payment_date + 'T12:00:00').toISOString()
-          : new Date().toISOString(),
-      };
-      if (payload.payment_method) updates.payment_method_used = payload.payment_method;
-      if (payload.payment_notes) updates.payment_notes = payload.payment_notes;
-      if (payload.amount_paid) updates.amount_paid = payload.amount_paid;
-      if (user?.id) {
-        updates.edited_by = user.id;
-        updates.edited_at = new Date().toISOString();
-      }
+      const paidAt = payload.payment_date
+        ? new Date(payload.payment_date + 'T12:00:00').toISOString()
+        : new Date().toISOString();
 
-      const { error } = await supabase
+      const { data: schedulesToPay, error: schedulesError } = await supabase
         .from('entry_schedules')
-        .update(updates)
+        .select('id, amount')
+        .eq('account_id', accountId!)
         .in('id', payload.scheduleIds);
+
+      if (schedulesError) throw schedulesError;
+
+      const editedAt = new Date().toISOString();
+      const updates = (schedulesToPay || []).map((schedule) => {
+        const rowUpdates: Record<string, unknown> = {
+          status: 'pago',
+          paid_at: paidAt,
+          amount_paid: Number(schedule.amount ?? 0),
+          previous_status: 'pendente',
+        };
+
+        if (payload.payment_method) rowUpdates.payment_method_used = payload.payment_method;
+        if (payload.payment_notes) rowUpdates.payment_notes = payload.payment_notes;
+        if (user?.id) {
+          rowUpdates.edited_by = user.id;
+          rowUpdates.edited_at = editedAt;
+        }
+
+        return supabase
+          .from('entry_schedules')
+          .update(rowUpdates)
+          .eq('account_id', accountId!)
+          .eq('id', schedule.id);
+      });
+
+      const results = await Promise.all(updates);
+      const error = results.find((result) => result.error)?.error;
 
       if (error) throw error;
     },
@@ -124,7 +144,7 @@ export function useLancamentos() {
       queryClient.invalidateQueries({ queryKey: ['entry_schedules'] });
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
-      queryClient.invalidateQueries({ queryKey: ['financial-snapshot'] });
+      queryClient.invalidateQueries({ queryKey: ['financial-snapshot-v2'] });
       queryClient.invalidateQueries({ queryKey: ['cobrancas'] });
       toast.success('Pagamento registrado!');
     },
@@ -136,11 +156,25 @@ export function useLancamentos() {
 
   // Mark a single transaction as paid (for entries without schedules)
   const markTransactionPaid = useMutation({
-    mutationFn: async (transactionId: string) => {
-      const today = new Date().toISOString().split('T')[0];
+    mutationFn: async ({ transactionId, paymentDate }: { transactionId: string; paymentDate?: string }) => {
+      const effectivePaymentDate = paymentDate || new Date().toISOString().split('T')[0];
+      const { data: transaction, error: transactionError } = await supabase
+        .from('transactions')
+        .select('amount')
+        .eq('account_id', accountId!)
+        .eq('id', transactionId)
+        .single();
+
+      if (transactionError) throw transactionError;
+
       const { error } = await supabase
         .from('transactions')
-        .update({ status: 'pago', payment_date: today })
+        .update({
+          status: 'pago',
+          payment_date: effectivePaymentDate,
+          amount_paid: Number(transaction.amount ?? 0),
+        })
+        .eq('account_id', accountId!)
         .eq('id', transactionId);
       if (error) throw error;
     },
@@ -148,7 +182,7 @@ export function useLancamentos() {
       queryClient.invalidateQueries({ queryKey: ['lancamentos-consolidados'] });
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
-      queryClient.invalidateQueries({ queryKey: ['financial-snapshot'] });
+      queryClient.invalidateQueries({ queryKey: ['financial-snapshot-v2'] });
       queryClient.invalidateQueries({ queryKey: ['cobrancas'] });
       toast.success('Pagamento registrado!');
     },
@@ -171,7 +205,7 @@ export function useLancamentos() {
       queryClient.invalidateQueries({ queryKey: ['lancamentos-consolidados'] });
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
-      queryClient.invalidateQueries({ queryKey: ['financial-snapshot'] });
+      queryClient.invalidateQueries({ queryKey: ['financial-snapshot-v2'] });
       queryClient.invalidateQueries({ queryKey: ['cobrancas'] });
       toast.success('Pagamento revertido para pendente');
     },
@@ -200,6 +234,7 @@ export function useLancamentos() {
       queryClient.invalidateQueries({ queryKey: ['lancamentos-consolidados'] });
       queryClient.invalidateQueries({ queryKey: ['entry_schedules'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['financial-snapshot-v2'] });
       queryClient.invalidateQueries({ queryKey: ['cobrancas'] });
       toast.success('Revertido para pendente');
     },

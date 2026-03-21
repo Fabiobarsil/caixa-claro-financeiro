@@ -124,7 +124,7 @@ export default function Entries() {
       });
     } else if (!lancHasInstallments) {
       // Pagamento de transação avulsa (sem parcelas) — pode atualizar a transaction
-      markTransactionPaid.mutate(quitarTarget.id_master, {
+      markTransactionPaid.mutate({ transactionId: quitarTarget.id_master, paymentDate: payload.payment_date }, {
         onSuccess: () => {
           setQuitarModalOpen(false);
           setQuitarTarget(null);
