@@ -545,6 +545,7 @@ export type Database = {
         Row: {
           account_id: string
           amount: number
+          amount_paid: number | null
           category: Database["public"]["Enums"]["transaction_category"] | null
           client_id: string
           created_at: string
@@ -565,6 +566,7 @@ export type Database = {
         Insert: {
           account_id: string
           amount: number
+          amount_paid?: number | null
           category?: Database["public"]["Enums"]["transaction_category"] | null
           client_id: string
           created_at?: string
@@ -585,6 +587,7 @@ export type Database = {
         Update: {
           account_id?: string
           amount?: number
+          amount_paid?: number | null
           category?: Database["public"]["Enums"]["transaction_category"] | null
           client_id?: string
           created_at?: string
