@@ -17,7 +17,7 @@ export interface Receivable {
 }
 
 export function useCobrancas() {
-  const { user } = useAuth();
+  const { user, accountId } = useAuth();
 
   return useQuery({
     queryKey: ['cobrancas', user?.accountId],
@@ -46,6 +46,7 @@ export function useCobrancas() {
             services_products!transactions_service_product_id_fkey ( name )
           )
         `)
+        .eq('account_id', accountId!)
         .neq('status', 'pago')
         .order('due_date', { ascending: true });
 
@@ -108,6 +109,7 @@ export function useCobrancas() {
           clients!transactions_client_id_fkey ( name, phone ),
           services_products!transactions_service_product_id_fkey ( name )
         `)
+        .eq('account_id', accountId!)
         .neq('status', 'pago')
         .order('due_date', { ascending: true });
 
@@ -150,7 +152,7 @@ export function useCobrancas() {
 
       return [...scheduleItems, ...singleTxItems];
     },
-    enabled: !!user?.accountId,
+    enabled: !!user && !!accountId,
     refetchInterval: 5000,
   });
 }

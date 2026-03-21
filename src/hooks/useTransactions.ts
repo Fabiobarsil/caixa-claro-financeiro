@@ -42,6 +42,7 @@ export function useTransactions() {
       const { data: transactionsData, error: transactionsError } = await supabase
         .from('transactions')
         .select('*')
+        .eq('account_id', accountId!)
         .order('date', { ascending: false });
 
       if (transactionsError) throw transactionsError;
@@ -49,12 +50,14 @@ export function useTransactions() {
       // Fetch clients for names (also filtered by RLS)
       const { data: clients } = await supabase
         .from('clients')
-        .select('id, name');
+        .select('id, name')
+        .eq('account_id', accountId!);
 
       // Fetch services/products for names (also filtered by RLS)
       const { data: items } = await supabase
         .from('services_products')
-        .select('id, name, type');
+        .select('id, name, type')
+        .eq('account_id', accountId!);
 
       const clientMap = new Map((clients || []).map(c => [c.id, c.name]));
       const itemMap = new Map((items || []).map(i => [i.id, { name: i.name, type: i.type }]));

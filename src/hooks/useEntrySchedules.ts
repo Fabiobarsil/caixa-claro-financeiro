@@ -67,6 +67,7 @@ export function useEntrySchedules(entryId?: string) {
       let query = supabase
         .from('entry_schedules')
         .select('*')
+        .eq('account_id', accountId!)
         .order('installment_number', { ascending: true });
       
       if (entryId) {
@@ -91,6 +92,7 @@ export function useEntrySchedules(entryId?: string) {
       const { data, error } = await supabase
         .from('entry_schedules')
         .select('*')
+        .eq('account_id', accountId!)
         .order('due_date', { ascending: true });
 
       if (error) throw error;

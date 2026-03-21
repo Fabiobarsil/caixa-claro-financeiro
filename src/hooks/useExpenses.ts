@@ -55,6 +55,7 @@ export function useExpenses() {
       const { data, error } = await supabase
         .from('expenses')
         .select('*')
+        .eq('account_id', accountId!)
         .gte('date', startDate)
         .lte('date', endDate)
         .order('date', { ascending: false });

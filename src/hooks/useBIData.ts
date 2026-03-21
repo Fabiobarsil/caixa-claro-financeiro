@@ -60,6 +60,7 @@ export function useBIData(timeWindow: TimeWindow) {
       const { data: transactionsData, error: transactionsError } = await supabase
         .from('transactions')
         .select('*')
+        .eq('account_id', accountId!)
         .gte('date', startDate)
         .lte('date', endDate)
         .order('date', { ascending: false });
@@ -70,6 +71,7 @@ export function useBIData(timeWindow: TimeWindow) {
       const { data: expensesData, error: expensesError } = await supabase
         .from('expenses')
         .select('*')
+        .eq('account_id', accountId!)
         .gte('date', startDate)
         .lte('date', endDate);
 
@@ -81,6 +83,7 @@ export function useBIData(timeWindow: TimeWindow) {
       const { data: paidSchedulesInWindow, error: paidSchedulesError } = await supabase
         .from('entry_schedules')
         .select('*')
+        .eq('account_id', accountId!)
         .eq('status', 'pago')
         .gte('paid_at', startDate)
         .lte('paid_at', endDate + 'T23:59:59');
@@ -90,6 +93,7 @@ export function useBIData(timeWindow: TimeWindow) {
       const { data: pendingSchedules, error: pendingSchedulesError } = await supabase
         .from('entry_schedules')
         .select('*')
+        .eq('account_id', accountId!)
         .eq('status', 'pendente')
         .gte('due_date', startDate);
 

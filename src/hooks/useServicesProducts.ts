@@ -38,6 +38,7 @@ export function useServicesProducts() {
       const { data, error } = await supabase
         .from('services_products')
         .select('*')
+        .eq('account_id', accountId!)
         .order('name');
 
       if (error) throw error;

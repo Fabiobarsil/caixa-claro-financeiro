@@ -79,6 +79,7 @@ export function useDashboard(selectedMonth?: string) {
       const { data: transactionsData, error: transactionsError } = await supabase
         .from('transactions')
         .select('*')
+        .eq('account_id', accountId!)
         .gte('date', startDate)
         .lte('date', endDate)
         .order('date', { ascending: false });
@@ -89,6 +90,7 @@ export function useDashboard(selectedMonth?: string) {
       const { data: paidByPaymentDate, error: paidTxError } = await supabase
         .from('transactions')
         .select('id, amount, amount_paid, payment_date')
+        .eq('account_id', accountId!)
         .eq('type', 'entrada')
         .eq('status', 'pago')
         .gte('payment_date', startDate)
@@ -100,6 +102,7 @@ export function useDashboard(selectedMonth?: string) {
       const { data: expensesData, error: expensesError } = await supabase
         .from('expenses')
         .select('*')
+        .eq('account_id', accountId!)
         .gte('date', startDate)
         .lte('date', endDate);
 
@@ -109,6 +112,7 @@ export function useDashboard(selectedMonth?: string) {
       const { data: schedulesInMonth, error: schedulesError } = await supabase
         .from('entry_schedules')
         .select('*')
+        .eq('account_id', accountId!)
         .gte('due_date', startDate)
         .lte('due_date', endDate);
 
@@ -120,6 +124,7 @@ export function useDashboard(selectedMonth?: string) {
       const { data: paidSchedulesInMonth, error: paidSchError } = await supabase
         .from('entry_schedules')
         .select('*')
+        .eq('account_id', accountId!)
         .eq('status', 'pago')
         .gte('paid_at', startDatetime)
         .lte('paid_at', endDatetime);
@@ -130,6 +135,7 @@ export function useDashboard(selectedMonth?: string) {
       const { data: allPendingSchedules, error: allPendingError } = await supabase
         .from('entry_schedules')
         .select('*')
+        .eq('account_id', accountId!)
         .eq('status', 'pendente');
 
       if (allPendingError) throw allPendingError;
@@ -151,11 +157,13 @@ export function useDashboard(selectedMonth?: string) {
       // Fetch clients and items for names
       const { data: clients } = await supabase
         .from('clients')
-        .select('id, name');
+        .select('id, name')
+        .eq('account_id', accountId!);
 
       const { data: items } = await supabase
         .from('services_products')
-        .select('id, name, type');
+        .select('id, name, type')
+        .eq('account_id', accountId!);
 
       const clientMap = new Map((clients || []).map(c => [c.id, c.name]));
       const itemMap = new Map((items || []).map(i => [i.id, { name: i.name, type: i.type }]));
