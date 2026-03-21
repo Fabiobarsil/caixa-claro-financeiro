@@ -128,7 +128,7 @@ export function useEntrySchedules(entryId?: string) {
         schedule_type: input.schedule_type,
         installment_number: index + 1,
         installments_total: input.installments_total,
-        due_date: calculateDueDate(input.first_due_date, index, input.interval_days),
+        due_date: calculateDueDate(input.first_due_date, index, input.interval_days, input.schedule_type),
         status: 'pendente' as const,
         amount,
       }));
