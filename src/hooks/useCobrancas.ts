@@ -109,6 +109,7 @@ export function useCobrancas() {
           clients!transactions_client_id_fkey ( name, phone ),
           services_products!transactions_service_product_id_fkey ( name )
         `)
+        .eq('account_id', accountId!)
         .neq('status', 'pago')
         .order('due_date', { ascending: true });
 
