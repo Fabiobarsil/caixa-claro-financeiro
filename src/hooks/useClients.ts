@@ -40,7 +40,8 @@ export function useClients() {
       // Fetch transactions to calculate stats (also filtered by RLS)
       const { data: transactions } = await supabase
         .from('transactions')
-        .select('client_id, amount, status');
+        .select('client_id, amount, status')
+        .eq('account_id', accountId!);
 
       const clientStats = (clients || []).map(client => {
         const clientTransactions = (transactions || []).filter(e => e.client_id === client.id);

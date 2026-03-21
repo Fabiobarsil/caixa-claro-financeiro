@@ -152,7 +152,7 @@ export function useCobrancas() {
 
       return [...scheduleItems, ...singleTxItems];
     },
-    enabled: !!user?.accountId,
+    enabled: !!user && !!accountId,
     refetchInterval: 5000,
   });
 }
