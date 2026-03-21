@@ -34,7 +34,7 @@ export default function Entries() {
   const {
     lancamentos, atrasados, vencemEm7Dias, futuros, pagos, inconsistentes,
     isLoading, isAdmin, fetchParcelasAll,
-    markSchedulesPaid, markTransactionPaid, revertSchedule,
+    markSchedulesPaid, markTransactionPaid, revertSchedule, revertTransaction,
   } = useLancamentos();
 
   const [search, setSearch] = useState('');
