@@ -60,6 +60,7 @@ export function useBIData(timeWindow: TimeWindow) {
       const { data: transactionsData, error: transactionsError } = await supabase
         .from('transactions')
         .select('*')
+        .eq('account_id', accountId!)
         .gte('date', startDate)
         .lte('date', endDate)
         .order('date', { ascending: false });
