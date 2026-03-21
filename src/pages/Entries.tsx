@@ -258,6 +258,7 @@ export default function Entries() {
                 variant="destructive"
                 onPayment={openQuitarModal}
                 onEdit={setEditingEntry}
+                onRevert={handleRevertTransaction}
                 isAdmin={isAdmin}
                 defaultOpen
               />
@@ -270,6 +271,7 @@ export default function Entries() {
                 variant="warning"
                 onPayment={openQuitarModal}
                 onEdit={setEditingEntry}
+                onRevert={handleRevertTransaction}
                 isAdmin={isAdmin}
                 defaultOpen
               />
@@ -282,6 +284,7 @@ export default function Entries() {
                 variant="primary"
                 onPayment={openQuitarModal}
                 onEdit={setEditingEntry}
+                onRevert={handleRevertTransaction}
                 isAdmin={isAdmin}
                 defaultOpen
               />
