@@ -121,6 +121,7 @@ export default function Reports() {
             forma_pagamento: PAYMENT_LABELS[t.payment_method] || t.payment_method,
             payment_method_key: t.payment_method,
             data: s.due_date,
+            payment_date: s.paid_at ? s.paid_at.substring(0, 10) : null,
             status,
             tipo: t.type === 'entrada' ? 'receita' as const : 'despesa' as const,
           });
