@@ -271,8 +271,7 @@ export function useDashboard(selectedMonth?: string) {
         .reduce((sum, s) => sum + Number(s.amount), 0);
 
       // Calculate average ticket (paid items count)
-      const paidCount = transactionsWithoutSchedules.filter(e => e.status === 'pago').length + 
-                        schedules.filter(s => s.status === 'pago').length;
+      const paidCount = paidStandaloneInMonth.length + paidSchedules.length;
 
       const metrics: DashboardMetrics = {
         received,
@@ -301,13 +300,9 @@ export function useDashboard(selectedMonth?: string) {
         chartDataMap.set(dateStr, { date: dateStr, received: 0, pending: 0, overdue: 0 });
       }
 
-      // Aggregate transactions without schedules
+      // Aggregate pending transactions without schedules by due_date
       transactionsWithoutSchedules.forEach(transaction => {
-        if (transaction.status === 'pago') {
-          const paymentDate = transaction.payment_date || transaction.date;
-          const point = chartDataMap.get(paymentDate);
-          if (point) point.received += transaction.value;
-        } else if (transaction.due_date) {
+        if (transaction.status !== 'pago' && transaction.due_date) {
           const dueDate = new Date(transaction.due_date);
           dueDate.setHours(0, 0, 0, 0);
           const point = chartDataMap.get(transaction.due_date);
@@ -321,13 +316,16 @@ export function useDashboard(selectedMonth?: string) {
         }
       });
 
-      // Aggregate schedules in month
+      // Aggregate received standalone transactions strictly by payment_date in month
+      paidStandaloneInMonth.forEach(transaction => {
+        if (!transaction.payment_date) return;
+        const point = chartDataMap.get(transaction.payment_date);
+        if (point) point.received += Number(transaction.amount ?? 0);
+      });
+
+      // Aggregate pending schedules in month by due_date
       schedules.forEach(schedule => {
-        if (schedule.status === 'pago' && schedule.paid_at) {
-          const paidDate = format(new Date(schedule.paid_at), 'yyyy-MM-dd');
-          const point = chartDataMap.get(paidDate);
-          if (point) point.received += Number(schedule.amount_paid ?? schedule.amount);
-        } else if (schedule.status === 'pendente') {
+        if (schedule.status === 'pendente') {
           const dueDate = new Date(schedule.due_date);
           dueDate.setHours(0, 0, 0, 0);
           const point = chartDataMap.get(schedule.due_date);
@@ -339,6 +337,14 @@ export function useDashboard(selectedMonth?: string) {
             }
           }
         }
+      });
+
+      // Aggregate received schedules strictly by paid_at in month
+      paidSchedules.forEach(schedule => {
+        if (!schedule.paid_at) return;
+        const paidDate = format(new Date(schedule.paid_at), 'yyyy-MM-dd');
+        const point = chartDataMap.get(paidDate);
+        if (point) point.received += Number(schedule.amount_paid ?? schedule.amount ?? 0);
       });
 
       const chartData = Array.from(chartDataMap.values()).sort((a, b) => a.date.localeCompare(b.date));
