@@ -326,7 +326,7 @@ export function useDashboard(selectedMonth?: string) {
         if (schedule.status === 'pago' && schedule.paid_at) {
           const paidDate = format(new Date(schedule.paid_at), 'yyyy-MM-dd');
           const point = chartDataMap.get(paidDate);
-          if (point) point.received += Number(schedule.amount);
+          if (point) point.received += Number(schedule.amount_paid ?? schedule.amount);
         } else if (schedule.status === 'pendente') {
           const dueDate = new Date(schedule.due_date);
           dueDate.setHours(0, 0, 0, 0);
