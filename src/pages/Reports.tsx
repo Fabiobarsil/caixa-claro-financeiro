@@ -161,6 +161,7 @@ export default function Reports() {
       forma_pagamento: '-',
       payment_method_key: '',
       data: e.date,
+      payment_date: e.status === 'pago' ? e.date : null,
       status: e.status === 'pago' ? 'Pago' as const : (e.date < today ? 'Atrasado' as const : 'Pendente' as const),
       tipo: 'despesa' as const,
     }));
