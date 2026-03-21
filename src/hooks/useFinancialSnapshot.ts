@@ -98,6 +98,7 @@ interface ViewRow {
 interface PaidTransactionRow {
   id: string;
   amount: number | null;
+  amount_paid: number | null;
   payment_date: string | null;
 }
 
