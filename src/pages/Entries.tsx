@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils';
 import {
   Search, Loader2, Receipt, Package, Scissors, CheckCircle,
   ChevronDown, ChevronUp, Plus, DollarSign, TrendingUp,
-  TrendingDown, Clock, AlertTriangle, Pencil, RotateCcw, AlertCircle
+  TrendingDown, Clock, AlertTriangle, Pencil, RotateCcw, AlertCircle, CircleDashed
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -32,7 +32,7 @@ function formatPaymentMethod(method: string | null): string {
 export default function Entries() {
   const navigate = useNavigate();
   const {
-    lancamentos, atrasados, vencemEm7Dias, futuros, pagos, inconsistentes,
+    lancamentos, atrasados, vencemEm7Dias, futuros, pagos, parcialmentePagos, inconsistentes,
     isLoading, isAdmin, fetchParcelasAll,
     markSchedulesPaid, markTransactionPaid, revertSchedule, revertTransaction,
   } = useLancamentos();
@@ -78,6 +78,7 @@ export default function Entries() {
   const filteredAtrasados = filterBySearch(atrasados);
   const filteredVence7 = filterBySearch(vencemEm7Dias);
   const filteredFuturos = filterBySearch(futuros);
+  const filteredParciais = filterBySearch(parcialmentePagos);
   const filteredPagos = filterBySearch(pagos);
 
   // Open quitar modal
@@ -282,6 +283,19 @@ export default function Entries() {
                 icon={<TrendingUp className="h-4 w-4 text-primary" />}
                 items={filteredFuturos}
                 variant="primary"
+                onPayment={openQuitarModal}
+                onEdit={setEditingEntry}
+                onRevert={handleRevertTransaction}
+                isAdmin={isAdmin}
+                defaultOpen
+              />
+
+              {/* PARCIALMENTE PAGOS */}
+              <LancamentoGroup
+                title="Parcialmente pagos"
+                icon={<CircleDashed className="h-4 w-4 text-warning" />}
+                items={filteredParciais}
+                variant="warning"
                 onPayment={openQuitarModal}
                 onEdit={setEditingEntry}
                 onRevert={handleRevertTransaction}
