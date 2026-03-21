@@ -344,7 +344,7 @@ export function useDashboard(selectedMonth?: string) {
         if (!schedule.paid_at) return;
         const paidDate = format(new Date(schedule.paid_at), 'yyyy-MM-dd');
         const point = chartDataMap.get(paidDate);
-        if (point) point.received += Number(schedule.amount_paid ?? schedule.amount ?? 0);
+        if (point) point.received += Number(schedule.amount ?? 0);
       });
 
       const chartData = Array.from(chartDataMap.values()).sort((a, b) => a.date.localeCompare(b.date));

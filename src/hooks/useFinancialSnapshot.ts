@@ -344,7 +344,7 @@ export function useFinancialSnapshot(monthPeriod: MonthPeriod): UseFinancialSnap
         const paidDate = schedule.paid_at?.slice(0, 10);
         if (!paidDate) return;
         const point = dailyData.get(paidDate);
-        if (point) point.recebido += Number(schedule.amount_paid ?? schedule.amount ?? 0);
+        if (point) point.recebido += Number(schedule.amount ?? 0);
       });
 
       const chartData: ChartDataPoint[] = [];
