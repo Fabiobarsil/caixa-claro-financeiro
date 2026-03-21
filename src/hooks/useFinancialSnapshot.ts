@@ -95,6 +95,19 @@ interface ViewRow {
   origem: string | null;
 }
 
+interface PaidTransactionRow {
+  id: string;
+  amount: number | null;
+  payment_date: string | null;
+}
+
+interface PaidScheduleRow {
+  id: string;
+  amount: number | null;
+  amount_paid: number | null;
+  paid_at: string | null;
+}
+
 /**
  * Hook canônico — lê exclusivamente de v_financial_competencia.
  * Lucro = receitas − despesas (regime de competência, sem filtro por status).
@@ -150,6 +163,7 @@ export function useFinancialSnapshot(monthPeriod: MonthPeriod): UseFinancialSnap
         .eq('account_id', accountId!)
         .eq('type', 'entrada')
         .eq('status', 'pago')
+        .not('payment_date', 'is', null)
         .gte('payment_date', startDate)
         .lte('payment_date', endDate);
 
@@ -157,7 +171,7 @@ export function useFinancialSnapshot(monthPeriod: MonthPeriod): UseFinancialSnap
 
       // Filtrar apenas as que NÃO possuem entry_schedules
       const standaloneIds = (paidStandaloneTx || []).map(t => t.id);
-      let standaloneWithoutSchedules = paidStandaloneTx || [];
+      let standaloneWithoutSchedules = (paidStandaloneTx || []) as PaidTransactionRow[];
 
       if (standaloneIds.length > 0) {
         const { data: schedulesForTx } = await supabase
@@ -166,10 +180,12 @@ export function useFinancialSnapshot(monthPeriod: MonthPeriod): UseFinancialSnap
           .in('entry_id', standaloneIds);
 
         const idsWithSchedules = new Set((schedulesForTx || []).map(s => s.entry_id));
-        standaloneWithoutSchedules = (paidStandaloneTx || []).filter(t => !idsWithSchedules.has(t.id));
+         standaloneWithoutSchedules = (paidStandaloneTx || []).filter(t => !idsWithSchedules.has(t.id));
       }
 
-      const recebidoStandalone = standaloneWithoutSchedules
+      const paidStandaloneInMonth = standaloneWithoutSchedules;
+
+      const recebidoStandalone = paidStandaloneInMonth
         .reduce((sum, t) => sum + Number(t.amount ?? 0), 0);
 
       // 2. Entry_schedules pagas no mês (paid_at no período)
@@ -178,16 +194,19 @@ export function useFinancialSnapshot(monthPeriod: MonthPeriod): UseFinancialSnap
 
       const { data: paidSchedules, error: paidSchError } = await supabase
         .from('entry_schedules')
-        .select('id, amount, amount_paid')
+        .select('id, amount, amount_paid, paid_at')
         .eq('account_id', accountId!)
         .eq('status', 'pago')
+        .not('paid_at', 'is', null)
         .gte('paid_at', startDatetime)
         .lte('paid_at', endDatetime);
 
       if (paidSchError) throw paidSchError;
 
+      const paidSchedulesInMonth = (paidSchedules || []) as PaidScheduleRow[];
+
       // Usar amount_paid (valor efetivamente pago) quando disponível, senão amount da parcela
-      const recebidoSchedules = (paidSchedules || [])
+      const recebidoSchedules = paidSchedulesInMonth
         .reduce((sum, s) => sum + Number(s.amount_paid ?? s.amount ?? 0), 0);
 
       // RECEBIDO TOTAL — regime de caixa
@@ -250,7 +269,7 @@ export function useFinancialSnapshot(monthPeriod: MonthPeriod): UseFinancialSnap
         .reduce((s, r) => s + Number(r.valor ?? 0), 0);
 
       // ATENDIMENTOS — contagem de itens pagos no mês (caixa)
-      const totalAtendimentos = standaloneWithoutSchedules.length + (paidSchedules || []).length;
+      const totalAtendimentos = paidStandaloneInMonth.length + paidSchedulesInMonth.length;
 
       // DESPESAS — split por status
       const despesasPagas = despesas
@@ -308,11 +327,24 @@ export function useFinancialSnapshot(monthPeriod: MonthPeriod): UseFinancialSnap
         if (!point) return;
 
         if (r.tipo === 'receita') {
-          if (r.status === 'pago') point.recebido += Number(r.valor ?? 0);
-          else point.a_receber += Number(r.valor ?? 0);
+          if (r.status !== 'pago') point.a_receber += Number(r.valor ?? 0);
         } else if (r.tipo === 'despesa') {
           point.despesas += Number(r.valor ?? 0);
         }
+      });
+
+      paidStandaloneInMonth.forEach(transaction => {
+        const paymentDate = transaction.payment_date;
+        if (!paymentDate) return;
+        const point = dailyData.get(paymentDate);
+        if (point) point.recebido += Number(transaction.amount ?? 0);
+      });
+
+      paidSchedulesInMonth.forEach(schedule => {
+        const paidDate = schedule.paid_at?.slice(0, 10);
+        if (!paidDate) return;
+        const point = dailyData.get(paidDate);
+        if (point) point.recebido += Number(schedule.amount_paid ?? schedule.amount ?? 0);
       });
 
       const chartData: ChartDataPoint[] = [];
