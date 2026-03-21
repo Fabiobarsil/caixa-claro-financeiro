@@ -32,6 +32,7 @@ export function useClients() {
       const { data: clients, error } = await supabase
         .from('clients')
         .select('*')
+        .eq('account_id', accountId!)
         .order('name');
 
       if (error) throw error;
