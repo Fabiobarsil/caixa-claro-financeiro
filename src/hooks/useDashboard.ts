@@ -102,6 +102,7 @@ export function useDashboard(selectedMonth?: string) {
       const { data: expensesData, error: expensesError } = await supabase
         .from('expenses')
         .select('*')
+        .eq('account_id', accountId!)
         .gte('date', startDate)
         .lte('date', endDate);
 
