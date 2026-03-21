@@ -43,13 +43,14 @@ export default function Reports() {
   const { user, accountId } = useAuth();
   const { transactions, isLoading: txLoading } = useTransactions();
 
-  // Fetch ALL expenses (not limited to current month like useExpenses)
+  // Fetch ALL expenses with account_id filter
   const { data: allExpenses = [], isLoading: expLoading } = useQuery({
     queryKey: ['report-expenses', accountId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('expenses')
         .select('*')
+        .eq('account_id', accountId!)
         .order('date', { ascending: false });
       if (error) throw error;
       return data || [];
@@ -57,13 +58,14 @@ export default function Reports() {
     enabled: !!user?.id && !!accountId,
   });
 
-  // Fetch ALL entry_schedules for granular parcela-level status
+  // Fetch ALL entry_schedules with account_id filter
   const { data: allSchedules = [], isLoading: schedLoading } = useQuery({
     queryKey: ['report-schedules', accountId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('entry_schedules')
         .select('*')
+        .eq('account_id', accountId!)
         .order('due_date', { ascending: false });
       if (error) throw error;
       return data || [];
@@ -72,7 +74,12 @@ export default function Reports() {
   });
 
   const [search, setSearch] = useState('');
-  const [periodFilter, setPeriodFilter] = useState('all');
+  // Default to current month (YYYY-MM)
+  const currentMonth = useMemo(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  }, []);
+  const [periodFilter, setPeriodFilter] = useState(currentMonth);
   const [statusFilter, setStatusFilter] = useState('all');
   const [page, setPage] = useState(1);
 
