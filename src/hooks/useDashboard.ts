@@ -157,7 +157,8 @@ export function useDashboard(selectedMonth?: string) {
       // Fetch clients and items for names
       const { data: clients } = await supabase
         .from('clients')
-        .select('id, name');
+        .select('id, name')
+        .eq('account_id', accountId!);
 
       const { data: items } = await supabase
         .from('services_products')
