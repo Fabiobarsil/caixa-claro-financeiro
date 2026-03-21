@@ -247,12 +247,5 @@ export function useLancamentos() {
     markTransactionPaid,
     revertSchedule,
     revertTransaction,
-    error,
-    isAdmin,
-    fetchParcelasAll,
-    markSchedulesPaid,
-    markTransactionPaid,
-    revertSchedule,
-    revertTransaction,
   };
 }
