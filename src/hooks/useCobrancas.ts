@@ -17,7 +17,7 @@ export interface Receivable {
 }
 
 export function useCobrancas() {
-  const { user } = useAuth();
+  const { user, accountId } = useAuth();
 
   return useQuery({
     queryKey: ['cobrancas', user?.accountId],
