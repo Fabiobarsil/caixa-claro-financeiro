@@ -69,7 +69,7 @@ export function useLancamentos() {
         qtd_parcelas_total: row.qtd_parcelas_total || 1,
         qtd_parcelas_pagas: row.qtd_parcelas_pagas || 0,
         qtd_parcelas_pendentes: row.qtd_parcelas_pendentes || 0,
-        status_geral: row.status_geral || 'PENDENTE',
+        status_geral: (row.status_geral || 'PENDENTE').toUpperCase(),
         inconsistente: row.inconsistente || false,
       }));
     },
