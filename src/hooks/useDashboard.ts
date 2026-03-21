@@ -187,8 +187,12 @@ export function useDashboard(selectedMonth?: string) {
       // ===== RECEBIDO (Received) — REGIME DE CAIXA =====
       // Paid standalone transactions by payment_date in month
       const paidStandaloneInMonth = (paidByPaymentDate || []).filter(t => !transactionIdsWithSchedules.has(t.id));
+      // Usar amount_paid quando disponível (pagamento parcial), senão amount
       const paidTransactionsValue = paidStandaloneInMonth
-        .reduce((sum, e) => sum + Number(e.amount ?? 0), 0);
+        .reduce((sum, e) => {
+          const paid = Number(e.amount_paid ?? 0);
+          return sum + (paid > 0 ? paid : Number(e.amount ?? 0));
+        }, 0);
 
       // Paid schedules by paid_at in month (usar amount da parcela, não amount_paid que pode estar inflado)
       const paidSchedulesValue = paidSchedules
