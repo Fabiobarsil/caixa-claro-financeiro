@@ -15,7 +15,7 @@ import { Button } from '@/components/ui/button';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { formatCurrency } from '@/lib/formatters';
-import EditTransactionDialog from '@/components/EditTransactionDialog';
+import TransactionDetailModal from '@/components/TransactionDetailModal';
 import QuitarParcelaModal, { type QuitarPayload, type ParcelaItem } from '@/components/QuitarParcelaModal';
 
 function formatPaymentMethod(method: string | null): string {
