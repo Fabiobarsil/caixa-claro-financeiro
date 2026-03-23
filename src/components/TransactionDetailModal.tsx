@@ -49,6 +49,8 @@ interface TransactionDetailModalProps {
   onOpenChange: (open: boolean) => void;
   lancamento: LancamentoConsolidado | null;
   fetchParcelas: (entryId: string) => Promise<ParcelaPendente[]>;
+  onEstornar?: (scheduleId: string) => Promise<void>;
+  isAdmin?: boolean;
 }
 
 /* ──────────────────────────────────────────────
