@@ -1,5 +1,9 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle
+} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -33,6 +37,7 @@ import {
   Pencil,
   Save,
   X,
+  RotateCcw,
 } from 'lucide-react';
 import type { LancamentoConsolidado, ParcelaPendente } from '@/hooks/useLancamentos';
 
@@ -44,6 +49,8 @@ interface TransactionDetailModalProps {
   onOpenChange: (open: boolean) => void;
   lancamento: LancamentoConsolidado | null;
   fetchParcelas: (entryId: string) => Promise<ParcelaPendente[]>;
+  onEstornar?: (scheduleId: string) => Promise<void>;
+  isAdmin?: boolean;
 }
 
 /* ──────────────────────────────────────────────
@@ -113,6 +120,8 @@ export default function TransactionDetailModal({
   onOpenChange,
   lancamento,
   fetchParcelas,
+  onEstornar,
+  isAdmin = false,
 }: TransactionDetailModalProps) {
   const { user, accountId } = useAuth();
   const queryClient = useQueryClient();
@@ -129,6 +138,10 @@ export default function TransactionDetailModal({
   const [editAmount, setEditAmount] = useState('');
   const [editDueDate, setEditDueDate] = useState('');
   const [saving, setSaving] = useState(false);
+
+  // Estorno state
+  const [estornarTarget, setEstornarTarget] = useState<ParcelaPendente | null>(null);
+  const [estornando, setEstornando] = useState(false);
 
   // Load parcelas when modal opens
   useEffect(() => {
@@ -237,9 +250,29 @@ export default function TransactionDetailModal({
     }
   };
 
+  /* ── Handle estorno ── */
+  const handleEstorno = async () => {
+    if (!estornarTarget || !onEstornar) return;
+    setEstornando(true);
+    try {
+      await onEstornar(estornarTarget.id);
+      // Refresh parcelas
+      if (lancamento) {
+        const updated = await fetchParcelas(lancamento.id_master);
+        setParcelas(updated);
+      }
+      setEstornarTarget(null);
+    } catch {
+      // error handled by the mutation
+    } finally {
+      setEstornando(false);
+    }
+  };
+
   if (!lancamento) return null;
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl p-0 gap-0 overflow-hidden max-h-[90vh]">
         {/* ═══ HEADER ═══ */}
@@ -551,7 +584,20 @@ export default function TransactionDetailModal({
                                 {formatCurrency(p.amount)}
                               </span>
                               {isPago ? (
-                                <CheckCircle2 className="w-4 h-4 text-success" />
+                                <>
+                                  <CheckCircle2 className="w-4 h-4 text-success" />
+                                  {isAdmin && onEstornar && (
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-7 w-7 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                      title="Estornar pagamento"
+                                      onClick={() => setEstornarTarget(p)}
+                                    >
+                                      <RotateCcw className="w-3.5 h-3.5" />
+                                    </Button>
+                                  )}
+                                </>
                               ) : isOverdue ? (
                                 <AlertTriangle className="w-4 h-4 text-destructive" />
                               ) : (
@@ -702,5 +748,46 @@ export default function TransactionDetailModal({
         </ScrollArea>
       </DialogContent>
     </Dialog>
+
+    {/* Estorno Confirmation Dialog */}
+    <AlertDialog open={!!estornarTarget} onOpenChange={(open) => !open && setEstornarTarget(null)}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Estornar pagamento?</AlertDialogTitle>
+          <AlertDialogDescription asChild>
+            <div className="space-y-3">
+              <p>A parcela será revertida para &quot;pendente&quot;. Um registro de estorno será criado no histórico.</p>
+              {estornarTarget && (
+                <div className="rounded-lg border border-border bg-muted/50 p-3 space-y-1">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Parcela</span>
+                    <span className="font-medium">{estornarTarget.installment_number}/{estornarTarget.installments_total}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Valor</span>
+                    <span className="font-semibold text-destructive">{formatCurrency(estornarTarget.amount)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Impacto</span>
+                    <span className="text-xs text-destructive">Reduz &quot;Recebido&quot; em {formatCurrency(estornarTarget.amount)}</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={estornando}>Cancelar</AlertDialogCancel>
+          <AlertDialogAction
+            onClick={handleEstorno}
+            disabled={estornando}
+            className="bg-destructive hover:bg-destructive/90"
+          >
+            {estornando ? 'Estornando...' : 'Confirmar Estorno'}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }
