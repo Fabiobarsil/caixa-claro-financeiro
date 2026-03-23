@@ -139,6 +139,10 @@ export default function TransactionDetailModal({
   const [editDueDate, setEditDueDate] = useState('');
   const [saving, setSaving] = useState(false);
 
+  // Estorno state
+  const [estornarTarget, setEstornarTarget] = useState<ParcelaPendente | null>(null);
+  const [estornando, setEstornando] = useState(false);
+
   // Load parcelas when modal opens
   useEffect(() => {
     if (open && lancamento) {
