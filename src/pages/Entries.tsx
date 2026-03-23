@@ -355,6 +355,8 @@ export default function Entries() {
           onOpenChange={(open) => !open && setEditingEntry(null)}
           lancamento={editingEntry}
           fetchParcelas={fetchParcelasAll}
+          onEstornar={async (scheduleId) => { await revertSchedule.mutateAsync(scheduleId); }}
+          isAdmin={isAdmin}
         />
 
         {/* Quitar Modal */}
