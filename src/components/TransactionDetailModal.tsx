@@ -37,6 +37,7 @@ import {
   Pencil,
   Save,
   X,
+  RotateCcw,
 } from 'lucide-react';
 import type { LancamentoConsolidado, ParcelaPendente } from '@/hooks/useLancamentos';
 
