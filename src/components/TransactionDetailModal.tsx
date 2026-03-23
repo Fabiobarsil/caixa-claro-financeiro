@@ -747,5 +747,46 @@ export default function TransactionDetailModal({
         </ScrollArea>
       </DialogContent>
     </Dialog>
+
+    {/* Estorno Confirmation Dialog */}
+    <AlertDialog open={!!estornarTarget} onOpenChange={(open) => !open && setEstornarTarget(null)}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Estornar pagamento?</AlertDialogTitle>
+          <AlertDialogDescription asChild>
+            <div className="space-y-3">
+              <p>A parcela será revertida para &quot;pendente&quot;. Um registro de estorno será criado no histórico.</p>
+              {estornarTarget && (
+                <div className="rounded-lg border border-border bg-muted/50 p-3 space-y-1">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Parcela</span>
+                    <span className="font-medium">{estornarTarget.installment_number}/{estornarTarget.installments_total}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Valor</span>
+                    <span className="font-semibold text-destructive">{formatCurrency(estornarTarget.amount)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Impacto</span>
+                    <span className="text-xs text-destructive">Reduz &quot;Recebido&quot; em {formatCurrency(estornarTarget.amount)}</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={estornando}>Cancelar</AlertDialogCancel>
+          <AlertDialogAction
+            onClick={handleEstorno}
+            disabled={estornando}
+            className="bg-destructive hover:bg-destructive/90"
+          >
+            {estornando ? 'Estornando...' : 'Confirmar Estorno'}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }
