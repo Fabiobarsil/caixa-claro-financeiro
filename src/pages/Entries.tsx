@@ -349,20 +349,12 @@ export default function Entries() {
           )}
         </div>
 
-        {/* Edit Dialog */}
-        <EditTransactionDialog
+        {/* Transaction Detail Modal */}
+        <TransactionDetailModal
           open={!!editingEntry}
           onOpenChange={(open) => !open && setEditingEntry(null)}
-          transaction={editingEntry ? {
-            id: editingEntry.id_master,
-            client_name: editingEntry.nome_cliente,
-            item_name: editingEntry.item_name || undefined,
-            description: editingEntry.description,
-            amount: editingEntry.total_original,
-            date: editingEntry.data_venda,
-            due_date: editingEntry.proximo_vencimento,
-            notes: null,
-          } : null}
+          lancamento={editingEntry}
+          fetchParcelas={fetchParcelasAll}
         />
 
         {/* Quitar Modal */}
