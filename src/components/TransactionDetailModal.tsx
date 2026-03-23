@@ -120,6 +120,8 @@ export default function TransactionDetailModal({
   onOpenChange,
   lancamento,
   fetchParcelas,
+  onEstornar,
+  isAdmin = false,
 }: TransactionDetailModalProps) {
   const { user, accountId } = useAuth();
   const queryClient = useQueryClient();
