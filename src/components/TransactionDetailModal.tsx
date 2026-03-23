@@ -250,6 +250,25 @@ export default function TransactionDetailModal({
     }
   };
 
+  /* ── Handle estorno ── */
+  const handleEstorno = async () => {
+    if (!estornarTarget || !onEstornar) return;
+    setEstornando(true);
+    try {
+      await onEstornar(estornarTarget.id);
+      // Refresh parcelas
+      if (lancamento) {
+        const updated = await fetchParcelas(lancamento.id_master);
+        setParcelas(updated);
+      }
+      setEstornarTarget(null);
+    } catch {
+      // error handled by the mutation
+    } finally {
+      setEstornando(false);
+    }
+  };
+
   if (!lancamento) return null;
 
   return (
