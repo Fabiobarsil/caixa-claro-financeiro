@@ -583,7 +583,20 @@ export default function TransactionDetailModal({
                                 {formatCurrency(p.amount)}
                               </span>
                               {isPago ? (
-                                <CheckCircle2 className="w-4 h-4 text-success" />
+                                <>
+                                  <CheckCircle2 className="w-4 h-4 text-success" />
+                                  {isAdmin && onEstornar && (
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-7 w-7 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                      title="Estornar pagamento"
+                                      onClick={() => setEstornarTarget(p)}
+                                    >
+                                      <RotateCcw className="w-3.5 h-3.5" />
+                                    </Button>
+                                  )}
+                                </>
                               ) : isOverdue ? (
                                 <AlertTriangle className="w-4 h-4 text-destructive" />
                               ) : (
