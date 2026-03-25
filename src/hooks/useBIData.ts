@@ -55,42 +55,42 @@ export function useBIData(timeWindow: TimeWindow) {
   const { data, isLoading, error } = useQuery({
     queryKey: ['bi-data', accountId, timeWindow, startDate, endDate],
     queryFn: async () => {
-      const todayStr = format(today, 'yyyy-MM-dd');
+      // ===== RECEBIDO — from canonical v_received_cash view =====
+      const cashReceived = await fetchCashReceived({
+        accountId: accountId!,
+        startDate,
+        endDate,
+      });
 
-      // Fetch transactions in the time window
+      const received = cashReceived.total;
+      const paidCount = cashReceived.paidStandaloneCount + cashReceived.paidScheduleCount;
+
+      // Fetch pending transactions + schedules for "A Receber"
       const { data: transactionsData, error: transactionsError } = await supabase
         .from('transactions')
         .select('*')
         .eq('account_id', accountId!)
-        .gte('date', startDate)
-        .lte('date', endDate)
-        .order('date', { ascending: false });
-
-      if (transactionsError) throw transactionsError;
-
-      // Fetch expenses in the time window
-      const { data: expensesData, error: expensesError } = await supabase
-        .from('expenses')
-        .select('*')
-        .eq('account_id', accountId!)
+        .eq('type', 'entrada')
+        .eq('status', 'pendente')
         .gte('date', startDate)
         .lte('date', endDate);
 
-      if (expensesError) throw expensesError;
+      if (transactionsError) throw transactionsError;
 
-      // Fetch entry schedules:
-      // 1. Paid schedules with paid_at in the time window
-      // 2. Pending schedules with due_date from startDate onwards (including future)
-      const { data: paidSchedulesInWindow, error: paidSchedulesError } = await supabase
+      // Fetch transaction_ids that have schedules (to filter standalone)
+      const transactionIds = (transactionsData || []).map(e => e.id);
+      const { data: allSchedulesForTransactions } = await supabase
         .from('entry_schedules')
-        .select('*')
-        .eq('account_id', accountId!)
-        .eq('status', 'pago')
-        .gte('paid_at', startDate)
-        .lte('paid_at', endDate + 'T23:59:59');
+        .select('entry_id')
+        .in('entry_id', transactionIds.length > 0 ? transactionIds : ['']);
 
-      if (paidSchedulesError) throw paidSchedulesError;
+      const transactionIdsWithSchedules = new Set(
+        (allSchedulesForTransactions || []).map(s => s.entry_id)
+      );
 
+      const transactionsWithoutSchedules = (transactionsData || []).filter(e => !transactionIdsWithSchedules.has(e.id));
+
+      // Pending schedules
       const { data: pendingSchedules, error: pendingSchedulesError } = await supabase
         .from('entry_schedules')
         .select('*')
@@ -100,56 +100,25 @@ export function useBIData(timeWindow: TimeWindow) {
 
       if (pendingSchedulesError) throw pendingSchedulesError;
 
-      // Combine both sets of schedules
-      const schedulesInWindow = [...(paidSchedulesInWindow || []), ...(pendingSchedules || [])];
-
-      // Fetch all transaction_ids that have any schedules
-      const transactionIds = (transactionsData || []).map(e => e.id);
-      const { data: allSchedulesForTransactions } = await supabase
-        .from('entry_schedules')
-        .select('entry_id')
-        .in('entry_id', transactionIds.length > 0 ? transactionIds : ['']);
-
-      // Set of transaction_ids that have schedules
-      const transactionIdsWithSchedules = new Set(
-        (allSchedulesForTransactions || []).map(s => s.entry_id)
-      );
-
-      const schedules = (schedulesInWindow || []) as ScheduleRow[];
-
-      // Transactions WITHOUT any schedules (use transaction values)
-      const transactionsWithoutSchedules = (transactionsData || []).filter(e => !transactionIdsWithSchedules.has(e.id));
-
-      // ===== RECEBIDO (Received) =====
-      const paidTransactionsValue = transactionsWithoutSchedules
-        .filter(e => e.status === 'pago')
-        .reduce((sum, e) => {
-          const paid = Number(e.amount_paid ?? 0);
-          return sum + (paid > 0 ? paid : Number(e.amount));
-        }, 0);
-
-      const paidSchedulesValue = schedules
-        .filter(s => s.status === 'pago')
-        .reduce((sum, s) => sum + Number(s.amount), 0);
-
-      const received = paidTransactionsValue + paidSchedulesValue;
-
-      // ===== A RECEBER (Pending) =====
       const pendingTransactionsValue = transactionsWithoutSchedules
-        .filter(e => e.status === 'pendente')
         .reduce((sum, e) => sum + Number(e.amount), 0);
 
-      const pendingSchedulesValue = schedules
-        .filter(s => s.status === 'pendente')
+      const pendingSchedulesValue = (pendingSchedules || [])
         .reduce((sum, s) => sum + Number(s.amount), 0);
 
       const pending = pendingTransactionsValue + pendingSchedulesValue;
 
-      const totalExpenses = (expensesData || []).reduce((sum, e) => sum + Number(e.value), 0);
+      // Fetch expenses
+      const { data: expensesData, error: expensesError } = await supabase
+        .from('expenses')
+        .select('*')
+        .eq('account_id', accountId!)
+        .gte('date', startDate)
+        .lte('date', endDate);
 
-      // Calculate average ticket
-      const paidCount = transactionsWithoutSchedules.filter(e => e.status === 'pago').length + 
-                        schedules.filter(s => s.status === 'pago').length;
+      if (expensesError) throw expensesError;
+
+      const totalExpenses = (expensesData || []).reduce((sum, e) => sum + Number(e.value), 0);
 
       const metrics: BIMetrics = {
         received,
