@@ -154,8 +154,8 @@ export function useFinancialSnapshot(monthPeriod: MonthPeriod): UseFinancialSnap
       const recebido = cashReceived.total;
 
       console.log('[FinancialSnapshot] Recebido caixa:', {
-        recebidoStandalone: cashReceived.paidStandaloneRows.length,
-        recebidoSchedules: cashReceived.paidScheduleRows.length,
+        recebidoStandalone: cashReceived.paidStandaloneCount,
+        recebidoSchedules: cashReceived.paidScheduleCount,
         recebido,
       });
 
