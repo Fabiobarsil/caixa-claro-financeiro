@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { subDays, format, eachDayOfInterval, parseISO } from 'date-fns';
+import { fetchCashReceived } from '@/lib/receivedCash';
 
 // Janelas temporais disponíveis: 15, 30, 90 dias (default: 30)
 export type TimeWindow = 15 | 30 | 90;
