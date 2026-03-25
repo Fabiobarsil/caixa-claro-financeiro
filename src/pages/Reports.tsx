@@ -17,6 +17,7 @@ import BillingStatusCards from '@/components/reports/BillingStatusCards';
 import CashFlowChart from '@/components/reports/CashFlowChart';
 import PaymentOriginChart from '@/components/reports/PaymentOriginChart';
 import ClientRanking from '@/components/reports/ClientRanking';
+import { fetchCashReceived } from '@/lib/receivedCash';
 
 const PAYMENT_LABELS: Record<string, string> = {
   pix: 'Pix',
@@ -85,6 +86,27 @@ export default function Reports() {
   const [page, setPage] = useState(1);
 
   const today = new Date().toISOString().split('T')[0];
+  const periodBounds = useMemo(() => {
+    if (periodFilter === 'all') return null;
+
+    const [year, month] = periodFilter.split('-').map(Number);
+    const start = `${periodFilter}-01`;
+    const end = new Date(year, month, 0).toISOString().slice(0, 10);
+
+    return { startDate: start, endDate: end };
+  }, [periodFilter]);
+
+  const { data: cashReceivedSummary, isLoading: cashReceivedLoading } = useQuery({
+    queryKey: ['report-cash-received', accountId, periodBounds?.startDate, periodBounds?.endDate],
+    queryFn: async () => {
+      return fetchCashReceived({
+        accountId: accountId!,
+        startDate: periodBounds?.startDate,
+        endDate: periodBounds?.endDate,
+      });
+    },
+    enabled: !!user?.id && !!accountId,
+  });
 
   // Build unified rows from transactions (schedule-level) + expenses
   const rows: ReportRow[] = useMemo(() => {
@@ -190,19 +212,17 @@ export default function Reports() {
 
   // 1) Summary — derived from filtered, Recebido uses payment_date (regime de caixa)
   const summary = useMemo(() => {
-    let recebido = 0, aReceber = 0, despesas = 0;
+    let aReceber = 0, despesas = 0;
     filtered.forEach(r => {
-      if (r.tipo === 'receita' && r.status === 'Pago') {
-        // Recebido: only count if payment_date falls within the selected period
-        if (periodFilter === 'all' || (r.payment_date && r.payment_date.startsWith(periodFilter))) {
-          recebido += r.valor;
-        }
-      }
       if (r.tipo === 'receita' && (r.status === 'Pendente' || r.status === 'Atrasado')) aReceber += r.valor;
       if (r.tipo === 'despesa') despesas += r.valor;
     });
-    return { recebido, aReceber, despesas };
-  }, [filtered, periodFilter]);
+    return {
+      recebido: cashReceivedSummary?.total || 0,
+      aReceber,
+      despesas,
+    };
+  }, [filtered, cashReceivedSummary]);
 
   // 2) Billing status — derived from filtered (receitas only)
   const billingStatus = useMemo(() => {
@@ -292,7 +312,7 @@ export default function Reports() {
 
   const exportPDF = () => window.print();
 
-  const isLoading = txLoading || expLoading || schedLoading;
+  const isLoading = txLoading || expLoading || schedLoading || cashReceivedLoading;
 
   const formatMonth = (ym: string) => {
     const [y, m] = ym.split('-');
