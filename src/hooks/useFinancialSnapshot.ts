@@ -150,14 +150,12 @@ export function useFinancialSnapshot(monthPeriod: MonthPeriod): UseFinancialSnap
         endDate,
       });
 
-      const paidStandaloneInMonth = cashReceived.paidStandaloneRows;
-      const paidSchedulesInMonth = cashReceived.paidScheduleRows;
-      const receivedSchedulesByDate = cashReceived.byDate;
+      // cashReceived now comes from v_received_cash view (single source of truth)
       const recebido = cashReceived.total;
 
       console.log('[FinancialSnapshot] Recebido caixa:', {
-        recebidoStandalone: cashReceived.paidStandaloneRows.length,
-        recebidoSchedules: cashReceived.paidScheduleRows.length,
+        recebidoStandalone: cashReceived.paidStandaloneCount,
+        recebidoSchedules: cashReceived.paidScheduleCount,
         recebido,
       });
 
