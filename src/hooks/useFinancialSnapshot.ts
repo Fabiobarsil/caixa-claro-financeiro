@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { format, eachDayOfInterval, parseISO, lastDayOfMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import type { MonthPeriod } from '@/components/dashboard/TimeWindowSelector';
+import { fetchCashReceived } from '@/lib/receivedCash';
 
 // ============================================
 // MODELO FINANCEIRO CANÔNICO - v_financial_competencia
@@ -95,72 +96,6 @@ interface ViewRow {
   origem: string | null;
 }
 
-interface PaidTransactionRow {
-  id: string;
-  amount: number | null;
-  amount_paid: number | null;
-  payment_date: string | null;
-}
-
-interface PaidScheduleRow {
-  id: string;
-  entry_id: string;
-  amount: number | null;
-  amount_paid: number | null;
-  paid_at: string | null;
-}
-
-const toCents = (value: number | null | undefined) => Math.round(Number(value ?? 0) * 100);
-const fromCents = (value: number) => value / 100;
-
-function getEffectivePaidScheduleRowCents(schedule: PaidScheduleRow): number {
-  const amountCents = toCents(schedule.amount);
-  const amountPaidCents = toCents(schedule.amount_paid);
-
-  if (amountPaidCents > 0) {
-    return Math.min(amountPaidCents, amountCents);
-  }
-
-  return amountCents;
-}
-
-function calculatePaidSchedulesCash(schedules: PaidScheduleRow[]) {
-  const groups = new Map<string, PaidScheduleRow[]>();
-
-  schedules.forEach((schedule) => {
-    if (!schedule.paid_at) return;
-    const key = `${schedule.entry_id}::${schedule.paid_at}`;
-    const existing = groups.get(key) || [];
-    existing.push(schedule);
-    groups.set(key, existing);
-  });
-
-  const byDateCents = new Map<string, number>();
-  let totalCents = 0;
-
-  groups.forEach((group) => {
-    const paidAt = group[0]?.paid_at;
-    if (!paidAt) return;
-
-    const paidDate = paidAt.slice(0, 10);
-    const totalAmountCents = group.reduce((sum, item) => sum + toCents(item.amount), 0);
-    const repeatedPositivePaidValues = [...new Set(group.map((item) => toCents(item.amount_paid)).filter((value) => value > 0))];
-
-    const groupReceivedCents =
-      group.length > 1 && repeatedPositivePaidValues.length === 1
-        ? Math.min(repeatedPositivePaidValues[0], totalAmountCents)
-        : group.reduce((sum, item) => sum + getEffectivePaidScheduleRowCents(item), 0);
-
-    totalCents += groupReceivedCents;
-    byDateCents.set(paidDate, (byDateCents.get(paidDate) || 0) + groupReceivedCents);
-  });
-
-  return {
-    total: fromCents(totalCents),
-    byDate: new Map(Array.from(byDateCents.entries()).map(([date, value]) => [date, fromCents(value)])),
-  };
-}
-
 /**
  * Hook canônico — lê exclusivamente de v_financial_competencia.
  * Lucro = receitas − despesas (regime de competência, sem filtro por status).
@@ -209,64 +144,22 @@ export function useFinancialSnapshot(monthPeriod: MonthPeriod): UseFinancialSnap
       // Busca separada: somente itens pagos COM data de pagamento NO mês
       // ============================================
 
-      // 1. Transactions avulsas (sem entry_schedules) pagas no mês
-      const { data: paidStandaloneTx, error: paidTxError } = await supabase
-        .from('transactions')
-        .select('id, amount, amount_paid, payment_date')
-        .eq('account_id', accountId!)
-        .eq('type', 'entrada')
-        .eq('status', 'pago')
-        .not('payment_date', 'is', null)
-        .gte('payment_date', startDate)
-        .lte('payment_date', endDate);
+      const cashReceived = await fetchCashReceived({
+        accountId: accountId!,
+        startDate,
+        endDate,
+      });
 
-      if (paidTxError) throw paidTxError;
+      const paidStandaloneInMonth = cashReceived.paidStandaloneRows;
+      const paidSchedulesInMonth = cashReceived.paidScheduleRows;
+      const receivedSchedulesByDate = cashReceived.byDate;
+      const recebido = cashReceived.total;
 
-      // Filtrar apenas as que NÃO possuem entry_schedules
-      const standaloneIds = (paidStandaloneTx || []).map(t => t.id);
-      let standaloneWithoutSchedules = (paidStandaloneTx || []) as PaidTransactionRow[];
-
-      if (standaloneIds.length > 0) {
-        const { data: schedulesForTx } = await supabase
-          .from('entry_schedules')
-          .select('entry_id')
-          .in('entry_id', standaloneIds);
-
-        const idsWithSchedules = new Set((schedulesForTx || []).map(s => s.entry_id));
-         standaloneWithoutSchedules = (paidStandaloneTx || []).filter(t => !idsWithSchedules.has(t.id));
-      }
-
-      const paidStandaloneInMonth = standaloneWithoutSchedules;
-
-      // Usar amount_paid quando disponível (pagamento parcial), senão amount (totalmente pago)
-      const recebidoStandalone = paidStandaloneInMonth
-        .reduce((sum, t) => {
-          const paid = Number(t.amount_paid ?? 0);
-          return sum + (paid > 0 ? paid : Number(t.amount ?? 0));
-        }, 0);
-
-      // 2. Entry_schedules pagas no mês (paid_at no período)
-      const startDatetime = `${startDate}T00:00:00`;
-      const endDatetime = `${endDate}T23:59:59.999`;
-
-      const { data: paidSchedules, error: paidSchError } = await supabase
-        .from('entry_schedules')
-        .select('id, entry_id, amount, amount_paid, paid_at')
-        .eq('account_id', accountId!)
-        .eq('status', 'pago')
-        .not('paid_at', 'is', null)
-        .gte('paid_at', startDatetime)
-        .lte('paid_at', endDatetime);
-
-      if (paidSchError) throw paidSchError;
-
-      const paidSchedulesInMonth = (paidSchedules || []) as PaidScheduleRow[];
-      const { total: recebidoSchedules, byDate: receivedSchedulesByDate } = calculatePaidSchedulesCash(paidSchedulesInMonth);
-
-      // RECEBIDO TOTAL — regime de caixa
-      const recebido = recebidoStandalone + recebidoSchedules;
-
-      console.log('[FinancialSnapshot] Recebido caixa:', { recebidoStandalone, recebidoSchedules, recebido });
+      console.log('[FinancialSnapshot] Recebido caixa:', {
+        recebidoStandalone: cashReceived.paidStandaloneRows.length,
+        recebidoSchedules: cashReceived.paidScheduleRows.length,
+        recebido,
+      });
 
       // Buscar nomes dos clientes para as receitas pendentes (vencimentos críticos)
       const pendingReceitas = allRows.filter(r => r.tipo === 'receita' && r.status === 'pendente');
@@ -323,7 +216,7 @@ export function useFinancialSnapshot(monthPeriod: MonthPeriod): UseFinancialSnap
         .reduce((s, r) => s + Number(r.valor ?? 0), 0);
 
       // ATENDIMENTOS — contagem de itens pagos no mês (caixa)
-      const totalAtendimentos = paidStandaloneInMonth.length + paidSchedulesInMonth.length;
+       const totalAtendimentos = cashReceived.paidStandaloneCount + cashReceived.paidScheduleCount;
 
       // DESPESAS — split por status
       const despesasPagas = despesas
@@ -387,17 +280,7 @@ export function useFinancialSnapshot(monthPeriod: MonthPeriod): UseFinancialSnap
         }
       });
 
-      paidStandaloneInMonth.forEach(transaction => {
-        const paymentDate = transaction.payment_date;
-        if (!paymentDate) return;
-        const point = dailyData.get(paymentDate);
-        if (point) {
-          const paid = Number(transaction.amount_paid ?? 0);
-          point.recebido += paid > 0 ? paid : Number(transaction.amount ?? 0);
-        }
-      });
-
-      receivedSchedulesByDate.forEach((receivedValue, paidDate) => {
+       cashReceived.byDate.forEach((receivedValue, paidDate) => {
         const point = dailyData.get(paidDate);
         if (point) point.recebido += receivedValue;
       });
