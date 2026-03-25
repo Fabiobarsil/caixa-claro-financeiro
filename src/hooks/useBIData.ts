@@ -24,17 +24,6 @@ export interface BIChartDataPoint {
   overdue: number;
 }
 
-interface ScheduleRow {
-  id: string;
-  entry_id: string;
-  schedule_type: string;
-  installment_number: number;
-  installments_total: number;
-  due_date: string;
-  paid_at: string | null;
-  status: string;
-  amount: number;
-}
 
 export function useBIData(timeWindow: TimeWindow) {
   const { user, accountId } = useAuth();
