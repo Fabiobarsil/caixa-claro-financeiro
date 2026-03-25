@@ -813,6 +813,21 @@ export type Database = {
         }
         Relationships: []
       }
+      v_received_cash: {
+        Row: {
+          account_id: string | null
+          amount: number | null
+          amount_paid: number | null
+          client_id: string | null
+          description: string | null
+          payment_date: string | null
+          payment_method: Database["public"]["Enums"]["payment_method"] | null
+          schedule_id: string | null
+          source_id: string | null
+          source_type: string | null
+        }
+        Relationships: []
+      }
       v_subscriptions: {
         Row: {
           account_id: string | null
