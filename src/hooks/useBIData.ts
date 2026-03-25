@@ -142,16 +142,15 @@ export function useBIData(timeWindow: TimeWindow) {
         chartDataMap.set(dateStr, { date: dateStr, received: 0, pending: 0, overdue: 0 });
       });
 
-      // Aggregate transactions without schedules
+      // Aggregate received from cashReceived (v_received_cash view)
+      cashReceived.byDate.forEach((value, dateStr) => {
+        const point = chartDataMap.get(dateStr);
+        if (point) point.received += value;
+      });
+
+      // Aggregate pending transactions (standalone)
       transactionsWithoutSchedules.forEach(transaction => {
-        if (transaction.status === 'pago') {
-          const paymentDate = transaction.payment_date || transaction.date;
-          const point = chartDataMap.get(paymentDate);
-          if (point) {
-            const paid = Number(transaction.amount_paid ?? 0);
-            point.received += paid > 0 ? paid : Number(transaction.amount);
-          }
-        } else if (transaction.due_date) {
+        if (transaction.due_date) {
           const dueDate = new Date(transaction.due_date);
           dueDate.setHours(0, 0, 0, 0);
           const point = chartDataMap.get(transaction.due_date);
@@ -165,34 +164,24 @@ export function useBIData(timeWindow: TimeWindow) {
         }
       });
 
-      // Aggregate schedules
-      // For pending schedules with future due_date, aggregate on the last day of the chart
+      // Aggregate pending schedules
       const lastDayStr = format(parseISO(endDate), 'yyyy-MM-dd');
       
-      schedules.forEach(schedule => {
-        if (schedule.status === 'pago' && schedule.paid_at) {
-          const paidDate = format(new Date(schedule.paid_at), 'yyyy-MM-dd');
-          const point = chartDataMap.get(paidDate);
-          if (point) point.received += Number(schedule.amount);
-        } else if (schedule.status === 'pendente') {
-          const dueDate = new Date(schedule.due_date);
-          dueDate.setHours(0, 0, 0, 0);
-          const dueDateStr = format(dueDate, 'yyyy-MM-dd');
-          
-          // Check if due_date is within the chart range
-          let point = chartDataMap.get(dueDateStr);
-          
-          // If due_date is in the future (outside chart range), aggregate on the last day
-          if (!point) {
-            point = chartDataMap.get(lastDayStr);
-          }
-          
-          if (point) {
-            if (dueDate < today) {
-              point.overdue += Number(schedule.amount);
-            } else {
-              point.pending += Number(schedule.amount);
-            }
+      (pendingSchedules || []).forEach(schedule => {
+        const dueDate = new Date(schedule.due_date);
+        dueDate.setHours(0, 0, 0, 0);
+        const dueDateStr = format(dueDate, 'yyyy-MM-dd');
+        
+        let point = chartDataMap.get(dueDateStr);
+        if (!point) {
+          point = chartDataMap.get(lastDayStr);
+        }
+        
+        if (point) {
+          if (dueDate < today) {
+            point.overdue += Number(schedule.amount);
+          } else {
+            point.pending += Number(schedule.amount);
           }
         }
       });
