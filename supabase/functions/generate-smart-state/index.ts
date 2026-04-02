@@ -12,7 +12,6 @@ interface SmartState {
 }
 
 Deno.serve(async (req) => {
-  // Handle CORS preflight
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -22,42 +21,58 @@ Deno.serve(async (req) => {
     const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-    // Validate authentication - require valid JWT
     const authHeader = req.headers.get("Authorization");
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      console.error("Missing or invalid authorization header");
       return new Response(
         JSON.stringify({ error: "Unauthorized" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Create client with user token to validate authentication
+    // Validate caller's identity
     const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: authHeader } }
     });
 
     const token = authHeader.replace("Bearer ", "");
     const { data: claimsData, error: claimsError } = await supabaseAuth.auth.getClaims(token);
-    
+
     if (claimsError || !claimsData?.claims) {
-      console.error("Authentication failed:", claimsError?.message || "Invalid claims");
       return new Response(
         JSON.stringify({ error: "Unauthorized" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    console.log("Authenticated user:", claimsData.claims.sub);
-    console.log("[SMART-STATE] Using transactions table");
-    
-    // Use service role for database operations after authentication is validated
+    const callerId = claimsData.claims.sub;
+    console.log("[SMART-STATE] Authenticated user:", callerId);
+
+    // Use service role for DB ops
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Get all active users (profiles)
+    // Get caller's account_id — CRITICAL for multi-tenant isolation
+    const { data: callerProfile, error: profileError } = await supabase
+      .from("profiles")
+      .select("account_id")
+      .eq("user_id", callerId)
+      .single();
+
+    if (profileError || !callerProfile?.account_id) {
+      console.error("[SMART-STATE] No account found for caller");
+      return new Response(
+        JSON.stringify({ error: "No account found" }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const callerAccountId = callerProfile.account_id;
+    console.log("[SMART-STATE] Processing account:", callerAccountId);
+
+    // Only get profiles within the SAME account
     const { data: profiles, error: profilesError } = await supabase
       .from("profiles")
       .select("user_id")
+      .eq("account_id", callerAccountId)
       .eq("is_active", true);
 
     if (profilesError) throw profilesError;
@@ -72,7 +87,6 @@ Deno.serve(async (req) => {
     for (const profile of profiles || []) {
       const userId = profile.user_id;
 
-      // Check if smart_state already exists for today
       const { data: existingState } = await supabase
         .from("smart_states")
         .select("id")
@@ -85,51 +99,44 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      // Fetch user's paid transactions (income)
+      // Only fetch data scoped to this account
       const { data: paidTransactions } = await supabase
         .from("transactions")
         .select("amount")
+        .eq("account_id", callerAccountId)
         .eq("user_id", userId)
         .eq("status", "pago")
         .eq("type", "entrada");
 
-      // Fetch user's expenses
       const { data: allExpenses } = await supabase
         .from("expenses")
         .select("value, date")
+        .eq("account_id", callerAccountId)
         .eq("user_id", userId);
 
-      // Calculate current balance
       const totalReceived = (paidTransactions || []).reduce(
-        (sum, t) => sum + Number(t.amount),
-        0
+        (sum, t) => sum + Number(t.amount), 0
       );
       const totalExpenses = (allExpenses || []).reduce(
-        (sum, e) => sum + Number(e.value),
-        0
+        (sum, e) => sum + Number(e.value), 0
       );
       const currentBalance = totalReceived - totalExpenses;
 
       let smartState: SmartState | null = null;
 
-      // PRIORITY 1: ALERT - Negative balance
       if (currentBalance < 0) {
         smartState = {
           type: "alert",
           severity: "attention",
-          message:
-            "O saldo ficou negativo hoje. Acompanhar isso de perto pode evitar surpresas.",
+          message: "O saldo ficou negativo hoje. Acompanhar isso de perto pode evitar surpresas.",
         };
       }
 
-      // PRIORITY 2: INSIGHTS (only if no alert)
       if (!smartState) {
-        // Get expenses from last 7 days
         const recentExpenses = (allExpenses || []).filter(
           (e) => e.date >= sevenDaysAgo
         );
 
-        // Calculate daily expense totals
         const dailyExpenseMap = new Map<string, number>();
         recentExpenses.forEach((exp) => {
           const current = dailyExpenseMap.get(exp.date) || 0;
@@ -144,7 +151,6 @@ Deno.serve(async (req) => {
 
         const todayExpense = dailyExpenseMap.get(today) || 0;
 
-        // INSIGHT: Excessive daily spending
         if (avgDailyExpense > 0 && todayExpense > avgDailyExpense * 1.25) {
           smartState = {
             type: "insight",
@@ -153,12 +159,11 @@ Deno.serve(async (req) => {
           };
         }
 
-        // INSIGHT: Inactivity (check if no movement today)
         if (!smartState) {
-          // Check for any transaction or expense today
           const { count: todayTransactionsCount } = await supabase
             .from("transactions")
             .select("*", { count: "exact", head: true })
+            .eq("account_id", callerAccountId)
             .eq("user_id", userId)
             .eq("date", today);
 
@@ -167,10 +172,10 @@ Deno.serve(async (req) => {
           ).length;
 
           if ((todayTransactionsCount || 0) === 0 && todayExpenseCount === 0) {
-            // Check if there was any previous activity
             const { count: totalActivityCount } = await supabase
               .from("transactions")
               .select("*", { count: "exact", head: true })
+              .eq("account_id", callerAccountId)
               .eq("user_id", userId);
 
             const hasHistory =
@@ -187,13 +192,13 @@ Deno.serve(async (req) => {
         }
       }
 
-      // Insert smart_state (or null = silence)
       if (smartState) {
         const { error: insertError } = await supabase
           .from("smart_states")
           .upsert(
             {
               user_id: userId,
+              account_id: callerAccountId,
               type: smartState.type,
               severity: smartState.severity,
               message: smartState.message,
@@ -208,7 +213,6 @@ Deno.serve(async (req) => {
           results.push({ userId, status: "generated", type: smartState.type });
         }
       } else {
-        // Silence - no smart_state for today
         results.push({ userId, status: "silence" });
       }
     }
@@ -220,18 +224,13 @@ Deno.serve(async (req) => {
         processed: results.length,
         results,
       }),
-      {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error: unknown) {
     console.error("Error generating smart states:", error instanceof Error ? error.message : error);
     return new Response(
       JSON.stringify({ error: "Internal server error" }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 });
