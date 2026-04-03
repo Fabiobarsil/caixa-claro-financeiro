@@ -1,8 +1,10 @@
 import { useState, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import AppLayout from '@/components/AppLayout';
 import { useExpenses, Expense, CreateExpenseData } from '@/hooks/useExpenses';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatCurrency, formatShortDate } from '@/lib/formatters';
+import MonthSelector, { type MonthPeriod } from '@/components/dashboard/TimeWindowSelector';
 import { 
   Home, 
   Megaphone, 
@@ -129,10 +131,23 @@ function ExpenseStatusBadge({ expense }: { expense: Expense }) {
 
 export default function Expenses() {
   const { user } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const now = new Date();
+  const [monthPeriod, setMonthPeriod] = useState<MonthPeriod>({
+    year: Number(searchParams.get('y')) || now.getFullYear(),
+    month: searchParams.has('m') ? Number(searchParams.get('m')) : now.getMonth(),
+  });
+
+  const handleMonthChange = (mp: MonthPeriod) => {
+    setMonthPeriod(mp);
+    setSearchParams({ y: String(mp.year), m: String(mp.month) });
+  };
+
   const { 
     expenses, totalExpenses, totalPaid, totalPending, 
     isLoading, createExpense, updateExpense, toggleStatus, deleteExpense 
-  } = useExpenses();
+  } = useExpenses(monthPeriod);
   
   const [activeTab, setActiveTab] = useState<FilterTab>('todas');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -246,7 +261,7 @@ export default function Expenses() {
     <AppLayout showFab={false}>
       <div className="px-4 pt-4 pb-24">
         {/* Header */}
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between mb-2">
           <div>
             <h1 className="text-xl font-bold text-foreground">Despesas</h1>
             <p className="text-sm text-muted-foreground">Controle de gastos</p>
@@ -259,6 +274,11 @@ export default function Expenses() {
           >
             <Plus size={20} />
           </Button>
+        </div>
+
+        {/* Month Selector */}
+        <div className="flex justify-center mb-4">
+          <MonthSelector value={monthPeriod} onChange={handleMonthChange} />
         </div>
 
         {/* Summary Card */}
