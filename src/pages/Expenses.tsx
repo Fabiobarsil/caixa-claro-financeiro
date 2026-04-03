@@ -261,7 +261,7 @@ export default function Expenses() {
     <AppLayout showFab={false}>
       <div className="px-4 pt-4 pb-24">
         {/* Header */}
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between mb-2">
           <div>
             <h1 className="text-xl font-bold text-foreground">Despesas</h1>
             <p className="text-sm text-muted-foreground">Controle de gastos</p>
@@ -274,6 +274,11 @@ export default function Expenses() {
           >
             <Plus size={20} />
           </Button>
+        </div>
+
+        {/* Month Selector */}
+        <div className="flex justify-center mb-4">
+          <MonthSelector value={monthPeriod} onChange={handleMonthChange} />
         </div>
 
         {/* Summary Card */}
