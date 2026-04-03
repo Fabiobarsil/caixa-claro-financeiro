@@ -1,8 +1,10 @@
 import { useState, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import AppLayout from '@/components/AppLayout';
 import { useExpenses, Expense, CreateExpenseData } from '@/hooks/useExpenses';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatCurrency, formatShortDate } from '@/lib/formatters';
+import MonthSelector, { type MonthPeriod } from '@/components/dashboard/TimeWindowSelector';
 import { 
   Home, 
   Megaphone, 

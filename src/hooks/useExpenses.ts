@@ -29,13 +29,19 @@ export interface UpdateExpenseData extends Partial<CreateExpenseData> {
   id: string;
 }
 
-export function useExpenses() {
+export interface ExpensesPeriod {
+  year: number;
+  month: number; // 0-indexed
+}
+
+export function useExpenses(period?: ExpensesPeriod) {
   const { user, accountId } = useAuth();
   const queryClient = useQueryClient();
 
-  const now = new Date();
-  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-  const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  const year = period?.year ?? new Date().getFullYear();
+  const month = period?.month ?? new Date().getMonth();
+  const startOfMonth = new Date(year, month, 1);
+  const endOfMonth = new Date(year, month + 1, 0);
 
   const startDate = startOfMonth.toISOString().split('T')[0];
   const endDate = endOfMonth.toISOString().split('T')[0];
