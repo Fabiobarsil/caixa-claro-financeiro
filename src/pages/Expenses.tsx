@@ -131,10 +131,23 @@ function ExpenseStatusBadge({ expense }: { expense: Expense }) {
 
 export default function Expenses() {
   const { user } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const now = new Date();
+  const [monthPeriod, setMonthPeriod] = useState<MonthPeriod>({
+    year: Number(searchParams.get('y')) || now.getFullYear(),
+    month: searchParams.has('m') ? Number(searchParams.get('m')) : now.getMonth(),
+  });
+
+  const handleMonthChange = (mp: MonthPeriod) => {
+    setMonthPeriod(mp);
+    setSearchParams({ y: String(mp.year), m: String(mp.month) });
+  };
+
   const { 
     expenses, totalExpenses, totalPaid, totalPending, 
     isLoading, createExpense, updateExpense, toggleStatus, deleteExpense 
-  } = useExpenses();
+  } = useExpenses(monthPeriod);
   
   const [activeTab, setActiveTab] = useState<FilterTab>('todas');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
