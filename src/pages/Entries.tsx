@@ -110,20 +110,16 @@ export default function Entries() {
   const handleConfirmQuitar = (payload: QuitarPayload) => {
     if (!quitarTarget) return;
 
-    // REGRA CRÍTICA: Transações com parcelas NUNCA devem ter o status da transaction atualizado diretamente.
-    // O pagamento deve ocorrer EXCLUSIVAMENTE na tabela entry_schedules.
-    const lancHasInstallments = hasInstallments(quitarTarget);
-
     if (payload.scheduleIds.length > 0) {
-      // Pagamento de parcelas individuais — atualiza apenas entry_schedules
+      // Pagamento de parcelas individuais
       markSchedulesPaid.mutate(payload, {
         onSuccess: () => {
           setQuitarModalOpen(false);
           setQuitarTarget(null);
         },
       });
-    } else if (!lancHasInstallments) {
-      // Pagamento de transação avulsa (sem parcelas) — pode atualizar a transaction
+    } else {
+      // Pagamento de transação avulsa (sem parcelas ou parcelas não encontradas)
       markTransactionPaid.mutate({ transactionId: quitarTarget.id_master, paymentDate: payload.payment_date }, {
         onSuccess: () => {
           setQuitarModalOpen(false);
@@ -131,7 +127,6 @@ export default function Entries() {
         },
       });
     }
-    // Se tem parcelas mas scheduleIds está vazio, não faz nada (proteção contra erro)
   };
 
   const handleEstornar = (scheduleId: string) => {
@@ -367,8 +362,16 @@ export default function Entries() {
           subtitle={quitarTarget?.item_name || quitarTarget?.description || undefined}
           parcelas={parcelas}
           isLoadingParcelas={loadingParcelas}
-          singleTransactionId={parcelas.length === 0 && quitarTarget && !hasInstallments(quitarTarget) ? quitarTarget.id_master : undefined}
-          singleTransactionAmount={quitarTarget && !hasInstallments(quitarTarget) ? quitarTarget.total_pendente : undefined}
+          singleTransactionId={
+            parcelas.length === 0 && quitarTarget && !loadingParcelas
+              ? quitarTarget.id_master
+              : undefined
+          }
+          singleTransactionAmount={
+            parcelas.length === 0 && quitarTarget && !loadingParcelas
+              ? quitarTarget.total_pendente
+              : undefined
+          }
           onConfirmQuitar={handleConfirmQuitar}
           onConfirmEstornar={isAdmin ? handleEstornar : undefined}
           isSubmitting={markSchedulesPaid.isPending || markTransactionPaid.isPending}
