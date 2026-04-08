@@ -42,7 +42,7 @@ interface TransactionWithSchedules {
 export default function ClientTransactionsList({ clientId }: ClientTransactionsListProps) {
   const { user, accountId, isAdmin } = useAuth();
   const queryClient = useQueryClient();
-  const { markSchedulesPaid, revertSchedule } = useLancamentos();
+  const { markSchedulesPaid, markTransactionPaid, revertSchedule } = useLancamentos();
 
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [expandedTxn, setExpandedTxn] = useState<string | null>(null);
