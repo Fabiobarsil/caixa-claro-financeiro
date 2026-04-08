@@ -434,7 +434,11 @@ interface LancamentoCardProps {
 }
 
 function LancamentoCard({ lanc, onPayment, onEdit, onRevert, isAdmin }: LancamentoCardProps) {
-  const isPago = lanc.status_geral === 'PAGO';
+  // Botão Quitar deve sumir SOMENTE quando tudo estiver pago:
+  // status_geral === 'PAGO' E total_pago >= total_original E nenhuma parcela pendente
+  const isPago = lanc.status_geral === 'PAGO'
+    && lanc.total_pago >= lanc.total_original
+    && lanc.qtd_parcelas_pendentes === 0;
   const isAtrasado = lanc.status_geral === 'ATRASADO';
 
   const statusBadge = (() => {
