@@ -367,8 +367,16 @@ export default function Entries() {
           subtitle={quitarTarget?.item_name || quitarTarget?.description || undefined}
           parcelas={parcelas}
           isLoadingParcelas={loadingParcelas}
-          singleTransactionId={parcelas.length === 0 && quitarTarget && !hasInstallments(quitarTarget) ? quitarTarget.id_master : undefined}
-          singleTransactionAmount={quitarTarget && !hasInstallments(quitarTarget) ? quitarTarget.total_pendente : undefined}
+          singleTransactionId={
+            parcelas.length === 0 && quitarTarget && !loadingParcelas
+              ? quitarTarget.id_master
+              : undefined
+          }
+          singleTransactionAmount={
+            parcelas.length === 0 && quitarTarget && !loadingParcelas
+              ? quitarTarget.total_pendente
+              : undefined
+          }
           onConfirmQuitar={handleConfirmQuitar}
           onConfirmEstornar={isAdmin ? handleEstornar : undefined}
           isSubmitting={markSchedulesPaid.isPending || markTransactionPaid.isPending}
