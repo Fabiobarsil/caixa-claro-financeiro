@@ -172,6 +172,17 @@ export default function ClientTransactionsList({ clientId }: ClientTransactionsL
           queryClient.invalidateQueries({ queryKey: ['client-transactions', clientId] });
         },
       });
+    } else if (quitarTxn && quitarTxn.schedules.length === 0) {
+      // Single transaction without schedules
+      markTransactionPaid.mutate(
+        { transactionId: quitarTxn.id, paymentDate: payload.payment_date },
+        {
+          onSuccess: () => {
+            setQuitarOpen(false);
+            queryClient.invalidateQueries({ queryKey: ['client-transactions', clientId] });
+          },
+        }
+      );
     }
   };
 
