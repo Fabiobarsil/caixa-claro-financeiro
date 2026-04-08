@@ -389,6 +389,8 @@ export default function ClientTransactionsList({ clientId }: ClientTransactionsL
         title={quitarTxn?.item_name || quitarTxn?.description || ''}
         parcelas={quitarTxn?.schedules || []}
         isLoadingParcelas={false}
+        singleTransactionId={quitarTxn && quitarTxn.schedules.length === 0 ? quitarTxn.id : undefined}
+        singleTransactionAmount={quitarTxn && quitarTxn.schedules.length === 0 ? quitarTxn.amount : undefined}
         onConfirmQuitar={handleConfirmQuitar}
         onConfirmEstornar={isAdmin ? handleEstornar : undefined}
         isSubmitting={markSchedulesPaid.isPending}
