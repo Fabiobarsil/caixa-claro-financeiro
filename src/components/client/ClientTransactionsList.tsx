@@ -324,6 +324,21 @@ export default function ClientTransactionsList({ clientId }: ClientTransactionsL
                 )}
               </div>
 
+              {/* Botão Quitar para transações SEM parcelas */}
+              {!hasSchedules && effectiveStatus === 'pendente' && (
+                <div className="border-t border-border px-3 py-2 flex justify-end">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={(e) => { e.stopPropagation(); handleOpenQuitar(txn); }}
+                    className="text-xs h-7 border-success text-success hover:bg-success hover:text-success-foreground"
+                  >
+                    <CheckCircle className="mr-1 h-3 w-3" />
+                    Quitar
+                  </Button>
+                </div>
+              )}
+
               {isExpanded && hasSchedules && (
                 <div className="border-t border-border px-3 py-2 space-y-1.5 bg-muted/30">
                   <div className="flex items-center justify-between mb-1">
@@ -344,19 +359,9 @@ export default function ClientTransactionsList({ clientId }: ClientTransactionsL
                     const isPago = isPaidStatus(s.status);
                     const isOverdue = !isPago && new Date(`${s.due_date}T00:00:00`) < today;
                     return (
-                      <div key={s.id} className={cn(
-                        "flex items-center gap-2 p-2 rounded-md text-xs",
-                        isPago ? "bg-success/5" : isOverdue ? "bg-destructive/5" : "bg-background"
-                      )}>
-                        {isPago ? (
-                          <CheckCircle className="h-3.5 w-3.5 text-success shrink-0" />
-                        ) : isOverdue ? (
-                          <AlertTriangle className="h-3.5 w-3.5 text-destructive shrink-0" />
-                        ) : (
-                          <Clock className="h-3.5 w-3.5 text-warning shrink-0" />
-                        )}
-                        <span className="font-medium">
-                          {s.schedule_type === 'installment' ? 'Parcela' : 'Mês'} {s.installment_number}/{s.installments_total}
+                      <div key={s.id} className="flex items-center gap-2 text-xs py-1">
+                        <span className="text-muted-foreground w-16">
+                          {s.installment_number}/{s.installments_total}
                         </span>
                         <span className="text-muted-foreground">
                           {format(parseISO(s.due_date), 'dd/MM/yyyy')}
